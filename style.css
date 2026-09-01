@@ -520,6 +520,22 @@ p { margin: 0 0 1em; }
   margin-bottom: 0.8em;
 }
 
+.review-avatar-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--purple), var(--purple-deep));
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.review-card:only-child {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
 .review-quote {
   font-style: italic;
   margin-bottom: 0.6em;
