@@ -163,10 +163,8 @@ const SESSION_PLAN_IDS = {
   'curse-of-strahd::B': 'P-3V025331GW1160035NKJ5DJA',
   'ravenloft-undead-survival': 'P-2AU9256410078093GNKJ5VPY',
   'crooked-moon::A': 'P-0WY84596LB169710DNKJ5QVI',
-  'crooked-moon::B': 'P-2XX59202BM273011RNKJ5UJY',
-  // Group C: NOT set yet — every message for this one has reused Group B's
-  // code (same plan ID). Waiting on a real, distinct plan for Group C.
-  'crooked-moon::C': null,
+  'crooked-moon::B': 'P-06V49763KG2775057NKJ5TTY',
+  'crooked-moon::C': 'P-2XX59202BM273011RNKJ5UJY',
   'witchlight': 'P-5TK70470Y7592312HNKJ5WPA',
 };
 
@@ -180,6 +178,7 @@ const SESSION_SEATS = {
   'ravenloft-undead-survival': { filled: 4, max: 5 },
   'crooked-moon::A': { filled: 4, max: 5 },
   'crooked-moon::B': { filled: 3, max: 5 },
+  'crooked-moon::C': { filled: 3, max: 5 },
   'witchlight': { filled: 4, max: 5 },
 };
 
