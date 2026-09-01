@@ -164,13 +164,10 @@ const SESSION_PLAN_IDS = {
   'ravenloft-undead-survival': 'P-2AU9256410078093GNKJ5VPY',
   'crooked-moon::A': 'P-0WY84596LB169710DNKJ5QVI',
   'crooked-moon::B': 'P-2XX59202BM273011RNKJ5UJY',
-  // Group C: NOT set yet — Ash's message for this one reused Group B's code
-  // by mistake (same plan ID). Waiting on a real, distinct plan for Group C.
+  // Group C: NOT set yet — every message for this one has reused Group B's
+  // code (same plan ID). Waiting on a real, distinct plan for Group C.
   'crooked-moon::C': null,
-  // Waiting on confirmation this is what a second "flying city" code was
-  // actually meant for, since Flying City already has one code above and
-  // only runs a single weekly session.
-  'witchlight': null,
+  'witchlight': 'P-5TK70470Y7592312HNKJ5WPA',
 };
 
 // Seat counts per session slot, updated by hand as players join/leave (this
@@ -183,6 +180,7 @@ const SESSION_SEATS = {
   'ravenloft-undead-survival': { filled: 4, max: 5 },
   'crooked-moon::A': { filled: 4, max: 5 },
   'crooked-moon::B': { filled: 3, max: 5 },
+  'witchlight': { filled: 4, max: 5 },
 };
 
 function openChatFallback() {
