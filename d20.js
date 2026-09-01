@@ -3,7 +3,33 @@
 
 document.addEventListener('DOMContentLoaded', function () {
   var stage = document.getElementById('canvas-stage');
-  if (!stage || typeof THREE === 'undefined') return;
+  if (!stage) return;
+
+  function showFallback(message) {
+    stage.innerHTML = '';
+    var msg = document.createElement('p');
+    msg.className = 'd20-hint';
+    msg.textContent = message;
+    stage.appendChild(msg);
+  }
+
+  if (typeof THREE === 'undefined') {
+    showFallback("Couldn't load the dice roller — try refreshing the page.");
+    return;
+  }
+
+  var webglOk = (function () {
+    try {
+      var c = document.createElement('canvas');
+      return !!(window.WebGLRenderingContext && (c.getContext('webgl') || c.getContext('experimental-webgl')));
+    } catch (e) {
+      return false;
+    }
+  })();
+  if (!webglOk) {
+    showFallback('Your browser doesn\'t support 3D graphics, so the dice roller can\'t run here.');
+    return;
+  }
 
   var D20_TABLE = [
     "The DM brings snacks to the next session 🍕",
