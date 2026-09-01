@@ -229,13 +229,13 @@ function openPaypalModal(planId, label) {
         style: { shape: 'rect', color: 'gold', layout: 'vertical', label: 'subscribe' },
         createSubscription: (data, actions) => actions.subscription.create({ plan_id: planId }),
         onApprove: (data) => {
-          sub.textContent = "You're subscribed — see you at the table!";
+          sub.textContent = "You're subscribed! See you at the table.";
           slot.innerHTML = '';
         },
       }).render('#paypal-button-slot');
     })
     .catch(() => {
-      sub.textContent = "PayPal couldn't load — try live chat instead.";
+      sub.textContent = "PayPal couldn't load. Try live chat instead.";
     });
 }
 
@@ -298,7 +298,7 @@ function setupPaypalButtons() {
     btn.addEventListener('click', (event) => {
       event.preventDefault();
       const note = btn.parentElement.querySelector('.paypal-note');
-      if (note) note.textContent = 'Payment link coming soon — opening chat so you can reserve your seat directly.';
+      if (note) note.textContent = 'Payment link coming soon. Opening chat so you can reserve your seat directly.';
       openChatFallback();
     });
   });
@@ -342,7 +342,7 @@ function setupEmailModal() {
     const submitBtn = form.querySelector('button[type="submit"]');
 
     if (CONTACT_FORM_ENDPOINT.includes('REPLACE_WITH')) {
-      status.textContent = "The message form isn't fully connected yet — opening live chat instead.";
+      status.textContent = "The message form isn't fully connected yet, so opening live chat instead.";
       status.className = 'modal-status modal-status-info';
       setTimeout(() => {
         closeModal();
@@ -363,7 +363,7 @@ function setupEmailModal() {
       });
 
       if (response.ok) {
-        status.textContent = 'Message sent — Ash will get back to you soon.';
+        status.textContent = "Message sent! Ash will get back to you soon.";
         status.className = 'modal-status modal-status-success';
         form.reset();
         setTimeout(closeModal, 1800);
@@ -371,7 +371,7 @@ function setupEmailModal() {
         throw new Error('Request failed');
       }
     } catch (err) {
-      status.textContent = 'Something went wrong sending that — try live chat instead.';
+      status.textContent = 'Something went wrong sending that. Try live chat instead.';
       status.className = 'modal-status modal-status-error';
     } finally {
       submitBtn.disabled = false;
