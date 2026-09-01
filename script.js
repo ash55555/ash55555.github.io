@@ -158,13 +158,18 @@ const SESSION_SUBSCRIBE_LINKS = {
 const PAYPAL_CLIENT_ID = 'BAA-5rNCwRVkvFFVtHEDpW7dAuu2dLQiT52yPcgZp58AznxEI6Ww7e1zpYCLH8Ea332hoW2R3SUCuIcVnM';
 
 const SESSION_PLAN_IDS = {
-  'flying-city': null,
-  'curse-of-strahd::A': null,
+  'flying-city': 'P-7SU49717KD941740NNKJ5MUI',
+  'curse-of-strahd::A': 'P-96854614WE5575828NKJ5S2A',
   'curse-of-strahd::B': 'P-3V025331GW1160035NKJ5DJA',
-  'ravenloft-undead-survival': null,
-  'crooked-moon::A': null,
-  'crooked-moon::B': null,
+  'ravenloft-undead-survival': 'P-2AU9256410078093GNKJ5VPY',
+  'crooked-moon::A': 'P-0WY84596LB169710DNKJ5QVI',
+  'crooked-moon::B': 'P-2XX59202BM273011RNKJ5UJY',
+  // Group C: NOT set yet — Ash's message for this one reused Group B's code
+  // by mistake (same plan ID). Waiting on a real, distinct plan for Group C.
   'crooked-moon::C': null,
+  // Waiting on confirmation this is what a second "flying city" code was
+  // actually meant for, since Flying City already has one code above and
+  // only runs a single weekly session.
   'witchlight': null,
 };
 
@@ -172,7 +177,12 @@ const SESSION_PLAN_IDS = {
 // is a static site — there's no backend to track signups automatically).
 // A slot with no entry here shows no seat count and is never marked full.
 const SESSION_SEATS = {
+  'flying-city': { filled: 4, max: 5 },
+  'curse-of-strahd::A': { filled: 3, max: 5 },
   'curse-of-strahd::B': { filled: 4, max: 5 },
+  'ravenloft-undead-survival': { filled: 4, max: 5 },
+  'crooked-moon::A': { filled: 4, max: 5 },
+  'crooked-moon::B': { filled: 3, max: 5 },
 };
 
 function openChatFallback() {
