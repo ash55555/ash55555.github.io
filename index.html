@@ -351,6 +351,28 @@
     </div>
   </section>
 
+  <!-- ================= D20 FUN ROLLER ================= -->
+  <section class="fun-roll" id="fun">
+    <div class="section-head">
+      <p class="eyebrow">✨ Table Fun</p>
+      <h2>Roll Something Silly</h2>
+      <p class="section-sub">A d20 of chaos for you and your party. Roll before session, roll mid-fight, roll whenever.</p>
+    </div>
+    <div class="dice-wrap">
+      <div class="canvas-stage" id="canvas-stage" role="button" tabindex="0" aria-label="Roll the d20">
+        <span class="d20-sparkle d20-sparkle-1">✦</span>
+        <span class="d20-sparkle d20-sparkle-2">✦</span>
+        <span class="d20-sparkle d20-sparkle-3">✦</span>
+        <span class="d20-sparkle d20-sparkle-4">✦</span>
+      </div>
+      <p class="d20-hint" id="d20-hint">Tap the die to roll</p>
+      <div class="d20-result" id="d20-result" hidden>
+        <span class="d20-result-num" id="d20-result-num"></span>
+        <p class="d20-result-text" id="d20-result-text"></p>
+      </div>
+    </div>
+  </section>
+
   <!-- ================= CONTACT ================= -->
   <section class="contact" id="contact">
     <div class="contact-inner">
@@ -414,6 +436,8 @@
 </footer>
 
 <script src="script.js"></script>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="d20.js"></script>
 
 <!--Start of Tawk.to Script-->
 <script type="text/javascript">
