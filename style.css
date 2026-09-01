@@ -431,6 +431,35 @@ p { margin: 0 0 1em; }
   font-size: 0.8rem;
 }
 
+.session-seats {
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.session-seats:empty { display: none; }
+
+.session-chip.is-full,
+.session-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.session-chip.is-full:hover,
+.session-chip:disabled:hover {
+  background: var(--bg-panel-2);
+  border-color: var(--border);
+}
+.session-chip.is-full .session-seats {
+  color: var(--text-muted);
+}
+.session-chip.is-full .session-chip-cta {
+  color: var(--text-muted);
+}
+
+#paypal-button-slot {
+  margin-top: 1rem;
+  min-height: 3rem;
+}
+
 .campaign-footer {
   display: flex;
   align-items: center;

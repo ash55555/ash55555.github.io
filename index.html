@@ -129,6 +129,7 @@
               <span class="session-text">
                 <span class="session-main">Wednesdays · 6:00 PM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -164,6 +165,7 @@
                 <span class="session-group">Group A</span>
                 <span class="session-main">Fridays · 8:00 PM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -173,6 +175,7 @@
                 <span class="session-group">Group B</span>
                 <span class="session-main">Mondays · 8:00 PM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -207,6 +210,7 @@
               <span class="session-text">
                 <span class="session-main">Saturdays · 9:00 PM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -242,6 +246,7 @@
                 <span class="session-group">Group A</span>
                 <span class="session-main">Thursdays · 8:00 PM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -251,6 +256,7 @@
                 <span class="session-group">Group B</span>
                 <span class="session-main">Saturdays · 12:00 AM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -260,6 +266,7 @@
                 <span class="session-group">Group C</span>
                 <span class="session-main">Saturdays · 6:00 PM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -294,6 +301,7 @@
               <span class="session-text">
                 <span class="session-main">Sundays · 12:00 AM GMT+1</span>
                 <span class="session-sub">Calculating your local time…</span>
+                <span class="session-seats"></span>
               </span>
               <span class="session-chip-cta">Subscribe</span>
             </button>
@@ -381,6 +389,18 @@
       <button type="submit" class="btn btn-primary">Send Message</button>
       <p class="modal-status" role="status" aria-live="polite"></p>
     </form>
+  </div>
+</div>
+
+<!-- ================= PAYPAL MODAL ================= -->
+<div class="modal" id="paypal-modal" hidden>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="paypal-modal-title">
+    <button type="button" class="modal-close js-modal-close" aria-label="Close">
+      <svg class="icon"><use href="#icon-close"/></svg>
+    </button>
+    <h3 id="paypal-modal-title">Subscribe to This Session</h3>
+    <p class="modal-sub" id="paypal-modal-sub"></p>
+    <div id="paypal-button-slot"></div>
   </div>
 </div>
 

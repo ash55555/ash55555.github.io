@@ -67,6 +67,25 @@ function renderSessionChips() {
     if (subEl) {
       subEl.textContent = source ? `Weekly session · originally ${source}` : 'Weekly session';
     }
+
+    const key = sessionKey(chip.dataset.campaign, chip.dataset.slot);
+    const seats = SESSION_SEATS[key];
+    const seatsEl = chip.querySelector('.session-seats');
+    const ctaEl = chip.querySelector('.session-chip-cta');
+
+    if (seats) {
+      const remaining = seats.max - seats.filled;
+      if (seatsEl) {
+        seatsEl.textContent = remaining > 0
+          ? `${remaining} seat${remaining === 1 ? '' : 's'} left (${seats.filled}/${seats.max})`
+          : `Full (${seats.filled}/${seats.max})`;
+      }
+      if (remaining <= 0) {
+        chip.classList.add('is-full');
+        chip.disabled = true;
+        if (ctaEl) ctaEl.textContent = 'Full';
+      }
+    }
   });
 }
 
@@ -132,6 +151,30 @@ const SESSION_SUBSCRIBE_LINKS = {
   'witchlight': null,
 };
 
+// Real PayPal subscription plan IDs per session slot, rendered as an actual
+// embedded PayPal button (via PayPal's own JS SDK) in a popup — not just a
+// link out. Filled in as Ash creates each plan; null slots fall back to
+// SESSION_SUBSCRIBE_LINKS, then to chat.
+const PAYPAL_CLIENT_ID = 'BAA-5rNCwRVkvFFVtHEDpW7dAuu2dLQiT52yPcgZp58AznxEI6Ww7e1zpYCLH8Ea332hoW2R3SUCuIcVnM';
+
+const SESSION_PLAN_IDS = {
+  'flying-city': null,
+  'curse-of-strahd::A': null,
+  'curse-of-strahd::B': 'P-3V025331GW1160035NKJ5DJA',
+  'ravenloft-undead-survival': null,
+  'crooked-moon::A': null,
+  'crooked-moon::B': null,
+  'crooked-moon::C': null,
+  'witchlight': null,
+};
+
+// Seat counts per session slot, updated by hand as players join/leave (this
+// is a static site — there's no backend to track signups automatically).
+// A slot with no entry here shows no seat count and is never marked full.
+const SESSION_SEATS = {
+  'curse-of-strahd::B': { filled: 4, max: 5 },
+};
+
 function openChatFallback() {
   if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
     window.Tawk_API.maximize();
@@ -142,10 +185,78 @@ function sessionKey(campaign, slot) {
   return slot ? `${campaign}::${slot}` : campaign;
 }
 
+let paypalSdkPromise = null;
+
+function loadPaypalSdk() {
+  if (paypalSdkPromise) return paypalSdkPromise;
+  paypalSdkPromise = new Promise((resolve, reject) => {
+    if (window.paypal) {
+      resolve(window.paypal);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&vault=true&intent=subscription`;
+    script.setAttribute('data-sdk-integration-source', 'button-factory');
+    script.onload = () => resolve(window.paypal);
+    script.onerror = () => reject(new Error('PayPal SDK failed to load'));
+    document.head.appendChild(script);
+  });
+  return paypalSdkPromise;
+}
+
+function openPaypalModal(planId, label) {
+  const modal = document.getElementById('paypal-modal');
+  if (!modal) return;
+  const sub = modal.querySelector('#paypal-modal-sub');
+  const slot = modal.querySelector('#paypal-button-slot');
+
+  slot.innerHTML = '';
+  sub.textContent = label ? `Subscribing to: ${label}` : '';
+  modal.hidden = false;
+  document.body.classList.add('modal-open');
+
+  loadPaypalSdk()
+    .then((paypal) => {
+      if (!paypal || modal.hidden) return;
+      paypal.Buttons({
+        style: { shape: 'rect', color: 'gold', layout: 'vertical', label: 'subscribe' },
+        createSubscription: (data, actions) => actions.subscription.create({ plan_id: planId }),
+        onApprove: (data) => {
+          sub.textContent = "You're subscribed — see you at the table!";
+          slot.innerHTML = '';
+        },
+      }).render('#paypal-button-slot');
+    })
+    .catch(() => {
+      sub.textContent = "PayPal couldn't load — try live chat instead.";
+    });
+}
+
+function setupPaypalModal() {
+  const modal = document.getElementById('paypal-modal');
+  if (!modal) return;
+  const closeModal = () => {
+    modal.hidden = true;
+    document.body.classList.remove('modal-open');
+  };
+  modal.querySelectorAll('.js-modal-close').forEach((el) => el.addEventListener('click', closeModal));
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hidden) closeModal();
+  });
+}
+
 function setupSessionButtons() {
   document.querySelectorAll('.session-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
       const key = sessionKey(chip.dataset.campaign, chip.dataset.slot);
+      const planId = SESSION_PLAN_IDS[key];
+      if (planId) {
+        openPaypalModal(planId, chip.querySelector('.session-main')?.textContent || '');
+        return;
+      }
       const link = SESSION_SUBSCRIBE_LINKS[key];
       if (link) {
         window.open(link, '_blank', 'noopener');
@@ -269,4 +380,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSessionButtons();
   setupClickableCards();
   setupEmailModal();
+  setupPaypalModal();
 });
