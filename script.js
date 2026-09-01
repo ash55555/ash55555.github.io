@@ -105,7 +105,7 @@ function setupReserveButtons() {
 // entirely in that service's own dashboard — never in this file or the HTML —
 // so Ash's address is never present in the site's source.
 // TODO: replace with the real endpoint once Ash creates a Formspree form.
-const CONTACT_FORM_ENDPOINT = 'https://formspree.io/f/REPLACE_WITH_YOUR_FORM_ID';
+const CONTACT_FORM_ENDPOINT = 'https://formspree.io/f/xkjnjoba';
 
 // PayPal links per campaign slug. Filled in once Ash sends the real
 // subscription links — until then, "Pay with PayPal" buttons fall back to chat.
