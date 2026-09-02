@@ -341,37 +341,70 @@
       <p class="eyebrow">Party Feedback</p>
       <h2>What Players Are Saying</h2>
     </div>
-    <div class="reviews-grid">
-      <!--
-        TODO: replace this placeholder with real testimonial cards once Ash sends them.
-        Pattern to duplicate per review:
+    <!--
+      TODO pattern to duplicate per new review (add it to BOTH the visible
+      list and the aria-hidden duplicate list right below it, so the
+      scrolling strip keeps looping seamlessly):
+
+      <article class="review-card">
+        <img class="review-avatar" src="medie/photo.webp" alt="Player Name" loading="lazy">
+        <p class="review-quote">"Quote text here."</p>
+        <p class="review-author">Player Name</p>
+      </article>
+    -->
+    <div class="reviews-marquee">
+      <div class="reviews-track">
 
         <article class="review-card">
-          <img class="review-avatar" src="path/to/photo.jpg" alt="">
-          <p class="review-quote">"Quote text here."</p>
-          <p class="review-author">Player Name, Campaign Name</p>
+          <img class="review-avatar" src="medie/alice-avatar.webp" alt="Alice Rose Marsh" loading="lazy">
+          <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns. Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story. His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together. I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
+          <p class="review-author">Alice Rose Marsh</p>
         </article>
-      -->
-      <article class="review-card">
-        <img class="review-avatar" src="medie/alice-avatar.webp" alt="Alice Rose Marsh" loading="lazy">
-        <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns.</p>
-        <p class="review-quote">Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story.</p>
-        <p class="review-quote">His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together.</p>
-        <p class="review-quote">I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
-        <p class="review-author">Alice Rose Marsh</p>
-      </article>
 
-      <article class="review-card">
-        <img class="review-avatar" src="medie/bianca.webp" alt="Bianca" loading="lazy">
-        <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
-        <p class="review-author">Bianca</p>
-      </article>
+        <article class="review-card">
+          <img class="review-avatar" src="medie/bianca.webp" alt="Bianca" loading="lazy">
+          <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
+          <p class="review-author">Bianca</p>
+        </article>
 
-      <article class="review-card">
-        <img class="review-avatar" src="medie/fisherman.webp" alt="Fisherman" loading="lazy">
-        <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
-        <p class="review-author">Fisherman</p>
-      </article>
+        <article class="review-card">
+          <img class="review-avatar" src="medie/fisherman.webp" alt="Fisherman" loading="lazy">
+          <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
+          <p class="review-author">Fisherman</p>
+        </article>
+
+        <article class="review-card">
+          <div class="review-avatar review-avatar-initials">BRS</div>
+          <p class="review-quote">"Ash is one of the best DM's I've had in a long time. I have played DnD for a long time and this is the most fun I have had yet. His stories are interesting and he keeps the characters interesting and funny so you are never bored. Cannot wait for our next game."</p>
+          <p class="review-author">Black Rose Star</p>
+        </article>
+
+        <!-- Duplicate set, hidden from screen readers, so the strip loops without a visible seam -->
+        <article class="review-card" aria-hidden="true">
+          <img class="review-avatar" src="medie/alice-avatar.webp" alt="" loading="lazy">
+          <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns. Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story. His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together. I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
+          <p class="review-author">Alice Rose Marsh</p>
+        </article>
+
+        <article class="review-card" aria-hidden="true">
+          <img class="review-avatar" src="medie/bianca.webp" alt="" loading="lazy">
+          <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
+          <p class="review-author">Bianca</p>
+        </article>
+
+        <article class="review-card" aria-hidden="true">
+          <img class="review-avatar" src="medie/fisherman.webp" alt="" loading="lazy">
+          <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
+          <p class="review-author">Fisherman</p>
+        </article>
+
+        <article class="review-card" aria-hidden="true">
+          <div class="review-avatar review-avatar-initials" aria-hidden="true">BRS</div>
+          <p class="review-quote">"Ash is one of the best DM's I've had in a long time. I have played DnD for a long time and this is the most fun I have had yet. His stories are interesting and he keeps the characters interesting and funny so you are never bored. Cannot wait for our next game."</p>
+          <p class="review-author">Black Rose Star</p>
+        </article>
+
+      </div>
     </div>
   </section>
 
