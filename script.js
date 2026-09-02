@@ -287,17 +287,44 @@ function setupPaypalButtons() {
   document.querySelectorAll('.js-paypal').forEach((btn) => {
     const slug = btn.dataset.campaign;
     const link = PAYPAL_LINKS[slug];
+    const note = btn.closest('.blog-payment')?.querySelector('.paypal-note') || null;
 
     if (link) {
       btn.href = link;
       btn.target = '_blank';
       btn.rel = 'noopener';
+      if (note) note.remove();
+      return;
+    }
+
+    // Real per-slot PayPal plans already exist in SESSION_PLAN_IDS — route
+    // this generic button to them instead of falling back to chat.
+    const matchingSlots = Object.keys(SESSION_PLAN_IDS).filter(
+      (key) => key === slug || key.startsWith(`${slug}::`)
+    );
+
+    if (matchingSlots.length === 1) {
+      const singlePlanId = SESSION_PLAN_IDS[matchingSlots[0]];
+      if (note) note.remove();
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        const campaignName = document.querySelector('h1')?.textContent || '';
+        openPaypalModal(singlePlanId, campaignName);
+      });
+      return;
+    }
+
+    if (matchingSlots.length > 1) {
+      if (note) note.textContent = 'This campaign runs multiple weekly groups — pick your time above to subscribe.';
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        document.querySelector('.session-list')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
       return;
     }
 
     btn.addEventListener('click', (event) => {
       event.preventDefault();
-      const note = btn.parentElement.querySelector('.paypal-note');
       if (note) note.textContent = 'Payment link coming soon. Opening chat so you can reserve your seat directly.';
       openChatFallback();
     });
