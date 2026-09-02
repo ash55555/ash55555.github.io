@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ash55555.github.io/sitemap.xml
