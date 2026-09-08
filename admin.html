@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ash Tabletop — Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="medie/ash-token.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #120b1c;
+    --bg-panel: #1c1230;
+    --bg-panel-2: #241a3d;
+    --purple: #9b6dff;
+    --purple-deep: #6b46c1;
+    --gold: #f2b84f;
+    --text: #f3eefc;
+    --text-muted: #b9a9d9;
+    --border: rgba(255, 255, 255, 0.09);
+    --danger: #e0556f;
+    --success: #7fd99a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse 120% 60% at 50% -10%, #2a1a4d 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    line-height: 1.5;
+  }
+  h1, h2, h3 { font-family: 'Cinzel', Georgia, serif; margin: 0 0 0.4em; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 2em 1.5em 5em; }
+
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2em;
+    padding-bottom: 1em;
+    border-bottom: 1px solid var(--border);
+  }
+  .top-bar h1 { font-size: 1.4rem; }
+  .top-bar img { width: 36px; height: 36px; border-radius: 50%; vertical-align: middle; margin-right: 0.5em; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.6em 1.2em;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--gold), #d99a2e); color: #241407; }
+  .btn-ghost { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border); }
+  .btn-danger { background: rgba(224, 85, 111, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ---- Login ---- */
+  #login-screen {
+    max-width: 380px;
+    margin: 4em auto;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2.2em;
+    text-align: center;
+  }
+  #login-screen input {
+    width: 100%;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.7em 0.9em;
+    color: var(--text);
+    font-size: 0.95rem;
+    margin-bottom: 0.8em;
+    font-family: 'Nunito', sans-serif;
+  }
+  #login-error {
+    color: var(--danger);
+    font-size: 0.85rem;
+    min-height: 1.2em;
+    margin-bottom: 0.6em;
+  }
+
+  /* ---- Dashboard ---- */
+  #dashboard { display: none; }
+  .campaign-block {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.4em 1.6em;
+    margin-bottom: 1.6em;
+  }
+  .campaign-block h2 { font-size: 1.15rem; color: var(--gold); }
+
+  .slot-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6em;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1em 1.1em;
+    margin-bottom: 0.8em;
+  }
+  .slot-fields {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.6em;
+  }
+  .field label {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin-bottom: 0.25em;
+  }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field input[type="time"],
+  .field select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5em 0.6em;
+    color: var(--text);
+    font-size: 0.88rem;
+    font-family: 'Nunito', sans-serif;
+  }
+  .field-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding-top: 1.4em;
+  }
+  .slot-actions {
+    display: flex;
+    gap: 0.6em;
+    justify-content: flex-end;
+    margin-top: 0.3em;
+  }
+  .slot-status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    align-self: center;
+    margin-right: auto;
+  }
+  .slot-status.success { color: var(--success); }
+  .slot-status.error { color: var(--danger); }
+
+  .add-slot {
+    border-top: 1px dashed var(--border);
+    margin-top: 1em;
+    padding-top: 1em;
+  }
+  .add-slot summary {
+    cursor: pointer;
+    color: var(--purple);
+    font-weight: 700;
+    font-size: 0.9rem;
+  }
+
+  .seed-box {
+    background: var(--bg-panel);
+    border: 1px dashed var(--gold);
+    border-radius: 16px;
+    padding: 1.2em 1.4em;
+    margin-bottom: 2em;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+  }
+  .seed-box b { color: var(--text); }
+
+  .note { color: var(--text-muted); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <div id="login-screen">
+    <h1>Ash Tabletop Admin</h1>
+    <p class="note">Log in to adjust seats, pause games, and add session slots.</p>
+    <input type="email" id="login-email" placeholder="you@example.com" autocomplete="username">
+    <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+    <p id="login-error"></p>
+    <button type="button" class="btn btn-primary" id="login-btn" style="width:100%; justify-content:center;">Log In</button>
+  </div>
+
+  <div id="dashboard">
+    <div class="top-bar">
+      <h1><img src="medie/ash-token.png" alt="">Ash Tabletop Admin</h1>
+      <button type="button" class="btn btn-ghost" id="logout-btn">Log Out</button>
+    </div>
+
+    <div class="seed-box" id="seed-box">
+      <p><b>First time here?</b> Your database is empty. Click below once to load in the campaigns and slots that are already live on the site, so you're editing real data instead of starting blank.</p>
+      <button type="button" class="btn btn-primary" id="seed-btn">Load Current Site Data</button>
+      <p class="slot-status" id="seed-status"></p>
+    </div>
+
+    <div id="campaigns-container"></div>
+  </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="firebase-init.js"></script>
+<script>
+(function () {
+  var CAMPAIGNS = [
+    { slug: 'flying-city', name: 'The Prophecy of the Flying City' },
+    { slug: 'curse-of-strahd', name: 'Curse of Strahd' },
+    { slug: 'ravenloft-undead-survival', name: 'Ravenloft: Undead Survival' },
+    { slug: 'crooked-moon', name: 'The Crooked Moon' },
+    { slug: 'witchlight', name: 'The Wild Beyond the Witchlight' }
+  ];
+
+  var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  // Data seeded once, matching what's already hardcoded live on the site,
+  // so the first admin login starts from reality instead of a blank slate.
+  var SEED_DATA = {
+    'flying-city': { slots: { 'default': { day: 3, hour: 18, minute: 0, offset: 1, source: '6:00 PM GMT+1', group: '', filled: 4, max: 5, enabled: true, planId: 'P-7SU49717KD941740NNKJ5MUI' } } },
+    'curse-of-strahd': { slots: {
+      'A': { day: 5, hour: 20, minute: 0, offset: 1, source: '8:00 PM GMT+1', group: 'Group A', filled: 3, max: 5, enabled: true, planId: 'P-96854614WE5575828NKJ5S2A' },
+      'B': { day: 1, hour: 20, minute: 0, offset: 1, source: '8:00 PM GMT+1', group: 'Group B', filled: 4, max: 5, enabled: true, planId: 'P-3V025331GW1160035NKJ5DJA' }
+    }},
+    'ravenloft-undead-survival': { slots: { 'default': { day: 6, hour: 21, minute: 0, offset: 1, source: '9:00 PM GMT+1', group: '', filled: 4, max: 5, enabled: true, planId: 'P-2AU9256410078093GNKJ5VPY' } } },
+    'crooked-moon': { slots: {
+      'A': { day: 4, hour: 20, minute: 0, offset: 1, source: '8:00 PM GMT+1', group: 'Group A', filled: 4, max: 5, enabled: true, planId: 'P-0WY84596LB169710DNKJ5QVI' },
+      'B': { day: 6, hour: 0, minute: 0, offset: 1, source: '12:00 AM GMT+1', group: 'Group B', filled: 3, max: 5, enabled: true, planId: 'P-06V49763KG2775057NKJ5TTY' },
+      'C': { day: 6, hour: 18, minute: 0, offset: 1, source: '6:00 PM GMT+1', group: 'Group C', filled: 3, max: 5, enabled: true, planId: 'P-2XX59202BM273011RNKJ5UJY' }
+    }},
+    'witchlight': { slots: { 'default': { day: 0, hour: 0, minute: 0, offset: 1, source: '12:00 AM GMT+1', group: '', filled: 4, max: 5, enabled: true, planId: 'P-5TK70470Y7592312HNKJ5WPA' } } }
+  };
+
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  function toTimeValue(hour, minute) { return pad(hour) + ':' + pad(minute || 0); }
+  function fromTimeValue(value) {
+    var parts = value.split(':');
+    return { hour: parseInt(parts[0], 10), minute: parseInt(parts[1], 10) };
+  }
+
+  function buildSlotRow(campaignSlug, slotId, slot) {
+    var row = document.createElement('div');
+    row.className = 'slot-row';
+
+    var fields = document.createElement('div');
+    fields.className = 'slot-fields';
+
+    function field(labelText, inputHtml) {
+      var wrap = document.createElement('div');
+      wrap.className = 'field';
+      var label = document.createElement('label');
+      label.textContent = labelText;
+      wrap.appendChild(label);
+      wrap.insertAdjacentHTML('beforeend', inputHtml);
+      return wrap;
+    }
+
+    var daySelect = field('Day (GMT+1)', '<select class="f-day"></select>');
+    var sel = daySelect.querySelector('select');
+    DAY_NAMES.forEach(function (name, i) {
+      var opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = name;
+      if (i === slot.day) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    fields.appendChild(daySelect);
+
+    var timeField = field('Time (GMT+1)', '<input type="time" class="f-time" value="' + toTimeValue(slot.hour, slot.minute || 0) + '">');
+    fields.appendChild(timeField);
+
+    var groupField = field('Group label (optional)', '<input type="text" class="f-group" value="' + (slot.group || '') + '" placeholder="e.g. Group A">');
+    fields.appendChild(groupField);
+
+    var filledField = field('Players joined', '<input type="number" class="f-filled" min="0" value="' + (slot.filled != null ? slot.filled : 0) + '">');
+    fields.appendChild(filledField);
+
+    var maxField = field('Max players', '<input type="number" class="f-max" min="1" value="' + (slot.max != null ? slot.max : 5) + '">');
+    fields.appendChild(maxField);
+
+    var planField = field('PayPal plan ID (optional)', '<input type="text" class="f-plan" value="' + (slot.planId || '') + '" placeholder="P-XXXXXXXX">');
+    fields.appendChild(planField);
+
+    var enabledWrap = document.createElement('div');
+    enabledWrap.className = 'field field-checkbox';
+    enabledWrap.innerHTML = '<input type="checkbox" class="f-enabled" id="en-' + campaignSlug + '-' + slotId + '"' + (slot.enabled === false ? '' : ' checked') + '> <label for="en-' + campaignSlug + '-' + slotId + '" style="text-transform:none;font-size:0.85rem;">Game is on</label>';
+    fields.appendChild(enabledWrap);
+
+    row.appendChild(fields);
+
+    var actions = document.createElement('div');
+    actions.className = 'slot-actions';
+    var status = document.createElement('span');
+    status.className = 'slot-status';
+    actions.appendChild(status);
+
+    var deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'btn btn-danger';
+    deleteBtn.textContent = 'Delete slot';
+    deleteBtn.addEventListener('click', function () {
+      if (!confirm('Remove this slot from the live site?')) return;
+      firebase.database().ref('campaigns/' + campaignSlug + '/slots/' + slotId).remove()
+        .then(function () { row.remove(); })
+        .catch(function (err) { status.textContent = err.message; status.className = 'slot-status error'; });
+    });
+    actions.appendChild(deleteBtn);
+
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn btn-primary';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', function () {
+      var time = fromTimeValue(row.querySelector('.f-time').value);
+      var day = parseInt(row.querySelector('.f-day').value, 10);
+      var offsetHours = 1; // GMT+1 fixed, matches how the whole site is authored
+      var ampmHour = ((time.hour % 12) || 12);
+      var ampm = time.hour < 12 ? 'AM' : 'PM';
+      var sourceLabel = ampmHour + ':' + pad(time.minute) + ' ' + ampm + ' GMT+' + offsetHours;
+
+      var updated = {
+        day: day,
+        hour: time.hour,
+        minute: time.minute,
+        offset: offsetHours,
+        source: sourceLabel,
+        group: row.querySelector('.f-group').value.trim(),
+        filled: parseInt(row.querySelector('.f-filled').value, 10) || 0,
+        max: parseInt(row.querySelector('.f-max').value, 10) || 1,
+        enabled: row.querySelector('.f-enabled').checked,
+        planId: row.querySelector('.f-plan').value.trim() || null
+      };
+
+      saveBtn.disabled = true;
+      status.textContent = 'Saving…';
+      status.className = 'slot-status';
+      firebase.database().ref('campaigns/' + campaignSlug + '/slots/' + slotId).set(updated)
+        .then(function () {
+          status.textContent = 'Saved, live now.';
+          status.className = 'slot-status success';
+        })
+        .catch(function (err) {
+          status.textContent = err.message;
+          status.className = 'slot-status error';
+        })
+        .finally(function () { saveBtn.disabled = false; });
+    });
+    actions.appendChild(saveBtn);
+
+    row.appendChild(actions);
+    return row;
+  }
+
+  function buildAddSlotForm(campaignSlug, container) {
+    var details = document.createElement('details');
+    details.className = 'add-slot';
+    var summary = document.createElement('summary');
+    summary.textContent = '+ Add a new time slot';
+    details.appendChild(summary);
+
+    var placeholder = document.createElement('div');
+    placeholder.style.marginTop = '0.8em';
+    var newRow = buildSlotRow(campaignSlug, 'new', { day: 3, hour: 18, minute: 0, offset: 1, group: '', filled: 0, max: 5, enabled: true, planId: '' });
+    var saveBtn = newRow.querySelector('.btn-primary');
+    saveBtn.textContent = 'Add slot';
+    newRow.querySelector('.btn-danger').remove();
+    saveBtn.addEventListener('click', function () {
+      // Re-read fresh values and push as a brand new slot instead of overwriting "new"
+    }, { once: false });
+
+    // Override the default save handler to push a new child instead of a fixed id.
+    var freshBtn = saveBtn.cloneNode(true);
+    saveBtn.parentNode.replaceChild(freshBtn, saveBtn);
+    freshBtn.addEventListener('click', function () {
+      var time = fromTimeValue(newRow.querySelector('.f-time').value);
+      var day = parseInt(newRow.querySelector('.f-day').value, 10);
+      var offsetHours = 1;
+      var ampmHour = ((time.hour % 12) || 12);
+      var ampm = time.hour < 12 ? 'AM' : 'PM';
+      var sourceLabel = ampmHour + ':' + pad(time.minute) + ' ' + ampm + ' GMT+' + offsetHours;
+      var newSlot = {
+        day: day, hour: time.hour, minute: time.minute, offset: offsetHours, source: sourceLabel,
+        group: newRow.querySelector('.f-group').value.trim(),
+        filled: parseInt(newRow.querySelector('.f-filled').value, 10) || 0,
+        max: parseInt(newRow.querySelector('.f-max').value, 10) || 1,
+        enabled: newRow.querySelector('.f-enabled').checked,
+        planId: newRow.querySelector('.f-plan').value.trim() || null
+      };
+      var status = newRow.querySelector('.slot-status');
+      freshBtn.disabled = true;
+      firebase.database().ref('campaigns/' + campaignSlug + '/slots').push(newSlot)
+        .then(function () {
+          status.textContent = 'Added! Refresh the page to see it in the list above.';
+          status.className = 'slot-status success';
+        })
+        .catch(function (err) {
+          status.textContent = err.message;
+          status.className = 'slot-status error';
+        })
+        .finally(function () { freshBtn.disabled = false; });
+    });
+
+    placeholder.appendChild(newRow);
+    details.appendChild(placeholder);
+    container.appendChild(details);
+  }
+
+  function renderDashboard(data) {
+    var container = document.getElementById('campaigns-container');
+    container.innerHTML = '';
+    var hasAnyData = data && Object.keys(data).length > 0;
+    document.getElementById('seed-box').style.display = hasAnyData ? 'none' : 'block';
+
+    CAMPAIGNS.forEach(function (c) {
+      var block = document.createElement('div');
+      block.className = 'campaign-block';
+      var h2 = document.createElement('h2');
+      h2.textContent = c.name;
+      block.appendChild(h2);
+
+      var slots = data && data[c.slug] && data[c.slug].slots;
+      if (slots) {
+        Object.keys(slots).forEach(function (slotId) {
+          block.appendChild(buildSlotRow(c.slug, slotId, slots[slotId]));
+        });
+      } else {
+        var none = document.createElement('p');
+        none.className = 'note';
+        none.textContent = 'No slots yet for this campaign.';
+        block.appendChild(none);
+      }
+
+      buildAddSlotForm(c.slug, block);
+      container.appendChild(block);
+    });
+  }
+
+  function showDashboard() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    firebase.database().ref('campaigns').on('value', function (snapshot) {
+      renderDashboard(snapshot.val());
+    });
+  }
+
+  document.getElementById('seed-btn').addEventListener('click', function () {
+    var status = document.getElementById('seed-status');
+    status.textContent = 'Loading…';
+    status.className = 'slot-status';
+    firebase.database().ref('campaigns').set(SEED_DATA)
+      .then(function () {
+        status.textContent = 'Done! Your live data is loaded below.';
+        status.className = 'slot-status success';
+      })
+      .catch(function (err) {
+        status.textContent = err.message;
+        status.className = 'slot-status error';
+      });
+  });
+
+  document.getElementById('login-btn').addEventListener('click', function () {
+    var email = document.getElementById('login-email').value.trim();
+    var password = document.getElementById('login-password').value;
+    var errorEl = document.getElementById('login-error');
+    errorEl.textContent = '';
+    firebase.auth().signInWithEmailAndPassword(email, password)
+      .catch(function (err) {
+        errorEl.textContent = err.message;
+      });
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', function () {
+    firebase.auth().signOut();
+  });
+
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (user) {
+      showDashboard();
+    } else {
+      document.getElementById('login-screen').style.display = 'block';
+      document.getElementById('dashboard').style.display = 'none';
+    }
+  });
+})();
+</script>
+</body>
+</html>
