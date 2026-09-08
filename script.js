@@ -107,19 +107,6 @@ function setupNavToggle() {
   });
 }
 
-function setupReserveButtons() {
-  document.querySelectorAll('.js-reserve').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-      if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
-        event.preventDefault();
-        window.Tawk_API.maximize();
-      }
-      // If the widget hasn't finished loading yet, let the link fall through
-      // to #contact instead of doing nothing.
-    });
-  });
-}
-
 // Contact form endpoint (Formspree or similar). The destination inbox lives
 // entirely in that service's own dashboard — never in this file or the HTML —
 // so Ash's address is never present in the site's source.
@@ -192,9 +179,7 @@ const SESSION_SEATS = {
 };
 
 function openChatFallback() {
-  if (window.Tawk_API && typeof window.Tawk_API.maximize === 'function') {
-    window.Tawk_API.maximize();
-  }
+  window.open(ASH_DISCORD_URL, '_blank', 'noopener');
 }
 
 function sessionKey(campaign, slot) {
@@ -244,7 +229,7 @@ function openPaypalModal(planId, label) {
       }).render('#paypal-button-slot');
     })
     .catch(() => {
-      sub.textContent = "PayPal couldn't load. Try live chat instead.";
+      sub.textContent = "PayPal couldn't load. Try messaging on Discord instead.";
     });
 }
 
@@ -321,7 +306,7 @@ function setupEmailModal() {
     const submitBtn = form.querySelector('button[type="submit"]');
 
     if (CONTACT_FORM_ENDPOINT.includes('REPLACE_WITH')) {
-      status.textContent = "The message form isn't fully connected yet, so opening live chat instead.";
+      status.textContent = "The message form isn't fully connected yet, so opening Discord instead.";
       status.className = 'modal-status modal-status-info';
       setTimeout(() => {
         closeModal();
@@ -350,7 +335,7 @@ function setupEmailModal() {
         throw new Error('Request failed');
       }
     } catch (err) {
-      status.textContent = 'Something went wrong sending that. Try live chat instead.';
+      status.textContent = 'Something went wrong sending that. Try messaging on Discord instead.';
       status.className = 'modal-status modal-status-error';
     } finally {
       submitBtn.disabled = false;
@@ -361,7 +346,6 @@ function setupEmailModal() {
 document.addEventListener('DOMContentLoaded', () => {
   renderSessionChips();
   setupNavToggle();
-  setupReserveButtons();
   setupSessionButtons();
   setupClickableCards();
   setupEmailModal();
