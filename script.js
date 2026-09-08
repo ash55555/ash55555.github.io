@@ -126,8 +126,17 @@ function setupReserveButtons() {
 // TODO: replace with the real endpoint once Ash creates a Formspree form.
 const CONTACT_FORM_ENDPOINT = 'https://formspree.io/f/xkjnjoba';
 
-// PayPal links per campaign slug. Filled in once Ash sends the real
-// subscription links — until then, "Pay with PayPal" buttons fall back to chat.
+// Ash's Discord DM link. As of the switch to a talk-first booking flow, every
+// "join this game" entry point on the site (session time chips, the old PayPal
+// button) opens this instead of taking payment directly — players message Ash,
+// and once they've talked, she sends a personal link to actually sign up.
+const ASH_DISCORD_URL = 'https://discord.com/users/1137869041495724094';
+
+// The data below (PayPal links, subscription plan IDs, seat counts) is real
+// and still valid — kept for reference and for whenever Ash wants to resume
+// a direct-payment flow, or reuse a specific plan link when she personally
+// sends someone their signup link after talking. Nothing on the site wires
+// into PAYPAL_LINKS or SESSION_PLAN_IDS anymore; every click just opens Discord.
 const PAYPAL_LINKS = {
   'flying-city': null,
   'curse-of-strahd': null,
@@ -258,18 +267,9 @@ function setupPaypalModal() {
 function setupSessionButtons() {
   document.querySelectorAll('.session-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      const key = sessionKey(chip.dataset.campaign, chip.dataset.slot);
-      const planId = SESSION_PLAN_IDS[key];
-      if (planId) {
-        openPaypalModal(planId, chip.querySelector('.session-main')?.textContent || '');
-        return;
-      }
-      const link = SESSION_SUBSCRIBE_LINKS[key];
-      if (link) {
-        window.open(link, '_blank', 'noopener');
-        return;
-      }
-      openChatFallback();
+      // Talk-first flow: every time slot just opens a DM to Ash, regardless
+      // of whether that slot has a PayPal plan configured. See ASH_DISCORD_URL.
+      window.open(ASH_DISCORD_URL, '_blank', 'noopener');
     });
   });
 }
@@ -279,54 +279,6 @@ function setupClickableCards() {
     card.addEventListener('click', (event) => {
       if (event.target.closest('a, button')) return;
       window.location.href = card.dataset.href;
-    });
-  });
-}
-
-function setupPaypalButtons() {
-  document.querySelectorAll('.js-paypal').forEach((btn) => {
-    const slug = btn.dataset.campaign;
-    const link = PAYPAL_LINKS[slug];
-    const note = btn.closest('.blog-payment')?.querySelector('.paypal-note') || null;
-
-    if (link) {
-      btn.href = link;
-      btn.target = '_blank';
-      btn.rel = 'noopener';
-      if (note) note.remove();
-      return;
-    }
-
-    // Real per-slot PayPal plans already exist in SESSION_PLAN_IDS — route
-    // this generic button to them instead of falling back to chat.
-    const matchingSlots = Object.keys(SESSION_PLAN_IDS).filter(
-      (key) => key === slug || key.startsWith(`${slug}::`)
-    );
-
-    if (matchingSlots.length === 1) {
-      const singlePlanId = SESSION_PLAN_IDS[matchingSlots[0]];
-      if (note) note.remove();
-      btn.addEventListener('click', (event) => {
-        event.preventDefault();
-        const campaignName = document.querySelector('h1')?.textContent || '';
-        openPaypalModal(singlePlanId, campaignName);
-      });
-      return;
-    }
-
-    if (matchingSlots.length > 1) {
-      if (note) note.textContent = 'This campaign runs multiple weekly groups — pick your time above to subscribe.';
-      btn.addEventListener('click', (event) => {
-        event.preventDefault();
-        document.querySelector('.session-list')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      return;
-    }
-
-    btn.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (note) note.textContent = 'Payment link coming soon. Opening chat so you can reserve your seat directly.';
-      openChatFallback();
     });
   });
 }
@@ -410,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSessionChips();
   setupNavToggle();
   setupReserveButtons();
-  setupPaypalButtons();
   setupSessionButtons();
   setupClickableCards();
   setupEmailModal();
