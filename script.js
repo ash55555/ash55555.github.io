@@ -343,6 +343,79 @@ function setupEmailModal() {
   });
 }
 
+// Reviews strip: auto-scrolls slowly, pauses on hover, and can be dragged
+// left/right by hand (mouse) or swiped natively (touch/trackpad already work
+// for free via overflow-x). The track holds two identical copies of every
+// review back to back, so looping is just "jump back by half the width".
+function setupReviewsMarquee() {
+  const marquee = document.querySelector('.reviews-marquee');
+  const track = document.querySelector('.reviews-track');
+  if (!marquee || !track) return;
+
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reducedMotion) return;
+
+  let halfWidth = track.scrollWidth / 2;
+  window.addEventListener('resize', () => {
+    halfWidth = track.scrollWidth / 2;
+  });
+
+  let isHovering = false;
+  let isDragging = false;
+  let lastTimestamp = null;
+  const pxPerSecond = halfWidth / 44; // matches the previous 44s-per-loop pace
+
+  function wrapAround() {
+    if (halfWidth <= 0) return;
+    if (marquee.scrollLeft >= halfWidth) marquee.scrollLeft -= halfWidth;
+    else if (marquee.scrollLeft <= 0) marquee.scrollLeft += halfWidth;
+  }
+
+  function tick(timestamp) {
+    if (lastTimestamp === null) lastTimestamp = timestamp;
+    const dt = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    if (!isHovering && !isDragging) {
+      marquee.scrollLeft += (pxPerSecond * dt) / 1000;
+      wrapAround();
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  marquee.addEventListener('mouseenter', () => { isHovering = true; });
+  marquee.addEventListener('mouseleave', () => { isHovering = false; });
+
+  // Mouse-only click-and-drag; touch devices already get native swipe
+  // scrolling for free from overflow-x, which feels better than anything
+  // built by hand here.
+  let dragStartX = 0;
+  let dragStartScrollLeft = 0;
+
+  marquee.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'mouse') return;
+    isDragging = true;
+    dragStartX = event.clientX;
+    dragStartScrollLeft = marquee.scrollLeft;
+    marquee.classList.add('is-dragging');
+  });
+
+  window.addEventListener('pointermove', (event) => {
+    if (!isDragging || event.pointerType !== 'mouse') return;
+    marquee.scrollLeft = dragStartScrollLeft - (event.clientX - dragStartX);
+    wrapAround();
+  });
+
+  function endDrag(event) {
+    if (event && event.pointerType && event.pointerType !== 'mouse') return;
+    isDragging = false;
+    marquee.classList.remove('is-dragging');
+  }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderSessionChips();
   setupNavToggle();
@@ -350,4 +423,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupClickableCards();
   setupEmailModal();
   setupPaypalModal();
+  setupReviewsMarquee();
 });

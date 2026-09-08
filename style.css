@@ -496,11 +496,17 @@ p { margin: 0 0 1em; }
 }
 
 .reviews-marquee {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   width: 100%;
+  cursor: grab;
   -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
   mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.reviews-marquee::-webkit-scrollbar { display: none; }
+.reviews-marquee.is-dragging { cursor: grabbing; user-select: none; }
 
 .reviews-track {
   display: flex;
@@ -508,21 +514,11 @@ p { margin: 0 0 1em; }
   gap: 1.5em;
   width: max-content;
   padding: 0 1.5em;
-  animation: reviews-scroll 44s linear infinite;
-}
-
-.reviews-track:hover {
-  animation-play-state: paused;
-}
-
-@keyframes reviews-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .reviews-marquee { cursor: default; }
   .reviews-track {
-    animation: none;
     flex-wrap: wrap;
     width: 100%;
   }
