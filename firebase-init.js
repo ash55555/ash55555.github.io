@@ -1,13 +1,12 @@
-// Firebase project config. TODO: replace with the real object from
-// Firebase console → Project settings → your web app, once Ash sends it.
+// Firebase project config, from Firebase console → Project settings → your web app.
 var FIREBASE_CONFIG = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://REPLACE_WITH_YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "REPLACE_WITH_YOUR_PROJECT",
-  storageBucket: "REPLACE_WITH_YOUR_PROJECT.appspot.com",
-  messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID"
+  apiKey: "AIzaSyAnMtB4mvPqzhPq5rtgQ-6XgjY1uaz1mp0",
+  authDomain: "ash-ttrpg.firebaseapp.com",
+  databaseURL: "https://ash-ttrpg-default-rtdb.firebaseio.com",
+  projectId: "ash-ttrpg",
+  storageBucket: "ash-ttrpg.firebasestorage.app",
+  messagingSenderId: "472699226703",
+  appId: "1:472699226703:web:9d03a58e26a258b1e1383a"
 };
 
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {
