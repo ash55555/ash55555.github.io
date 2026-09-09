@@ -37,6 +37,26 @@ document.addEventListener('DOMContentLoaded', function () {
     var seatsEl = chip.querySelector('.session-seats');
     var subEl = chip.querySelector('.session-sub');
     var ctaEl = chip.querySelector('.session-chip-cta');
+    var mainEl = chip.querySelector('.session-main');
+    var groupEl = chip.querySelector('.session-group');
+
+    // Admin.html can change the day/time, not just seats/paused state.
+    // Keep the chip's own data-* in sync and recompute the displayed local
+    // time the same way script.js's renderSessionChips() does, without
+    // calling that function itself (it also re-reads the old hardcoded
+    // SESSION_SEATS object, which would stomp the live seat text below).
+    var offset = slot.offset != null ? slot.offset : 1;
+    chip.dataset.day = slot.day;
+    chip.dataset.hour = slot.hour;
+    chip.dataset.minute = slot.minute || 0;
+    chip.dataset.offset = offset;
+    if (slot.source) chip.dataset.source = slot.source;
+    if (groupEl && slot.group) groupEl.textContent = slot.group;
+
+    if (mainEl && typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') {
+      var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset);
+      if (next) mainEl.textContent = formatLocal(next);
+    }
 
     chip.disabled = false;
     chip.classList.remove('is-full');
@@ -49,6 +69,10 @@ document.addEventListener('DOMContentLoaded', function () {
       if (ctaEl) ctaEl.textContent = 'Paused';
       if (seatsEl) seatsEl.textContent = '';
       return;
+    }
+
+    if (subEl) {
+      subEl.textContent = slot.source ? 'Weekly session · originally ' + slot.source : 'Weekly session';
     }
 
     if (typeof slot.max === 'number') {
