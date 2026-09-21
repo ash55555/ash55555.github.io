@@ -171,6 +171,7 @@ const SESSION_SEATS = {
   'flying-city': { filled: 4, max: 5 },
   'curse-of-strahd::A': { filled: 3, max: 5 },
   'curse-of-strahd::B': { filled: 4, max: 5 },
+  'curse-of-strahd::-P22OPz1OxBjVAbzihu4': { filled: 4, max: 5 },
   'ravenloft-undead-survival': { filled: 4, max: 5 },
   'crooked-moon::A': { filled: 4, max: 5 },
   'crooked-moon::B': { filled: 3, max: 5 },
