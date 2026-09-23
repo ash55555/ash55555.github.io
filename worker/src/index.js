@@ -78,8 +78,32 @@ function json(data, status, corsHeaders) {
   });
 }
 
-// PLACEHOLDER — swapped for the real Resend/Brevo call once Ash confirms
-// which service and the API key is stored via `wrangler secret put EMAIL_API_KEY`.
+// Resend (https://resend.com). EMAIL_API_KEY is set via
+// `wrangler secret put EMAIL_API_KEY`, never stored in this file.
+//
+// FROM_ADDRESS uses Resend's shared sandbox domain, which only delivers to
+// the Resend account's own verified email — real subscribers won't receive
+// anything until a real domain is verified in the Resend dashboard and
+// FROM_ADDRESS below is updated to use it.
+const FROM_ADDRESS = 'Ash Tabletop <onboarding@resend.dev>';
+
 async function sendEmail(env, to, subject, message) {
-  throw new Error('Email service not configured yet');
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.EMAIL_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      to: [to],
+      subject,
+      text: message,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Resend send failed (${response.status}): ${detail}`);
+  }
 }
