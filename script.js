@@ -674,3 +674,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSignupModal();
   setupReviewsMarquee();
 });
+
+
+document.addEventListener("click", (event) => {
+  const spoiler = event.target.closest(".spoiler");
+  if (spoiler) spoiler.classList.add("revealed");
+});

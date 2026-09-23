@@ -338,6 +338,14 @@ p { margin: 0 0 1em; }
 .info-title { font-weight: 800; font-size: 1.1rem; margin: 0 0 0.4em; color: var(--text); }
 .info-sub { color: var(--text-muted); font-size: 1rem; margin: 0; }
 
+/* Easter egg: blends into the card until clicked. */
+.spoiler {
+  color: var(--bg-panel);
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+.spoiler.revealed { color: var(--gold); cursor: default; }
+
 /* ============ Section shared ============ */
 .section-head {
   max-width: 700px;
