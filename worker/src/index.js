@@ -127,11 +127,7 @@ function json(data, status, corsHeaders) {
 // Resend (https://resend.com). EMAIL_API_KEY is set via
 // `wrangler secret put EMAIL_API_KEY`, never stored in this file.
 //
-// FROM_ADDRESS uses Resend's shared sandbox domain, which only delivers to
-// the Resend account's own verified email — real subscribers won't receive
-// anything until a real domain is verified in the Resend dashboard and
-// FROM_ADDRESS below is updated to use it.
-const FROM_ADDRESS = 'Ash Tabletop <onboarding@resend.dev>';
+const FROM_ADDRESS = 'Ash Tabletop <announcements@mail.ashtabletop.com>';
 
 async function sendEmail(env, to, subject, html) {
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
