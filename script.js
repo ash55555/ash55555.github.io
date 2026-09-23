@@ -119,6 +119,11 @@ const CONTACT_FORM_ENDPOINT = 'https://formspree.io/f/xkjnjoba';
 // and once they've talked, she sends a personal link to actually sign up.
 const ASH_DISCORD_URL = 'https://discord.com/users/1137869041495724094';
 
+// Same Cloudflare Worker that sends announcements (see worker/src/index.js)
+// also verifies the reCAPTCHA token on sign-up, since the secret key it
+// needs to do that can never live in this file.
+const RECAPTCHA_VERIFY_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/verify-recaptcha';
+
 // The data below (PayPal links, subscription plan IDs, seat counts) is real
 // and still valid — kept for reference and for whenever Ash wants to resume
 // a direct-payment flow, or reuse a specific plan link when she personally
@@ -356,7 +361,11 @@ function setupSignupModal() {
   const form = modal.querySelector('#signup-form');
   const emailInput = modal.querySelector('#signup-email');
   const passwordInput = modal.querySelector('#signup-password');
+  const confirmInput = modal.querySelector('#signup-password-confirm');
+  const confirmLabel = modal.querySelector('#signup-confirm-label');
+  const recaptchaWrap = modal.querySelector('#signup-recaptcha');
   const submitBtn = form.querySelector('button[type="submit"]');
+  const googleBtn = modal.querySelector('#signup-google-btn');
   const status = modal.querySelector('.modal-status');
   const title = modal.querySelector('#signup-modal-title');
   const sub = modal.querySelector('#signup-modal-sub');
@@ -366,7 +375,13 @@ function setupSignupModal() {
   let mode = 'signup';
 
   function applyMode() {
-    if (mode === 'signup') {
+    const isSignup = mode === 'signup';
+    confirmInput.hidden = !isSignup;
+    confirmLabel.hidden = !isSignup;
+    confirmInput.required = isSignup;
+    recaptchaWrap.hidden = !isSignup;
+
+    if (isSignup) {
       title.textContent = 'Get Notified About New Games';
       sub.textContent = 'Create a free account and get an email every time Ash opens a new game or session.';
       submitBtn.textContent = 'Sign Up';
@@ -379,6 +394,42 @@ function setupSignupModal() {
     }
     status.textContent = '';
   }
+
+  // Ensures a subscriber record exists without ever stomping subscribedAt on
+  // a repeat sign-in (Google can be used to log in again, not just sign up).
+  async function ensureSubscribed(uid, email) {
+    const ref = firebase.database().ref('subscribers/' + uid);
+    const existing = await ref.once('value');
+    if (!existing.exists()) {
+      await ref.set({ email: email, subscribedAt: firebase.database.ServerValue.TIMESTAMP });
+    }
+  }
+
+  googleBtn.addEventListener('click', async () => {
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+      status.textContent = "Sign-up isn't available right now. Try messaging Ash on Discord instead.";
+      status.className = 'modal-status modal-status-error';
+      return;
+    }
+    googleBtn.disabled = true;
+    status.textContent = 'Opening Google sign-in…';
+    status.className = 'modal-status';
+    try {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      const cred = await firebase.auth().signInWithPopup(provider);
+      await ensureSubscribed(cred.user.uid, cred.user.email);
+      status.textContent = "You're signed up! You'll get an email whenever a new game or session opens.";
+      status.className = 'modal-status modal-status-success';
+      setTimeout(closeModal, 1800);
+    } catch (err) {
+      status.textContent = err.message;
+      status.className = 'modal-status modal-status-error';
+    } finally {
+      googleBtn.disabled = false;
+    }
+  });
+
+  applyMode();
 
   function openModal() {
     lastFocused = document.activeElement;
@@ -418,12 +469,39 @@ function setupSignupModal() {
 
     const email = emailInput.value.trim();
     const password = passwordInput.value;
+
+    if (mode === 'signup' && password !== confirmInput.value) {
+      status.textContent = "Those passwords don't match.";
+      status.className = 'modal-status modal-status-error';
+      return;
+    }
+
+    let recaptchaToken = null;
+    if (mode === 'signup') {
+      recaptchaToken = typeof grecaptcha !== 'undefined' ? grecaptcha.getResponse() : '';
+      if (!recaptchaToken) {
+        status.textContent = "Please check the box to confirm you're not a robot.";
+        status.className = 'modal-status modal-status-error';
+        return;
+      }
+    }
+
     submitBtn.disabled = true;
     status.textContent = 'Working…';
     status.className = 'modal-status';
 
     try {
       if (mode === 'signup') {
+        const verifyResponse = await fetch(RECAPTCHA_VERIFY_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: recaptchaToken }),
+        });
+        const verifyData = await verifyResponse.json();
+        if (!verifyData.success) {
+          throw new Error("That robot check didn't go through. Please try again.");
+        }
+
         const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
         await firebase.database().ref('subscribers/' + cred.user.uid).set({
           email: email,
@@ -443,6 +521,9 @@ function setupSignupModal() {
       status.className = 'modal-status modal-status-error';
     } finally {
       submitBtn.disabled = false;
+      // The token is single-use either way, so the widget needs a fresh one
+      // before the next attempt regardless of whether this one succeeded.
+      if (mode === 'signup' && typeof grecaptcha !== 'undefined') grecaptcha.reset();
     }
   });
 }

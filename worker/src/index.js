@@ -25,6 +25,12 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { headers: corsHeaders });
     }
+
+    const url = new URL(request.url);
+    if (url.pathname === '/verify-recaptcha') {
+      return handleVerifyRecaptcha(request, env, corsHeaders);
+    }
+
     if (request.method !== 'POST') {
       return json({ error: 'Method not allowed' }, 405, corsHeaders);
     }
@@ -70,6 +76,37 @@ export default {
     return json({ sent, failed: results.length - sent, total: uniqueEmails.length }, 200, corsHeaders);
   },
 };
+
+// Checks a reCAPTCHA v2 ("I'm not a robot") response token against Google.
+// RECAPTCHA_SECRET_KEY must never reach the browser, so this check has to
+// happen here rather than client-side — same reasoning as the ID token
+// verification above.
+async function handleVerifyRecaptcha(request, env, corsHeaders) {
+  if (request.method !== 'POST') {
+    return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Invalid JSON body' }, 400, corsHeaders);
+  }
+
+  const token = body && body.token;
+  if (!token) {
+    return json({ error: 'Missing token' }, 400, corsHeaders);
+  }
+
+  const verifyResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `secret=${encodeURIComponent(env.RECAPTCHA_SECRET_KEY)}&response=${encodeURIComponent(token)}`,
+  });
+  const result = await verifyResponse.json();
+
+  return json({ success: !!result.success }, 200, corsHeaders);
+}
 
 function json(data, status, corsHeaders) {
   return new Response(JSON.stringify(data), {
