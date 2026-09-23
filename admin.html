@@ -184,6 +184,33 @@
   }
   .seed-box b { color: var(--text); }
 
+  .announce-box {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.4em 1.6em;
+    margin-bottom: 2em;
+  }
+  .announce-box h2 { font-size: 1.1rem; }
+  .announce-box input,
+  .announce-box textarea {
+    width: 100%;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.7em 0.9em;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 0.8em;
+  }
+  .announce-box textarea { resize: vertical; min-height: 6em; }
+  .announce-footer {
+    display: flex;
+    align-items: center;
+    gap: 1em;
+  }
+
   .note { color: var(--text-muted); font-size: 0.85rem; }
 </style>
 </head>
@@ -206,6 +233,17 @@
       <button type="button" class="btn btn-ghost" id="logout-btn">Log Out</button>
     </div>
 
+    <div class="announce-box">
+      <h2>📣 Send an Announcement</h2>
+      <p class="note">Goes out to everyone who's signed up for game alerts on the site. Nothing sends automatically — only when you hit the button below.</p>
+      <input type="text" id="announce-subject" placeholder="Subject, e.g. New Saturday slot open in Curse of Strahd">
+      <textarea id="announce-message" placeholder="What's the announcement?"></textarea>
+      <div class="announce-footer">
+        <button type="button" class="btn btn-primary" id="announce-btn">Send to Subscribers</button>
+        <p class="slot-status" id="announce-status"></p>
+      </div>
+    </div>
+
     <div class="seed-box" id="seed-box">
       <p><b>First time here?</b> Your database is empty. Click below once to load in the campaigns and slots that are already live on the site, so you're editing real data instead of starting blank.</p>
       <button type="button" class="btn btn-primary" id="seed-btn">Load Current Site Data</button>
@@ -223,6 +261,10 @@
 <script src="firebase-init.js"></script>
 <script>
 (function () {
+  // Cloudflare Worker that actually sends the emails. Placeholder until the
+  // worker is deployed — see worker/README.md.
+  var ANNOUNCE_WORKER_URL = 'REPLACE_WITH_WORKER_URL';
+
   var CAMPAIGNS = [
     { slug: 'flying-city', name: 'The Prophecy of the Flying City' },
     { slug: 'curse-of-strahd', name: 'Curse of Strahd' },
@@ -490,6 +532,68 @@
 
   document.getElementById('logout-btn').addEventListener('click', function () {
     firebase.auth().signOut();
+  });
+
+  document.getElementById('announce-btn').addEventListener('click', function () {
+    var subject = document.getElementById('announce-subject').value.trim();
+    var message = document.getElementById('announce-message').value.trim();
+    var status = document.getElementById('announce-status');
+    var btn = document.getElementById('announce-btn');
+
+    if (!subject || !message) {
+      status.textContent = 'Fill in both the subject and the message first.';
+      status.className = 'slot-status error';
+      return;
+    }
+    if (ANNOUNCE_WORKER_URL.indexOf('REPLACE_WITH') === 0) {
+      status.textContent = 'The announcement sender is not deployed yet.';
+      status.className = 'slot-status error';
+      return;
+    }
+    if (!confirm('Send this announcement to every subscriber now? This cannot be undone.')) return;
+
+    btn.disabled = true;
+    status.textContent = 'Gathering subscribers…';
+    status.className = 'slot-status';
+
+    firebase.database().ref('subscribers').once('value')
+      .then(function (snapshot) {
+        var emails = [];
+        snapshot.forEach(function (child) {
+          var email = child.val() && child.val().email;
+          if (email) emails.push(email);
+        });
+        if (emails.length === 0) {
+          throw new Error('No subscribers yet — nothing to send.');
+        }
+        status.textContent = 'Sending to ' + emails.length + ' subscriber' + (emails.length === 1 ? '' : 's') + '…';
+        return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+          return fetch(ANNOUNCE_WORKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken: idToken, subject: subject, message: message, emails: emails }),
+          });
+        });
+      })
+      .then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok) throw new Error(data.error || 'Send failed');
+          return data;
+        });
+      })
+      .then(function (data) {
+        status.textContent = 'Sent to ' + data.sent + ' of ' + data.total + (data.failed ? ' (' + data.failed + ' failed)' : '') + '.';
+        status.className = 'slot-status success';
+        document.getElementById('announce-subject').value = '';
+        document.getElementById('announce-message').value = '';
+      })
+      .catch(function (err) {
+        status.textContent = err.message;
+        status.className = 'slot-status error';
+      })
+      .finally(function () {
+        btn.disabled = false;
+      });
   });
 
   firebase.auth().onAuthStateChanged(function (user) {

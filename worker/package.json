@@ -1,0 +1,14 @@
+{
+  "name": "ash-tabletop-announcements",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}

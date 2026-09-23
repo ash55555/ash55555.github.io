@@ -60,6 +60,7 @@
       <a href="#pricing">Pricing</a>
       <a href="#reviews">Reviews</a>
       <a href="#contact">Contact</a>
+      <button type="button" class="nav-cta nav-cta-ghost js-signup-trigger">🔔 Get Game Alerts</button>
       <a class="nav-cta" href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener">Chat with Ash</a>
     </div>
   </nav>
@@ -517,6 +518,26 @@
   </div>
 </div>
 
+<!-- ================= SIGNUP MODAL ================= -->
+<div class="modal" id="signup-modal" hidden>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="signup-modal-title">
+    <button type="button" class="modal-close js-modal-close" aria-label="Close">
+      <svg class="icon"><use href="#icon-close"/></svg>
+    </button>
+    <h3 id="signup-modal-title">Get Notified About New Games</h3>
+    <p class="modal-sub" id="signup-modal-sub">Create a free account and get an email every time Ash opens a new game or session.</p>
+    <form id="signup-form">
+      <label for="signup-email">Email</label>
+      <input id="signup-email" type="email" name="email" required placeholder="you@example.com" autocomplete="email">
+      <label for="signup-password">Password</label>
+      <input id="signup-password" type="password" name="password" required placeholder="At least 6 characters" autocomplete="new-password" minlength="6">
+      <button type="submit" class="btn btn-primary">Sign Up</button>
+      <p class="modal-status" role="status" aria-live="polite"></p>
+    </form>
+    <button type="button" class="link-button" id="signup-mode-toggle">Already have an account? Log in</button>
+  </div>
+</div>
+
 <footer class="site-footer">
   <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32" loading="lazy">
   <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
@@ -527,6 +548,7 @@
      onto the buttons above once Ash finishes Firebase setup. Does nothing
      until then; see campaigns-data.js. -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="firebase-init.js"></script>
 <script src="campaigns-data.js"></script>

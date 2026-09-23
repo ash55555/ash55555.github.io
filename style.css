@@ -204,8 +204,19 @@ p { margin: 0 0 1em; }
   color: #fff !important;
   padding: 0.55em 1.2em;
   border-radius: 999px;
+  border: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 .nav-cta:hover { background: var(--purple-deep); }
+
+.nav-cta-ghost {
+  background: transparent;
+  color: var(--gold) !important;
+  border: 1px solid var(--gold);
+}
+.nav-cta-ghost:hover { background: rgba(242, 184, 79, 0.12); }
 
 /* ============ Hero ============ */
 .hero {

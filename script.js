@@ -344,6 +344,109 @@ function setupEmailModal() {
   });
 }
 
+// Lets a visitor create a Firebase Auth account (or log into an existing one)
+// and marks them as subscribed to game announcements. Subscribing is just
+// "having an account" — signing up writes subscribers/{uid} automatically,
+// no separate opt-in step, matching what Ash asked for.
+function setupSignupModal() {
+  const trigger = document.querySelector('.js-signup-trigger');
+  const modal = document.getElementById('signup-modal');
+  if (!trigger || !modal) return;
+
+  const form = modal.querySelector('#signup-form');
+  const emailInput = modal.querySelector('#signup-email');
+  const passwordInput = modal.querySelector('#signup-password');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const status = modal.querySelector('.modal-status');
+  const title = modal.querySelector('#signup-modal-title');
+  const sub = modal.querySelector('#signup-modal-sub');
+  const modeToggle = modal.querySelector('#signup-mode-toggle');
+  const closeEls = modal.querySelectorAll('.js-modal-close');
+  let lastFocused = null;
+  let mode = 'signup';
+
+  function applyMode() {
+    if (mode === 'signup') {
+      title.textContent = 'Get Notified About New Games';
+      sub.textContent = 'Create a free account and get an email every time Ash opens a new game or session.';
+      submitBtn.textContent = 'Sign Up';
+      modeToggle.textContent = 'Already have an account? Log in';
+    } else {
+      title.textContent = 'Log In';
+      sub.textContent = 'Log back in to keep getting game alerts.';
+      submitBtn.textContent = 'Log In';
+      modeToggle.textContent = "Don't have an account? Sign up";
+    }
+    status.textContent = '';
+  }
+
+  function openModal() {
+    lastFocused = document.activeElement;
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+    emailInput.focus();
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-open');
+    if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+  }
+
+  trigger.addEventListener('click', openModal);
+  closeEls.forEach((el) => el.addEventListener('click', closeModal));
+  modal.addEventListener('click', (event) => {
+    if (event.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !modal.hidden) closeModal();
+  });
+
+  modeToggle.addEventListener('click', () => {
+    mode = mode === 'signup' ? 'login' : 'signup';
+    applyMode();
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+      status.textContent = "Sign-up isn't available right now. Try messaging Ash on Discord instead.";
+      status.className = 'modal-status modal-status-error';
+      return;
+    }
+
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    submitBtn.disabled = true;
+    status.textContent = 'Working…';
+    status.className = 'modal-status';
+
+    try {
+      if (mode === 'signup') {
+        const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
+        await firebase.database().ref('subscribers/' + cred.user.uid).set({
+          email: email,
+          subscribedAt: firebase.database.ServerValue.TIMESTAMP,
+        });
+        status.textContent = "You're signed up! You'll get an email whenever a new game or session opens.";
+        status.className = 'modal-status modal-status-success';
+      } else {
+        await firebase.auth().signInWithEmailAndPassword(email, password);
+        status.textContent = "Welcome back! You're all set to get game alerts.";
+        status.className = 'modal-status modal-status-success';
+      }
+      form.reset();
+      setTimeout(closeModal, 1800);
+    } catch (err) {
+      status.textContent = err.message;
+      status.className = 'modal-status modal-status-error';
+    } finally {
+      submitBtn.disabled = false;
+    }
+  });
+}
+
 // Reviews strip: auto-scrolls slowly, pauses on hover, and can be dragged
 // left/right by hand (mouse) or swiped natively (touch/trackpad already work
 // for free via overflow-x). The track holds two identical copies of every
@@ -424,5 +527,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupClickableCards();
   setupEmailModal();
   setupPaypalModal();
+  setupSignupModal();
   setupReviewsMarquee();
 });
