@@ -823,6 +823,20 @@ body.modal-open { overflow: hidden; }
   font-size: 0.85rem;
 }
 
+.member-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  background: rgba(127, 217, 154, 0.15);
+  color: #7fd99a;
+  border: 1px solid rgba(127, 217, 154, 0.4);
+  border-radius: 999px;
+  padding: 0.4em 1em;
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin: 0.4em 0 1em;
+}
+
 .btn-google {
   width: 100%;
   justify-content: center;

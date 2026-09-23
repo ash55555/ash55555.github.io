@@ -371,8 +371,33 @@ function setupSignupModal() {
   const sub = modal.querySelector('#signup-modal-sub');
   const modeToggle = modal.querySelector('#signup-mode-toggle');
   const closeEls = modal.querySelectorAll('.js-modal-close');
+  const guestView = modal.querySelector('#signup-guest-view');
+  const memberView = modal.querySelector('#signup-member-view');
+  const memberEmail = modal.querySelector('#signup-member-email');
+  const logoutBtn = modal.querySelector('#signup-logout-btn');
   let lastFocused = null;
   let mode = 'signup';
+  let currentUser = null;
+
+  // Reflects sign-in state both in the nav (so it's visible without opening
+  // anything) and inside the modal itself (so opening it confirms clearly
+  // they're already on the list, instead of showing the sign-up form again).
+  function applyAuthState(user) {
+    currentUser = user;
+    if (user) {
+      trigger.textContent = '✓ Member';
+      guestView.hidden = true;
+      memberView.hidden = false;
+      memberEmail.textContent = user.email;
+      title.textContent = "You're In!";
+      sub.textContent = "You're all set to hear about new games.";
+    } else {
+      trigger.textContent = '🔔 Game Alerts';
+      guestView.hidden = false;
+      memberView.hidden = true;
+      applyMode();
+    }
+  }
 
   function applyMode() {
     const isSignup = mode === 'signup';
@@ -431,11 +456,21 @@ function setupSignupModal() {
 
   applyMode();
 
+  logoutBtn.addEventListener('click', () => {
+    if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+      firebase.auth().signOut();
+    }
+  });
+
+  if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
+    firebase.auth().onAuthStateChanged(applyAuthState);
+  }
+
   function openModal() {
     lastFocused = document.activeElement;
     modal.hidden = false;
     document.body.classList.add('modal-open');
-    emailInput.focus();
+    if (!currentUser) emailInput.focus();
   }
 
   function closeModal() {
