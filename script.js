@@ -367,9 +367,11 @@ function setupEmailModal() {
 // "having an account" — signing up writes subscribers/{uid} automatically,
 // no separate opt-in step, matching what Ash asked for.
 function setupSignupModal() {
-  const trigger = document.querySelector('.js-signup-trigger');
+  const triggers = document.querySelectorAll('.js-signup-trigger');
+  const loginTrigger = document.querySelector('.nav-login');
+  const signupTrigger = document.querySelector('.nav-cta.js-signup-trigger');
   const modal = document.getElementById('signup-modal');
-  if (!trigger || !modal) return;
+  if (!triggers.length || !modal) return;
 
   const form = modal.querySelector('#signup-form');
   const emailInput = modal.querySelector('#signup-email');
@@ -398,14 +400,16 @@ function setupSignupModal() {
   function applyAuthState(user) {
     currentUser = user;
     if (user) {
-      trigger.textContent = '✓ Member';
+      signupTrigger.textContent = '✓ Member';
+      if (loginTrigger) loginTrigger.hidden = true;
       guestView.hidden = true;
       memberView.hidden = false;
       memberEmail.textContent = user.email;
       title.textContent = "You're In!";
       sub.textContent = "You're all set to hear about new games.";
     } else {
-      trigger.textContent = '🔔 Game Alerts';
+      signupTrigger.textContent = 'Sign Up';
+      if (loginTrigger) loginTrigger.hidden = false;
       guestView.hidden = false;
       memberView.hidden = true;
       applyMode();
@@ -495,7 +499,14 @@ function setupSignupModal() {
     if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
   }
 
-  trigger.addEventListener('click', openModal);
+  triggers.forEach((el) => el.addEventListener('click', () => {
+    const wanted = el.dataset.mode;
+    if (wanted && wanted !== mode && !currentUser) {
+      mode = wanted;
+      applyMode();
+    }
+    openModal();
+  }));
   closeEls.forEach((el) => el.addEventListener('click', closeModal));
   modal.addEventListener('click', (event) => {
     if (event.target === modal) closeModal();

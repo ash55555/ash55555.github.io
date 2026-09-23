@@ -218,6 +218,28 @@ p { margin: 0 0 1em; }
   box-shadow: 0 8px 20px rgba(242, 184, 79, 0.4);
 }
 
+.nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+}
+.nav-login {
+  background: transparent;
+  color: var(--text);
+  padding: 0.5em 1.2em;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.nav-login:hover {
+  border-color: var(--gold);
+  background: rgba(242, 184, 79, 0.08);
+}
+.nav-login[hidden] { display: none; }
+
 /* ============ Hero ============ */
 .hero {
   max-width: 1200px;
@@ -929,4 +951,5 @@ body.modal-open { overflow: hidden; }
   }
   .nav-links.open { display: flex; }
   .nav-cta { align-self: flex-start; }
+  .nav-auth { align-self: flex-start; }
 }
