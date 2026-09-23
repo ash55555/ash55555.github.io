@@ -192,8 +192,7 @@
     margin-bottom: 2em;
   }
   .announce-box h2 { font-size: 1.1rem; }
-  .announce-box input,
-  .announce-box textarea {
+  .announce-box input {
     width: 100%;
     background: var(--bg-panel-2);
     border: 1px solid var(--border);
@@ -204,7 +203,55 @@
     font-family: 'Nunito', sans-serif;
     margin-bottom: 0.8em;
   }
-  .announce-box textarea { resize: vertical; min-height: 6em; }
+  .announce-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3em;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    padding: 0.5em;
+  }
+  .announce-toolbar button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    padding: 0.35em 0.6em;
+    cursor: pointer;
+  }
+  .announce-toolbar button:hover { background: var(--bg-panel); border-color: var(--border); }
+  .announce-toolbar button b, .announce-toolbar button i { font-family: inherit; }
+  .announce-toolbar .divider { width: 1px; background: var(--border); margin: 0.2em 0.3em; }
+  #announce-message {
+    width: 100%;
+    min-height: 10em;
+    background: var(--bg-panel-2);
+    border: 1px solid var(--border);
+    border-radius: 0 0 10px 10px;
+    padding: 0.8em 0.9em;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-family: 'Nunito', sans-serif;
+    margin-bottom: 0.3em;
+    overflow-y: auto;
+  }
+  #announce-message:empty::before {
+    content: attr(data-placeholder);
+    color: var(--text-muted);
+  }
+  #announce-message img { max-width: 100%; border-radius: 8px; display: block; margin: 0.5em 0; }
+  #announce-message h2, #announce-message h3 { margin: 0.5em 0 0.3em; }
+  .announce-hint { margin-bottom: 0.8em; }
+  .announce-errors {
+    margin: 0.4em 0 0;
+    padding-left: 1.2em;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
   .announce-footer {
     display: flex;
     align-items: center;
@@ -237,11 +284,26 @@
       <h2>📣 Send an Announcement</h2>
       <p class="note">Goes out to everyone who's signed up for game alerts on the site. Nothing sends automatically — only when you hit the button below.</p>
       <input type="text" id="announce-subject" placeholder="Subject, e.g. New Saturday slot open in Curse of Strahd">
-      <textarea id="announce-message" placeholder="What's the announcement?"></textarea>
+      <div class="announce-toolbar">
+        <button type="button" data-cmd="bold" title="Bold"><b>B</b></button>
+        <button type="button" data-cmd="italic" title="Italic"><i>I</i></button>
+        <span class="divider"></span>
+        <button type="button" data-cmd="formatBlock" data-value="H2" title="Title">Title</button>
+        <button type="button" data-cmd="formatBlock" data-value="H3" title="Subtitle">Subtitle</button>
+        <button type="button" data-cmd="formatBlock" data-value="P" title="Normal text">Text</button>
+        <span class="divider"></span>
+        <button type="button" data-cmd="insertUnorderedList" title="Bullet list">• List</button>
+        <span class="divider"></span>
+        <button type="button" id="announce-insert-link" title="Insert link">🔗 Link</button>
+        <button type="button" id="announce-insert-image" title="Insert image or GIF">🖼️ Image / GIF</button>
+      </div>
+      <div id="announce-message" contenteditable="true" data-placeholder="What's the announcement?"></div>
+      <p class="note announce-hint">Paste a GIF link (like from Giphy or Tenor) into "Image / GIF" to drop one right in.</p>
       <div class="announce-footer">
         <button type="button" class="btn btn-primary" id="announce-btn">Send to Subscribers</button>
         <p class="slot-status" id="announce-status"></p>
       </div>
+      <ul class="announce-errors" id="announce-errors" hidden></ul>
     </div>
 
     <div class="seed-box" id="seed-box">
@@ -534,13 +596,40 @@
     firebase.auth().signOut();
   });
 
+  var announceMessageEl = document.getElementById('announce-message');
+
+  document.querySelectorAll('.announce-toolbar [data-cmd]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      announceMessageEl.focus();
+      document.execCommand(btn.getAttribute('data-cmd'), false, btn.getAttribute('data-value') || null);
+    });
+  });
+
+  document.getElementById('announce-insert-link').addEventListener('click', function () {
+    var url = prompt('Link URL:');
+    if (!url) return;
+    announceMessageEl.focus();
+    document.execCommand('createLink', false, url);
+  });
+
+  document.getElementById('announce-insert-image').addEventListener('click', function () {
+    var url = prompt('Image or GIF URL:');
+    if (!url) return;
+    announceMessageEl.focus();
+    document.execCommand('insertImage', false, url);
+  });
+
   document.getElementById('announce-btn').addEventListener('click', function () {
     var subject = document.getElementById('announce-subject').value.trim();
-    var message = document.getElementById('announce-message').value.trim();
+    var html = announceMessageEl.innerHTML.trim();
     var status = document.getElementById('announce-status');
+    var errorsList = document.getElementById('announce-errors');
     var btn = document.getElementById('announce-btn');
 
-    if (!subject || !message) {
+    errorsList.hidden = true;
+    errorsList.innerHTML = '';
+
+    if (!subject || !html || announceMessageEl.textContent.trim() === '') {
       status.textContent = 'Fill in both the subject and the message first.';
       status.className = 'slot-status error';
       return;
@@ -571,7 +660,7 @@
           return fetch(ANNOUNCE_WORKER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken: idToken, subject: subject, message: message, emails: emails }),
+            body: JSON.stringify({ idToken: idToken, subject: subject, html: html, emails: emails }),
           });
         });
       })
@@ -583,9 +672,19 @@
       })
       .then(function (data) {
         status.textContent = 'Sent to ' + data.sent + ' of ' + data.total + (data.failed ? ' (' + data.failed + ' failed)' : '') + '.';
-        status.className = 'slot-status success';
-        document.getElementById('announce-subject').value = '';
-        document.getElementById('announce-message').value = '';
+        status.className = data.failed ? 'slot-status error' : 'slot-status success';
+        if (data.errors && data.errors.length) {
+          errorsList.hidden = false;
+          data.errors.forEach(function (msg) {
+            var li = document.createElement('li');
+            li.textContent = msg;
+            errorsList.appendChild(li);
+          });
+        }
+        if (!data.failed) {
+          document.getElementById('announce-subject').value = '';
+          announceMessageEl.innerHTML = '';
+        }
       })
       .catch(function (err) {
         status.textContent = err.message;

@@ -123,6 +123,19 @@ const ASH_DISCORD_URL = 'https://discord.com/users/1137869041495724094';
 // also verifies the reCAPTCHA token on sign-up, since the secret key it
 // needs to do that can never live in this file.
 const RECAPTCHA_VERIFY_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/verify-recaptcha';
+const WELCOME_EMAIL_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/welcome-email';
+
+// Fire-and-forget: a new subscriber should never see an error over an
+// optional welcome email, so failures here are silent.
+function sendWelcomeEmail(user) {
+  user.getIdToken()
+    .then((idToken) => fetch(WELCOME_EMAIL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken: idToken }),
+    }))
+    .catch(() => {});
+}
 
 // The data below (PayPal links, subscription plan IDs, seat counts) is real
 // and still valid — kept for reference and for whenever Ash wants to resume
@@ -427,7 +440,9 @@ function setupSignupModal() {
     const existing = await ref.once('value');
     if (!existing.exists()) {
       await ref.set({ email: email, subscribedAt: firebase.database.ServerValue.TIMESTAMP });
+      return true;
     }
+    return false;
   }
 
   googleBtn.addEventListener('click', async () => {
@@ -442,7 +457,8 @@ function setupSignupModal() {
     try {
       const provider = new firebase.auth.GoogleAuthProvider();
       const cred = await firebase.auth().signInWithPopup(provider);
-      await ensureSubscribed(cred.user.uid, cred.user.email);
+      const isNew = await ensureSubscribed(cred.user.uid, cred.user.email);
+      if (isNew) sendWelcomeEmail(cred.user);
       status.textContent = "You're signed up! You'll get an email whenever a new game or session opens.";
       status.className = 'modal-status modal-status-success';
       setTimeout(closeModal, 1800);
@@ -542,6 +558,7 @@ function setupSignupModal() {
           email: email,
           subscribedAt: firebase.database.ServerValue.TIMESTAMP,
         });
+        sendWelcomeEmail(cred.user);
         status.textContent = "You're signed up! You'll get an email whenever a new game or session opens.";
         status.className = 'modal-status modal-status-success';
       } else {

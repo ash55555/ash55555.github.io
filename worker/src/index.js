@@ -30,6 +30,9 @@ export default {
     if (url.pathname === '/verify-recaptcha') {
       return handleVerifyRecaptcha(request, env, corsHeaders);
     }
+    if (url.pathname === '/welcome-email') {
+      return handleWelcomeEmail(request, env, corsHeaders);
+    }
 
     if (request.method !== 'POST') {
       return json({ error: 'Method not allowed' }, 405, corsHeaders);
@@ -42,9 +45,9 @@ export default {
       return json({ error: 'Invalid JSON body' }, 400, corsHeaders);
     }
 
-    const { idToken, subject, message, emails } = body || {};
-    if (!idToken || !subject || !message || !Array.isArray(emails) || emails.length === 0) {
-      return json({ error: 'Missing idToken, subject, message, or emails' }, 400, corsHeaders);
+    const { idToken, subject, html, emails } = body || {};
+    if (!idToken || !subject || !html || !Array.isArray(emails) || emails.length === 0) {
+      return json({ error: 'Missing idToken, subject, html, or emails' }, 400, corsHeaders);
     }
 
     try {
@@ -69,11 +72,17 @@ export default {
     }
 
     const results = await Promise.allSettled(
-      uniqueEmails.map((to) => sendEmail(env, to, subject, message))
+      uniqueEmails.map((to) => sendEmail(env, to, subject, html))
     );
     const sent = results.filter((r) => r.status === 'fulfilled').length;
+    // Surfaced back to admin.html so a failure shows *why*, not just a count
+    // — otherwise every failure looks identical and there's no way to tell
+    // "bad address" from "sandbox domain restriction" from "API key expired".
+    const errors = results
+      .map((r, i) => (r.status === 'rejected' ? `${uniqueEmails[i]}: ${r.reason.message}` : null))
+      .filter(Boolean);
 
-    return json({ sent, failed: results.length - sent, total: uniqueEmails.length }, 200, corsHeaders);
+    return json({ sent, failed: results.length - sent, total: uniqueEmails.length, errors }, 200, corsHeaders);
   },
 };
 
@@ -124,7 +133,9 @@ function json(data, status, corsHeaders) {
 // FROM_ADDRESS below is updated to use it.
 const FROM_ADDRESS = 'Ash Tabletop <onboarding@resend.dev>';
 
-async function sendEmail(env, to, subject, message) {
+async function sendEmail(env, to, subject, html) {
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -135,7 +146,8 @@ async function sendEmail(env, to, subject, message) {
       from: FROM_ADDRESS,
       to: [to],
       subject,
-      text: message,
+      html,
+      text,
     }),
   });
 
@@ -143,4 +155,57 @@ async function sendEmail(env, to, subject, message) {
     const detail = await response.text().catch(() => '');
     throw new Error(`Resend send failed (${response.status}): ${detail}`);
   }
+}
+
+// Sends a one-time welcome email right after someone signs up, so they get
+// proof it worked. Only ever sends to the email address baked into the
+// caller's own verified Firebase ID token (payload.email) — never an
+// address passed in the request body — so this can't be abused to spam
+// arbitrary addresses. Any signed-in user can call this for themselves,
+// unlike the announcement endpoint above which is admin-only.
+async function handleWelcomeEmail(request, env, corsHeaders) {
+  if (request.method !== 'POST') {
+    return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: 'Invalid JSON body' }, 400, corsHeaders);
+  }
+
+  const { idToken } = body || {};
+  if (!idToken) {
+    return json({ error: 'Missing idToken' }, 400, corsHeaders);
+  }
+
+  let email;
+  try {
+    const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
+    const { payload } = await jwtVerify(idToken, jwks, {
+      issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
+      audience: env.FIREBASE_PROJECT_ID,
+    });
+    email = payload.email;
+  } catch {
+    return json({ error: 'Invalid or expired sign-in' }, 401, corsHeaders);
+  }
+
+  if (!email) {
+    return json({ error: 'No email on this account' }, 400, corsHeaders);
+  }
+
+  try {
+    await sendEmail(
+      env,
+      email,
+      "You're on the list!",
+      `<h2>Welcome to Ash Tabletop 🎲</h2><p>You're officially signed up for game alerts. You'll get an email the moment Ash opens a new campaign or session.</p><p>See you at the table!</p>`
+    );
+  } catch (err) {
+    return json({ sent: false, error: err.message }, 200, corsHeaders);
+  }
+
+  return json({ sent: true }, 200, corsHeaders);
 }
