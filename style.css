@@ -261,7 +261,22 @@ p { margin: 0 0 1em; }
 .hero-sub {
   color: var(--text-muted);
   font-size: 1.1rem;
-  max-width: 46ch;
+  max-width: 52ch;
+}
+
+.hero-tables-title {
+  margin: 1.1em 0 0.4em;
+  font-weight: 700;
+  color: var(--text);
+}
+.hero-tables {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35em;
+  color: var(--text-muted);
+  font-size: 1.05rem;
 }
 
 .hero-actions {
