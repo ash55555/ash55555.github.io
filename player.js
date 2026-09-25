@@ -19,12 +19,13 @@ const TEST_GAME = {
   day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
   seatsMax: num("max", 5), price: 10,
 };
-// Real Whop checkout links, one per game group. Games without one still use the pretend checkout.
-const PLAN_LINKS = {
-  "crooked-moon::B": "https://whop.com/checkout/plan_lftjnNlr44tIs",
-};
+// Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
+const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
+const REAL_GAMES = new Set(["crooked-moon::B"]);
 const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
-const planLink = hasGame ? PLAN_LINKS[gameKey] : null;
+const realGame = hasGame && REAL_GAMES.has(gameKey);
+const planLink = null;
+let me = null;
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
 const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
 const TOKENS = [
@@ -47,7 +48,7 @@ const store = {
 };
 
 let profile = store.get('pp-profile', { name: 'Bianca', token: 'wizard', about: '' });
-let view = 'notjoined';
+let view = query.get("paid") === "1" ? "joined" : "notjoined";
 let skippedIdx = new Set();
 let onConfirm = null;
 
@@ -270,20 +271,59 @@ $('pp-save').addEventListener('click', () => {
   profile.name = $('pp-name').value.trim() || 'Player';
   profile.about = $('pp-about').value.trim();
   store.set('pp-profile', profile);
+  store.set('pp-profile-set', true);
   $('pp-saved').textContent = 'Saved!';
   setTimeout(() => { $('pp-saved').textContent = ''; }, 2000);
   renderAll();
 });
 $('pp-name').addEventListener('input', (e) => { profile.name = e.target.value; renderHeader(); renderRoster(); });
 
-$('pp-join-btn').addEventListener('click', () => openModal('pp-checkout'));
-$('pp-rejoin-btn').addEventListener('click', () => openModal('pp-checkout'));
+function startJoin() {
+  if (realGame && !me) { openModal('pp-auth'); return; }
+  openModal('pp-checkout');
+}
+$('pp-join-btn').addEventListener('click', startJoin);
+$('pp-rejoin-btn').addEventListener('click', startJoin);
+
+if (typeof firebase !== 'undefined' && firebase.apps.length) {
+  firebase.auth().onAuthStateChanged((user) => {
+    me = user;
+    if (user && realGame && !store.get('pp-profile-set', false)) {
+      profile.name = user.displayName || (user.email || 'Player').split('@')[0];
+      renderProfile(); renderAll();
+    }
+    if (user && !$('pp-auth').hidden) { closeModals(); openModal('pp-checkout'); }
+  });
+  $('pp-auth-google').addEventListener('click', () => {
+    firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => { $('pp-auth-status').textContent = e.message; });
+  });
+  $('pp-auth-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    $('pp-auth-status').textContent = 'Working...';
+    firebase.auth().signInWithEmailAndPassword($('pp-auth-email').value.trim(), $('pp-auth-pass').value)
+      .catch((err) => { $('pp-auth-status').textContent = err.message; });
+  });
+}
 function markJoined() { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); }
-$('pp-checkout-go').addEventListener('click', () => {
-  if (!planLink) { markJoined(); return; }
-  window.open(planLink, '_blank', 'noopener');
-  $('pp-paid-done').hidden = false;
-  $('pp-checkout-note').hidden = false;
+$('pp-checkout-go').addEventListener('click', async () => {
+  if (!realGame) { markJoined(); return; }
+  const note = $('pp-checkout-note');
+  note.hidden = false;
+  note.textContent = 'Getting your secure checkout ready...';
+  try {
+    const idToken = await me.getIdToken();
+    const returnQuery = window.location.search.replace(/[?&]paid=1/, '') + (window.location.search ? '&' : '?') + 'paid=1';
+    const res = await fetch(WORKER_URL + '/whop/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken, game: gameKey, returnQuery }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong.');
+    window.location.assign(data.url);
+  } catch (err) {
+    note.textContent = err.message;
+  }
 });
 $('pp-paid-done').addEventListener('click', markJoined);
 $('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", () => { view = 'left'; skippedIdx = new Set(); renderAll(); }));
@@ -295,7 +335,7 @@ if (hasGame && query.get("back")) {
   backLink.href = back.endsWith("/") || back.endsWith("index.html") ? back + "#campaigns" : back;
   backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
 }
-if (planLink) {
+if (realGame) {
   $('pp-checkout-sub').textContent = "You'll pay on Whop's own secure page, so your card details never touch this website.";
   $('pp-checkout-go').textContent = "Continue to secure checkout";
 }

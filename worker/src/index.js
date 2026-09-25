@@ -16,8 +16,12 @@ const FIREBASE_JWKS_URL =
 
 export default {
   async fetch(request, env) {
+    const allowedOrigins = env.ALLOWED_ORIGIN.split(',').map((o) => o.trim());
+    const requestOrigin = request.headers.get('Origin');
+    const originOk = allowedOrigins.includes(requestOrigin);
     const corsHeaders = {
-      'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN,
+      'Access-Control-Allow-Origin': originOk ? requestOrigin : allowedOrigins[0],
+      'Vary': 'Origin',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     };
@@ -32,6 +36,9 @@ export default {
     }
     if (url.pathname === '/welcome-email') {
       return handleWelcomeEmail(request, env, corsHeaders);
+    }
+    if (url.pathname === '/whop/checkout') {
+      return handleWhopCheckout(request, env, corsHeaders, originOk ? requestOrigin : null);
     }
 
     if (request.method !== 'POST') {
@@ -204,4 +211,91 @@ async function handleWelcomeEmail(request, env, corsHeaders) {
   }
 
   return json({ sent: true }, 200, corsHeaders);
+}
+
+// ---------------------------------------------------------------------------
+// Whop checkout for a game group. The schedule and price live HERE, not in the
+// browser, so a visitor can never change what they get charged. Each player
+// gets a personal checkout with a free trial that runs until the group's next
+// game, after which Whop charges weekly (7 days) from then on.
+// ---------------------------------------------------------------------------
+const GAMES = {
+  'crooked-moon::B': {
+    title: 'The Crooked Moon - Group B (Saturdays 12:00 AM GMT+1)',
+    day: 6, hour: 0, minute: 0, offset: 1,
+    price: 10,
+  },
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function nextGameStart(game, now) {
+  const utcHour = game.hour - game.offset;
+  const targetDay = (game.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
+  for (let i = 0; i < 9; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, utcHour, game.minute));
+    if (d.getUTCDay() === targetDay && d.getTime() > now.getTime()) return d;
+  }
+  return null;
+}
+
+async function handleWhopCheckout(request, env, corsHeaders, origin) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400, corsHeaders); }
+  const { idToken, game: gameKey } = body || {};
+  const game = GAMES[gameKey];
+  if (!idToken || !game) return json({ error: 'Missing sign-in or unknown game' }, 400, corsHeaders);
+
+  let user;
+  try {
+    const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
+    const { payload } = await jwtVerify(idToken, jwks, {
+      issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
+      audience: env.FIREBASE_PROJECT_ID,
+    });
+    user = payload;
+  } catch {
+    return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+  }
+
+  // Test phase: only listed players (plus the admin) can start a checkout.
+  const allowed = (env.TEST_PLAYER_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const email = (user.email || '').toLowerCase();
+  if (user.sub !== env.ADMIN_UID && !allowed.includes(email)) {
+    return json({ error: 'Joining online is not open to everyone yet. Please message Ash.' }, 403, corsHeaders);
+  }
+
+  const now = new Date();
+  const start = nextGameStart(game, now);
+  const trialDays = Math.max(1, Math.round((start.getTime() - now.getTime()) / DAY_MS));
+
+  const response = await fetch('https://api.whop.com/api/v1/checkout_configurations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.WHOP_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      plan: {
+        company_id: env.WHOP_COMPANY_ID,
+        product_id: env.WHOP_PRODUCT_ID,
+        currency: 'usd',
+        plan_type: 'renewal',
+        release_method: 'buy_now',
+        billing_period: 7,
+        initial_price: 0,
+        renewal_price: game.price,
+        trial_period_days: trialDays,
+        visibility: 'hidden',
+      },
+      metadata: { uid: user.sub, email, game: gameKey },
+      redirect_url: `${origin}/player.html${body.returnQuery || ''}`,
+    }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return json({ error: 'Could not start checkout.', detail: data }, 502, corsHeaders);
+  }
+  const url = data.purchase_url && data.purchase_url.startsWith('http') ? data.purchase_url : `https://whop.com${data.purchase_url}`;
+  return json({ url, firstChargeAt: new Date(now.getTime() + trialDays * DAY_MS).toISOString(), gameStart: start.toISOString(), trialDays }, 200, corsHeaders);
 }
