@@ -26,6 +26,7 @@ const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("s
 const realGame = hasGame && REAL_GAMES.has(gameKey);
 const planLink = null;
 let me = null;
+if (query.get("embed") === "1") document.body.classList.add("pp-embed");
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
 const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
 const TOKENS = [
@@ -278,9 +279,17 @@ $('pp-save').addEventListener('click', () => {
 });
 $('pp-name').addEventListener('input', (e) => { profile.name = e.target.value; renderHeader(); renderRoster(); });
 
-function startJoin() {
-  if (realGame && !me) { openModal('pp-auth'); return; }
-  openModal('pp-checkout');
+// Resolves once Firebase has told us whether someone is signed in, so we never
+// ask a signed-in player to log in just because the check hadn't finished.
+let resolveAuthReady;
+const authReady = new Promise((resolve) => { resolveAuthReady = resolve; });
+const joinedKey = (uid) => 'pp-joined::' + gameKey + '::' + uid;
+
+async function startJoin() {
+  if (!realGame) { openModal('pp-checkout'); return; }
+  await authReady;
+  if (!me) { openModal('pp-auth'); return; }
+  openRealCheckout();
 }
 $('pp-join-btn').addEventListener('click', startJoin);
 $('pp-rejoin-btn').addEventListener('click', startJoin);
@@ -288,11 +297,15 @@ $('pp-rejoin-btn').addEventListener('click', startJoin);
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
     me = user;
-    if (user && realGame && !store.get('pp-profile-set', false)) {
-      profile.name = user.displayName || (user.email || 'Player').split('@')[0];
+    if (user && realGame) {
+      if (!store.get('pp-profile-set', false)) {
+        profile.name = user.displayName || (user.email || 'Player').split('@')[0];
+      }
+      if (store.get(joinedKey(user.uid), false) && view === 'notjoined') view = 'joined';
       renderProfile(); renderAll();
     }
-    if (user && !$('pp-auth').hidden) { closeModals(); openModal('pp-checkout'); }
+    resolveAuthReady();
+    if (user && !$('pp-auth').hidden) { closeModals(); openRealCheckout(); }
   });
   $('pp-auth-google').addEventListener('click', () => {
     firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => { $('pp-auth-status').textContent = e.message; });
@@ -303,29 +316,69 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
     firebase.auth().signInWithEmailAndPassword($('pp-auth-email').value.trim(), $('pp-auth-pass').value)
       .catch((err) => { $('pp-auth-status').textContent = err.message; });
   });
+} else {
+  resolveAuthReady();
 }
+
 function markJoined() { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); }
-$('pp-checkout-go').addEventListener('click', async () => {
-  if (!realGame) { markJoined(); return; }
+
+let whopElementsPromise = null;
+function loadWhopElements() {
+  if (window.WhopElements) return Promise.resolve();
+  if (!whopElementsPromise) {
+    whopElementsPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.whop.com/elements/amber/elements.js';
+      s.setAttribute('data-whop-elements', '');
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('The payment form could not load. Please try again.'));
+      document.head.appendChild(s);
+    });
+  }
+  return whopElementsPromise;
+}
+
+async function openRealCheckout() {
   const note = $('pp-checkout-note');
+  $('pp-checkout-title').textContent = 'Join ' + TEST_GAME.title;
+  $('pp-checkout-sub').textContent = "You'll pay on Whop's own secure form, so your card details never touch this website.";
+  $('pp-billing-modal').hidden = true;
+  $('pp-checkout-go').hidden = true;
+  $('pp-paid-done').hidden = true;
+  $('pp-embed').innerHTML = '';
   note.hidden = false;
   note.textContent = 'Getting your secure checkout ready...';
+  openModal('pp-checkout');
   try {
     const idToken = await me.getIdToken();
-    const returnQuery = window.location.search.replace(/[?&]paid=1/, '') + (window.location.search ? '&' : '?') + 'paid=1';
     const res = await fetch(WORKER_URL + '/whop/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken, game: gameKey, returnQuery }),
+      body: JSON.stringify({ idToken, game: gameKey }),
     });
     const data = await res.json();
-    if (!res.ok || !data.url) throw new Error(data.error || 'Something went wrong.');
-    window.location.assign(data.url);
+    if (!res.ok || !data.planId) throw new Error(data.error || 'Something went wrong. Please try again.');
+    await loadWhopElements();
+    const onComplete = () => {
+      store.set(joinedKey(me.uid), true);
+      view = 'joined';
+      skippedIdx = new Set();
+      renderAll();
+      $('pp-checkout-title').textContent = "You're in!";
+      $('pp-paid-done').textContent = 'See my table';
+      $('pp-paid-done').hidden = false;
+    };
+    const session = window.WhopElements().checkout.create({ checkoutConfiguration: data.configId, onComplete });
+    const element = session.create('checkout', { buyerEmail: me.email, lockBuyerEmail: true, onComplete });
+    element.mount($('pp-embed'));
+    note.hidden = true;
   } catch (err) {
     note.textContent = err.message;
   }
-});
-$('pp-paid-done').addEventListener('click', markJoined);
+}
+
+$('pp-checkout-go').addEventListener('click', () => { markJoined(); });
+$('pp-paid-done').addEventListener('click', closeModals);
 $('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", () => { view = 'left'; skippedIdx = new Set(); renderAll(); }));
 $('pp-confirm-yes').addEventListener('click', () => { const fn = onConfirm; onConfirm = null; closeModals(); if (fn) fn(); });
 
@@ -334,10 +387,6 @@ if (hasGame && query.get("back")) {
   const backLink = $("pp-back");
   backLink.href = back.endsWith("/") || back.endsWith("index.html") ? back + "#campaigns" : back;
   backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
-}
-if (realGame) {
-  $('pp-checkout-sub').textContent = "You'll pay on Whop's own secure page, so your card details never touch this website.";
-  $('pp-checkout-go').textContent = "Continue to secure checkout";
 }
 renderProfile();
 renderAll();

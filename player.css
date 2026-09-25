@@ -162,3 +162,14 @@
 .pp-talk strong { display: block; }
 .pp-talk span { color: var(--text-muted); font-size: 0.92rem; }
 .pp-open-seats { color: var(--gold); font-weight: 700; margin: 0 0 0.8em; }
+
+/* Embedded mode: this page is shown inside a popup on the campaign page. */
+body.pp-embed { background: var(--bg-panel); }
+body.pp-embed .site-header,
+body.pp-embed .pp-previewbar,
+body.pp-embed .site-footer,
+body.pp-embed #pp-back { display: none; }
+body.pp-embed .pp { padding: 1.4em 1.4em 2em; }
+body.pp-embed .pp-welcome { margin-bottom: 1.2em; }
+.pp-checkout-dialog { max-width: 560px; }
+#pp-embed { margin-top: 1em; min-height: 0; }

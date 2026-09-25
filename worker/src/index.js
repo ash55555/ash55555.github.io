@@ -297,5 +297,5 @@ async function handleWhopCheckout(request, env, corsHeaders, origin) {
     return json({ error: 'Could not start checkout.', detail: data }, 502, corsHeaders);
   }
   const url = data.purchase_url && data.purchase_url.startsWith('http') ? data.purchase_url : `https://whop.com${data.purchase_url}`;
-  return json({ url, firstChargeAt: new Date(now.getTime() + trialDays * DAY_MS).toISOString(), gameStart: start.toISOString(), trialDays }, 200, corsHeaders);
+  return json({ url, configId: data.id, planId: data.plan && data.plan.id, firstChargeAt: new Date(now.getTime() + trialDays * DAY_MS).toISOString(), gameStart: start.toISOString(), trialDays }, 200, corsHeaders);
 }
