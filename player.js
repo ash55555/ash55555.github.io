@@ -19,6 +19,12 @@ const TEST_GAME = {
   day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
   seatsMax: num("max", 5), price: 10,
 };
+// Real Whop checkout links, one per game group. Games without one still use the pretend checkout.
+const PLAN_LINKS = {
+  "crooked-moon::B": "https://whop.com/checkout/plan_lftjnNlr44tIs",
+};
+const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
+const planLink = hasGame ? PLAN_LINKS[gameKey] : null;
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
 const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
 const TOKENS = [
@@ -272,7 +278,14 @@ $('pp-name').addEventListener('input', (e) => { profile.name = e.target.value; r
 
 $('pp-join-btn').addEventListener('click', () => openModal('pp-checkout'));
 $('pp-rejoin-btn').addEventListener('click', () => openModal('pp-checkout'));
-$('pp-checkout-go').addEventListener('click', () => { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); });
+function markJoined() { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); }
+$('pp-checkout-go').addEventListener('click', () => {
+  if (!planLink) { markJoined(); return; }
+  window.open(planLink, '_blank', 'noopener');
+  $('pp-paid-done').hidden = false;
+  $('pp-checkout-note').hidden = false;
+});
+$('pp-paid-done').addEventListener('click', markJoined);
 $('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", () => { view = 'left'; skippedIdx = new Set(); renderAll(); }));
 $('pp-confirm-yes').addEventListener('click', () => { const fn = onConfirm; onConfirm = null; closeModals(); if (fn) fn(); });
 
@@ -281,6 +294,10 @@ if (hasGame && query.get("back")) {
   const backLink = $("pp-back");
   backLink.href = back.endsWith("/") || back.endsWith("index.html") ? back + "#campaigns" : back;
   backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
+}
+if (planLink) {
+  $('pp-checkout-sub').textContent = "You'll pay on Whop's own secure page, so your card details never touch this website.";
+  $('pp-checkout-go').textContent = "Continue to secure checkout";
 }
 renderProfile();
 renderAll();

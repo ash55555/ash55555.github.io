@@ -154,9 +154,11 @@
       <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
     </button>
     <h3 id="pp-checkout-title">Secure checkout</h3>
-    <p class="modal-sub">In the real version, this is where Whop's own secure payment page opens so you can add your card. This preview skips it.</p>
+    <p class="modal-sub" id="pp-checkout-sub">In the real version, this is where Whop&#39;s own secure payment page opens so you can add your card. This preview skips it.</p>
     <div class="pp-billing" id="pp-billing-modal"></div>
     <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center;">Pretend I paid</button>
+    <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
+    <p class="pp-fineprint" id="pp-checkout-note" hidden>Whop opened in a new tab. Add your card there, then come back and press the button above.</p>
   </div>
 </div>
 
