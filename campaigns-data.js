@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     chip.disabled = false;
     chip.classList.remove('is-full');
-    if (ctaEl) ctaEl.textContent = 'Ask to Join';
+    if (ctaEl) ctaEl.textContent = 'Join';
 
     if (slot.enabled === false) {
       chip.disabled = true;

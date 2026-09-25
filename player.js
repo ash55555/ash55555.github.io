@@ -1,0 +1,286 @@
+// PREVIEW ONLY: this page runs on sample data so Ash can see what a player
+// sees. Nothing here talks to Firebase, Whop, or any real account yet.
+
+const CAMPAIGN_NAMES = {
+  "flying-city": "The Prophecy of the Flying City",
+  "curse-of-strahd": "Curse of Strahd",
+  "ravenloft-undead-survival": "Ravenloft: Undead Survival",
+  "crooked-moon": "The Crooked Moon",
+  "witchlight": "The Wild Beyond the Witchlight",
+};
+const query = new URLSearchParams(window.location.search);
+const hasGame = query.has("campaign");
+const num = (key, fallback) => { const n = parseInt(query.get(key), 10); return Number.isNaN(n) ? fallback : n; };
+const campaignName = CAMPAIGN_NAMES[query.get("campaign")] || "The Test Table";
+const groupName = query.get("group") || "";
+const TEST_GAME = {
+  title: hasGame ? campaignName + (groupName ? " · " + groupName : "") : "The Test Table",
+  eyebrow: hasGame ? "Campaign" : "Test Table",
+  day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
+  seatsMax: num("max", 5), price: 10,
+};
+const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
+const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
+const TOKENS = [
+  { id: 'dragon', emoji: '🐉', color: '#6b46c1' },
+  { id: 'wizard', emoji: '🧙', color: '#2f5fa8' },
+  { id: 'dagger', emoji: '🗡️', color: '#8a3b3b' },
+  { id: 'elf', emoji: '🧝', color: '#2f7a5a' },
+  { id: 'bat', emoji: '🦇', color: '#4a3a6b' },
+  { id: 'dice', emoji: '🎲', color: '#a8702f' },
+];
+
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+  },
+  set(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* preview only */ }
+  },
+};
+
+let profile = store.get('pp-profile', { name: 'Bianca', token: 'wizard', about: '' });
+let view = 'notjoined';
+let skippedIdx = new Set();
+let onConfirm = null;
+
+function tokenById(id) { return TOKENS.find((t) => t.id === id) || TOKENS[0]; }
+
+function upcomingSessions(count) {
+  const utcHour = TEST_GAME.hour - TEST_GAME.offset;
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < 40 && out.length < count; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, utcHour, TEST_GAME.minute));
+    const targetDay = (TEST_GAME.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
+    if (d.getUTCDay() === targetDay && d.getTime() > now.getTime()) out.push(d);
+  }
+  return out;
+}
+
+const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+const fmtTime = (d) => {
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  let tz = '';
+  try {
+    const part = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName');
+    if (part) tz = ' ' + part.value;
+  } catch { /* no tz suffix */ }
+  return time + tz;
+};
+const weekdayName = (d) => d.toLocaleDateString(undefined, { weekday: 'long' });
+
+function tokenEl(id, size) {
+  const t = tokenById(id);
+  const el = document.createElement('div');
+  el.className = 'pp-token ' + size;
+  el.style.setProperty('--tk', t.color);
+  el.textContent = t.emoji;
+  el.setAttribute('aria-hidden', 'true');
+  return el;
+}
+
+function renderProfile() {
+  const grid = $('pp-token-grid');
+  grid.innerHTML = '';
+  TOKENS.forEach((t) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pp-token-choice';
+    b.style.setProperty('--tk', t.color);
+    b.textContent = t.emoji;
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-label', t.id + ' token');
+    b.setAttribute('aria-checked', String(profile.token === t.id));
+    b.addEventListener('click', () => { profile.token = t.id; renderProfile(); renderHeader(); renderRoster(); });
+    grid.appendChild(b);
+  });
+  $('pp-name').value = profile.name;
+  $('pp-about').value = profile.about;
+}
+
+function renderHeader() {
+  const name = profile.name.trim() || 'Player';
+  $('pp-welcome-title').textContent = 'Welcome, ' + name + '!';
+  $('pp-nav-name').textContent = name;
+  const holder = $('pp-welcome-token');
+  const t = tokenById(profile.token);
+  holder.style.setProperty('--tk', t.color);
+  holder.textContent = t.emoji;
+  const sub = {
+    notjoined: 'Pick a game below to grab your seat.',
+    joined: "You're in! Here's everything about your table.",
+    skipped: "You're skipping next week. See you the week after!",
+    left: 'You left the game. You can join again any time.',
+  };
+  $('pp-welcome-sub').textContent = sub[view];
+}
+
+function renderRoster() {
+  const list = $('pp-roster');
+  list.innerHTML = '';
+  const add = (name, tokenId, role) => {
+    const li = document.createElement('li');
+    li.appendChild(tokenEl(tokenId, 'pp-token-sm'));
+    const span = document.createElement('span');
+    span.textContent = name;
+    li.appendChild(span);
+    if (role) {
+      const r = document.createElement('span');
+      r.className = 'pp-role';
+      r.textContent = role;
+      li.appendChild(r);
+    }
+    list.appendChild(li);
+  };
+  add('Ash', 'dragon', 'DM');
+  SAMPLE_OTHERS.forEach((p) => add(p.name, p.token));
+  const mine = view === 'joined' || view === 'skipped';
+  if (mine) add((profile.name.trim() || 'Player') + ' (you)', profile.token);
+  const filled = SAMPLE_OTHERS.length + (mine ? 1 : 0);
+  const open = TEST_GAME.seatsMax - filled;
+  for (let i = 0; i < Math.min(open, 2); i++) {
+    const li = document.createElement('li');
+    li.className = 'pp-open';
+    li.textContent = 'Open seat';
+    list.appendChild(li);
+  }
+  if (open > 2) {
+    const li = document.createElement('li');
+    li.className = 'pp-open';
+    li.textContent = '+' + (open - 2) + ' more open';
+    list.appendChild(li);
+  }
+  $('pp-seats').textContent = filled + ' of ' + TEST_GAME.seatsMax + ' filled';
+  $('pp-seatbar-fill').style.width = (filled / TEST_GAME.seatsMax) * 100 + '%';
+}
+
+function billingHtml(next) {
+  return '<strong>$' + TEST_GAME.price + ' per session, charged every ' + weekdayName(next) + ' at ' + fmtTime(next) + '</strong>' +
+    '<span>First charge: ' + fmtDay(next) + ' at ' + fmtTime(next) + '. Shown in your own time zone.</span>' +
+    '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
+}
+
+function renderGame() {
+  $("pp-game-title").textContent = TEST_GAME.title;
+  $("pp-game-eyebrow").textContent = TEST_GAME.eyebrow;
+  document.title = TEST_GAME.title + " | Ash Tabletop";
+  $("pp-left-title").textContent = "You left " + TEST_GAME.title + ".";
+  const openSeats = TEST_GAME.seatsMax - SAMPLE_OTHERS.length - (view === "joined" || view === "skipped" ? 1 : 0);
+  $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to Ash about a spot.";
+  const full = SAMPLE_OTHERS.length >= TEST_GAME.seatsMax;
+  ["pp-join-btn", "pp-rejoin-btn"].forEach((id) => { $(id).disabled = full; });
+  const sessions = upcomingSessions(4);
+  const next = sessions[0];
+  $('pp-when').textContent = weekdayName(next) + 's at ' + fmtTime(next);
+  $('pp-when-sub').textContent = 'Next: ' + fmtDay(next);
+
+  const badge = $('pp-status-badge');
+  const states = {
+    notjoined: ['Not joined', ''],
+    joined: ["You're in", 'in'],
+    skipped: ['Skipping next week', 'warn'],
+    left: ['You left', ''],
+  };
+  badge.textContent = states[view][0];
+  badge.className = 'pp-badge ' + states[view][1];
+
+  $('pp-join-panel').hidden = view !== 'notjoined';
+  $('pp-joined-panel').hidden = !(view === 'joined' || view === 'skipped');
+  $('pp-left-panel').hidden = view !== 'left';
+
+  const billing = billingHtml(next);
+  $('pp-billing-preview').innerHTML = billing;
+  $('pp-billing-modal').innerHTML = billing;
+  $('pp-billing-active').innerHTML = '<strong>Next charge: ' + fmtDay(view === 'skipped' ? sessions[1] : next) + ' at ' + fmtTime(next) + '</strong>' +
+    '<span>$' + TEST_GAME.price + ' per session. Billed only for the weeks you play.</span>';
+
+  const list = $('pp-sessions');
+  list.innerHTML = '';
+  sessions.forEach((d, i) => {
+    const skipped = skippedIdx.has(i);
+    const li = document.createElement('li');
+    li.className = 'pp-session' + (skipped ? ' skipped' : '');
+    const info = document.createElement('div');
+    info.innerHTML = '<span class="pp-session-when">' + fmtDay(d) + ' · ' + fmtTime(d) + '</span>' +
+      '<span class="pp-session-note">' + (skipped ? "Skipped. You won't be charged this week." : 'You are playing. $' + TEST_GAME.price + ' will be charged.') + '</span>';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-ghost btn-small';
+    btn.textContent = skipped ? 'Undo skip' : 'Skip this session';
+    btn.addEventListener('click', () => {
+      if (skipped) { skippedIdx.delete(i); syncView(); return; }
+      ask('Skip ' + fmtDay(d) + '?', "Your seat stays yours and you won't be charged for this session.", () => { skippedIdx.add(i); syncView(); });
+    });
+    li.append(info, btn);
+    list.appendChild(li);
+  });
+}
+
+function syncView() {
+  if (view === 'joined' || view === 'skipped') view = skippedIdx.has(0) ? 'skipped' : 'joined';
+  renderAll();
+}
+
+function renderAll() {
+  renderHeader();
+  renderRoster();
+  renderGame();
+  document.querySelectorAll('.pp-previewbar [data-state]').forEach((b) => b.classList.toggle('active', b.dataset.state === view));
+}
+
+function openModal(id) { $(id).hidden = false; document.body.classList.add('modal-open'); }
+function closeModals() {
+  document.querySelectorAll('.modal').forEach((m) => { m.hidden = true; });
+  document.body.classList.remove('modal-open');
+}
+function ask(title, text, yes) {
+  $('pp-confirm-title').textContent = title;
+  $('pp-confirm-text').textContent = text;
+  onConfirm = yes;
+  openModal('pp-confirm');
+}
+function toast(message) {
+  const el = document.createElement('div');
+  el.className = 'pp-toast';
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+document.querySelectorAll('.pp-previewbar [data-state]').forEach((b) => {
+  b.addEventListener('click', () => {
+    view = b.dataset.state;
+    skippedIdx = view === 'skipped' ? new Set([0]) : new Set();
+    renderAll();
+  });
+});
+document.querySelectorAll('.js-close').forEach((el) => el.addEventListener('click', closeModals));
+document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) closeModals(); }));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
+
+$('pp-save').addEventListener('click', () => {
+  profile.name = $('pp-name').value.trim() || 'Player';
+  profile.about = $('pp-about').value.trim();
+  store.set('pp-profile', profile);
+  $('pp-saved').textContent = 'Saved!';
+  setTimeout(() => { $('pp-saved').textContent = ''; }, 2000);
+  renderAll();
+});
+$('pp-name').addEventListener('input', (e) => { profile.name = e.target.value; renderHeader(); renderRoster(); });
+
+$('pp-join-btn').addEventListener('click', () => openModal('pp-checkout'));
+$('pp-rejoin-btn').addEventListener('click', () => openModal('pp-checkout'));
+$('pp-checkout-go').addEventListener('click', () => { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); });
+$('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", () => { view = 'left'; skippedIdx = new Set(); renderAll(); }));
+$('pp-confirm-yes').addEventListener('click', () => { const fn = onConfirm; onConfirm = null; closeModals(); if (fn) fn(); });
+
+if (hasGame && query.get("back")) {
+  const back = query.get("back");
+  const backLink = $("pp-back");
+  backLink.href = back.endsWith("/") || back.endsWith("index.html") ? back + "#campaigns" : back;
+  backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
+}
+renderProfile();
+renderAll();

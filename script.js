@@ -271,9 +271,24 @@ function setupPaypalModal() {
 function setupSessionButtons() {
   document.querySelectorAll('.session-chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      // Talk-first flow: every time slot just opens a DM to Ash, regardless
-      // of whether that slot has a PayPal plan configured. See ASH_DISCORD_URL.
-      window.open(ASH_DISCORD_URL, '_blank', 'noopener');
+      const params = new URLSearchParams({
+        campaign: chip.dataset.campaign || '',
+        slot: chip.dataset.slot || '',
+        group: chip.dataset.group || '',
+        day: chip.dataset.day || '0',
+        hour: chip.dataset.hour || '0',
+        minute: chip.dataset.minute || '0',
+        offset: chip.dataset.offset || '1',
+        back: window.location.pathname,
+      });
+      const seatsText = (chip.querySelector('.session-seats') || {}).textContent || '';
+      const seatsMatch = seatsText.match(/\((\d+)\/(\d+)\)/);
+      if (seatsMatch) {
+        params.set('filled', seatsMatch[1]);
+        params.set('max', seatsMatch[2]);
+      }
+      const base = window.location.pathname.includes('/blog/') ? '../player.html' : 'player.html';
+      window.location.href = base + '?' + params.toString();
     });
   });
 }
