@@ -200,3 +200,16 @@ body.pp-embed .pp-welcome { margin-bottom: 1.2em; }
 
 [hidden] { display: none !important; }
 #pp-embed:not(:empty) { background: #fff; border-radius: 14px; padding: 8px; margin-top: 0.8em; }
+
+/* Whop's form starts with its own price/trial header. Ours says what matters
+   (charged on game night), so the top part of their form is tucked out of view. */
+#pp-embed > div > div { overflow: hidden; border-radius: 10px; }
+#pp-embed iframe:first-child { margin-top: -208px; clip-path: inset(208px 0 0 0); }
+
+/* Popup shown from a game: only the game, no profile (that lives on the member page). */
+body.pp-embed .pp-welcome,
+body.pp-embed .pp-grid > .pp-card:first-child { display: none !important; }
+body.pp-embed .pp-grid { grid-template-columns: 1fr; }
+
+.pp-when-charged { background: rgba(127, 217, 154, 0.1); border: 1px solid rgba(127, 217, 154, 0.35); border-radius: 12px; padding: 0.8em 1em; margin: 0.8em 0; display: grid; gap: 0.2em; }
+.pp-when-charged span { color: var(--text-muted); font-size: 0.9rem; }

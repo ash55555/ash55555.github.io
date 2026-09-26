@@ -360,6 +360,7 @@ function fillBooking() {
   $("cb-price-line").textContent = "$" + TEST_GAME.price + ".00 x 1 player";
   $("cb-price-amount").textContent = "$" + TEST_GAME.price + ".00";
   $("cb-total").textContent = "$" + TEST_GAME.price + ".00 / session";
+  $("cb-charge-line").textContent = "Nothing today. $" + TEST_GAME.price + " on " + fmtDay(next) + ", then every game night after that.";
   $("cb-first").textContent = "Nothing is charged today. Your first charge is on game night, " + fmtDay(next) + ".";
 }
 
