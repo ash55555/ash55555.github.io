@@ -549,6 +549,7 @@
         <input id="signup-password-confirm" type="password" name="passwordConfirm" required placeholder="Re-enter your password" autocomplete="new-password" minlength="6">
         <div class="g-recaptcha" id="signup-recaptcha" data-sitekey="6Ld-u8otAAAAAIms3pTww1E8rfstWjgqgOTU72xK"></div>
         <button type="submit" class="btn btn-primary">Sign Up</button>
+        <button type="button" class="link-button modal-switch" id="signup-forgot" hidden>Forgot your password?</button>
         <p class="modal-status" role="status" aria-live="polite"></p>
       </form>
       <button type="button" class="link-button modal-switch" id="signup-mode-toggle">Already have an account? Log in</button>
@@ -568,7 +569,7 @@
   <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
 </footer>
 
-<script src="script.js?v=20260926a"></script>
+<script src="script.js?v=20260926c"></script>
 <!-- Optional: quietly syncs live seat counts / paused games from Firebase
      onto the buttons above once Ash finishes Firebase setup. Does nothing
      until then; see campaigns-data.js. -->

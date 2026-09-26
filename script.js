@@ -428,6 +428,7 @@ function setupSignupModal() {
   const title = modal.querySelector('#signup-modal-title');
   const sub = modal.querySelector('#signup-modal-sub');
   const modeToggle = modal.querySelector('#signup-mode-toggle');
+  const forgotBtn = modal.querySelector('#signup-forgot');
   const closeEls = modal.querySelectorAll('.js-modal-close');
   const guestView = modal.querySelector('#signup-guest-view');
   const memberView = modal.querySelector('#signup-member-view');
@@ -465,6 +466,7 @@ function setupSignupModal() {
     confirmLabel.hidden = !isSignup;
     confirmInput.required = isSignup;
     recaptchaWrap.hidden = !isSignup;
+    forgotBtn.hidden = isSignup;
 
     if (isSignup) {
       title.textContent = 'Get Notified About New Games';
@@ -561,6 +563,39 @@ function setupSignupModal() {
   modeToggle.addEventListener('click', () => {
     mode = mode === 'signup' ? 'login' : 'signup';
     applyMode();
+  });
+
+  // Firebase emails a secure link; the person opens it and chooses a new password.
+  forgotBtn.addEventListener('click', async () => {
+    const email = emailInput.value.trim();
+    if (!email) {
+      status.textContent = 'Type your email above first, then tap "Forgot your password?" again.';
+      status.className = 'modal-status modal-status-error';
+      emailInput.focus();
+      return;
+    }
+    if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+      status.textContent = "Password reset isn't available right now. Try messaging Ash on Discord instead.";
+      status.className = 'modal-status modal-status-error';
+      return;
+    }
+    forgotBtn.disabled = true;
+    status.textContent = 'Sending…';
+    status.className = 'modal-status';
+    try {
+      await firebase.auth().sendPasswordResetEmail(email);
+    } catch (err) {
+      // Same message whether or not the email has an account, so this cannot be used to find out who is signed up.
+      if (err.code !== 'auth/user-not-found' && err.code !== 'auth/invalid-email') {
+        status.textContent = err.message;
+        status.className = 'modal-status modal-status-error';
+        forgotBtn.disabled = false;
+        return;
+      }
+    }
+    status.textContent = 'If ' + email + ' has an account, a link to choose a new password is on its way. Check your Spam folder too.';
+    status.className = 'modal-status modal-status-success';
+    forgotBtn.disabled = false;
   });
 
   form.addEventListener('submit', async (event) => {
