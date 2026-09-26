@@ -289,8 +289,25 @@ async function startJoin() {
   fillBooking();
   if (!realGame) { openModal('pp-checkout'); return; }
   await authReady;
-  if (!me) { openModal('pp-auth'); return; }
-  openRealCheckout();
+  openModal('pp-checkout');
+  syncCheckoutAuth();
+}
+
+function syncCheckoutAuth() {
+  const loggedIn = !!me;
+  $('pp-inline-auth').hidden = loggedIn;
+  $('pp-seat-info').hidden = !loggedIn;
+  $('pp-checkout-go').hidden = true;
+  $('pp-billing-modal').hidden = true;
+  $('pp-embed').innerHTML = '';
+  const note = $('pp-checkout-note');
+  if (loggedIn) {
+    fillBooking();
+    openRealCheckout();
+  } else {
+    note.hidden = false;
+    note.textContent = 'Log in in step 1 and your card form will appear here.';
+  }
 }
 $('pp-join-btn').addEventListener('click', startJoin);
 $('pp-rejoin-btn').addEventListener('click', startJoin);
@@ -306,7 +323,7 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
       renderProfile(); renderAll();
     }
     resolveAuthReady();
-    if (user && !$('pp-auth').hidden) { closeModals(); openRealCheckout(); }
+    if (realGame && !$('pp-checkout').hidden) syncCheckoutAuth();
   });
   $('pp-auth-google').addEventListener('click', () => {
     firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => { $('pp-auth-status').textContent = e.message; });

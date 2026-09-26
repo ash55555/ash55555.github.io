@@ -159,6 +159,18 @@
       <div class="pp-cb-left">
         <section class="pp-cb-card">
           <h4>1. Your seat</h4>
+          <div id="pp-inline-auth">
+            <p class="pp-cb-muted">Log in to the account you made on Ash Tabletop to continue.</p>
+            <button type="button" class="btn btn-google" id="pp-auth-google">Continue with Google</button>
+            <div class="modal-divider"><span>or</span></div>
+            <form id="pp-auth-form">
+              <input id="pp-auth-email" type="email" required placeholder="Email" autocomplete="username" style="width:100%">
+              <input id="pp-auth-pass" type="password" required placeholder="Password" autocomplete="current-password" style="width:100%;margin-top:.6em">
+              <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.8em">Log in</button>
+              <p class="modal-status" id="pp-auth-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+          <div id="pp-seat-info">
           <div class="pp-cb-player">
             <div class="pp-token pp-token-sm" id="cb-token" aria-hidden="true"></div>
             <div>
@@ -167,6 +179,7 @@
             </div>
           </div>
           <p class="pp-cb-muted">One seat at <span id="cb-game-inline"></span>.</p>
+          </div>
         </section>
 
         <section class="pp-cb-card">
@@ -242,26 +255,6 @@
   <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32">
   <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
 </footer>
-
-<div class="modal" id="pp-auth" hidden>
-  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-auth-title">
-    <button type="button" class="modal-close js-close" aria-label="Close">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
-    </button>
-    <h3 id="pp-auth-title">Log in to join</h3>
-    <p class="modal-sub">Use the account you made on Ash Tabletop.</p>
-    <button type="button" class="btn btn-google" id="pp-auth-google">Continue with Google</button>
-    <div class="modal-divider"><span>or</span></div>
-    <form id="pp-auth-form">
-      <label for="pp-auth-email" style="display:block;margin-top:.6em;font-weight:700;font-size:.85rem;color:var(--text-muted)">Email</label>
-      <input id="pp-auth-email" type="email" required autocomplete="username" style="width:100%">
-      <label for="pp-auth-pass" style="display:block;margin-top:.8em;font-weight:700;font-size:.85rem;color:var(--text-muted)">Password</label>
-      <input id="pp-auth-pass" type="password" required autocomplete="current-password" style="width:100%">
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:1em">Log in</button>
-      <p class="modal-status" id="pp-auth-status" role="status" aria-live="polite"></p>
-    </form>
-  </div>
-</div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
