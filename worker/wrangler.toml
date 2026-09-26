@@ -14,8 +14,8 @@ TEST_PLAYER_EMAILS = "biancas@me.com"
 # Card-on-file system. PAY_MODE "sandbox" = pretend money at sandbox.whop.com,
 # "live" = real money. CHARGING_MODE: "off" (never charge), "dry" (log what it
 # would charge, charge nothing), "on" (really charge).
-PAY_MODE = "sandbox"
-CHARGING_MODE = "dry"
+PAY_MODE = "live"
+CHARGING_MODE = "on"
 WHOP_SANDBOX_COMPANY_ID = "biz_A06wLWpjYsaAxB"
 
 # EMAIL_API_KEY is a secret, never stored here.
