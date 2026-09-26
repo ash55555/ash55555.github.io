@@ -10,6 +10,7 @@
 // anything, then hands each email to the email API.
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { handlePay, runCharges } from './pay.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -36,6 +37,9 @@ export default {
     }
     if (url.pathname === '/welcome-email') {
       return handleWelcomeEmail(request, env, corsHeaders);
+    }
+    if (url.pathname.startsWith('/pay/')) {
+      return handlePay(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice(5), sendEmail);
     }
     if (url.pathname.startsWith('/whop/') && url.pathname !== '/whop/checkout' && url.pathname !== '/whop/setup') {
       return handleWhopMembership(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice(6));
@@ -96,6 +100,16 @@ export default {
       .filter(Boolean);
 
     return json({ sent, failed: results.length - sent, total: uniqueEmails.length, errors }, 200, corsHeaders);
+  },
+
+  // Runs every 5 minutes (see wrangler.toml). Charges players for sessions that
+  // have just started. CHARGING_MODE is the kill switch.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      runCharges(env, sendEmail)
+        .then((r) => console.log('charge run', JSON.stringify(r)))
+        .catch((err) => console.error('charge run failed', err && err.message))
+    );
   },
 };
 

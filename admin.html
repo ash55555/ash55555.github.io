@@ -48,6 +48,26 @@
   .top-bar h1 { font-size: 1.4rem; }
   .top-bar img { width: 36px; height: 36px; border-radius: 50%; vertical-align: middle; margin-right: 0.5em; }
 
+  .pay-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
+  .pay-box h2 { font-size: 1.2rem; }
+  .pay-badges { display: flex; flex-wrap: wrap; gap: .5em; margin: .6em 0 1em; }
+  .pay-badge { font-size: .78rem; font-weight: 800; letter-spacing: .04em; padding: .25em .7em; border-radius: 999px; background: var(--bg-panel-2); border: 1px solid var(--border); }
+  .pay-badge.warn { color: var(--gold); border-color: rgba(242,184,79,.5); }
+  .pay-badge.good { color: var(--success); border-color: rgba(127,217,154,.4); }
+  .pay-badge.bad { color: var(--danger); border-color: rgba(224,85,111,.5); }
+  .pay-scroll { overflow-x: auto; }
+  .pay-table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+  .pay-table th, .pay-table td { border-bottom: 1px solid var(--border); padding: .55em .6em; text-align: left; vertical-align: top; white-space: nowrap; }
+  .pay-table th { color: var(--text-muted); font-weight: 700; font-size: .78rem; }
+  .pay-cell { display: grid; gap: .3em; justify-items: start; }
+  .pay-cell.skipped .pay-state { color: var(--gold); }
+  .pay-state.paid { color: var(--success); }
+  .pay-state.failed, .pay-state.failed_final, .pay-state.unknown { color: var(--danger); }
+  .pay-mini { font: inherit; font-size: .76rem; padding: .2em .65em; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-panel-2); color: var(--text); cursor: pointer; }
+  .pay-mini:hover { border-color: var(--purple); }
+  .pay-muted { color: var(--text-muted); font-size: .8rem; }
+  .pay-sub { margin: 1.4em 0 .5em; font-size: 1rem; }
+
   .btn {
     display: inline-flex;
     align-items: center;
@@ -278,6 +298,17 @@
     <div class="top-bar">
       <h1><img src="medie/ash-token.png" alt="">Ash Tabletop Admin</h1>
       <button type="button" class="btn btn-ghost" id="logout-btn">Log Out</button>
+    </div>
+
+    <div class="pay-box" id="pay-box">
+      <h2>🎲 Players &amp; payments</h2>
+      <p class="note">Everyone who joined online with a saved card. Skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>
+      <div class="pay-badges" id="pay-badges"></div>
+      <p class="slot-status" id="pay-status"></p>
+      <h3 class="pay-sub">Upcoming sessions</h3>
+      <div class="pay-scroll"><table class="pay-table" id="pay-upcoming"></table></div>
+      <h3 class="pay-sub">Recent charges</h3>
+      <div class="pay-scroll"><table class="pay-table" id="pay-past"></table></div>
     </div>
 
     <div class="announce-box">
@@ -703,6 +734,160 @@
       document.getElementById('dashboard').style.display = 'none';
     }
   });
+})();
+</script>
+<script>
+(function () {
+  var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
+  var GAME = 'crooked-moon::B';
+  var statusEl = document.getElementById('pay-status');
+
+  function call(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ idToken: idToken, game: GAME }, extra || {}))
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+        return data;
+      });
+    });
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function day(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+  function money(n) { return '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
+  function button(label, fn) {
+    var b = el('button', 'pay-mini', label);
+    b.type = 'button';
+    b.addEventListener('click', function () {
+      b.disabled = true;
+      statusEl.textContent = 'Working...';
+      statusEl.className = 'slot-status';
+      fn().then(function () { return load(); }).catch(function (err) {
+        statusEl.textContent = err.message;
+        statusEl.className = 'slot-status error';
+        b.disabled = false;
+      });
+    });
+    return b;
+  }
+
+  function render(data) {
+    var badges = document.getElementById('pay-badges');
+    badges.innerHTML = '';
+    var mode = el('span', 'pay-badge ' + (data.mode === 'live' ? 'bad' : 'warn'), data.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)');
+    var chg = { on: ['Charging: ON', 'good'], dry: ['Charging: DRY RUN (charges nothing)', 'warn'], off: ['Charging: OFF', 'bad'] }[data.charging] || ['Charging: ' + data.charging, 'warn'];
+    badges.append(mode, el('span', 'pay-badge ' + chg[1], chg[0]),
+      el('span', 'pay-badge', data.game.title),
+      el('span', 'pay-badge', 'Seats ' + data.seats.filled + ' of ' + data.seats.max + ' (' + data.game.legacyFilled + ' still on PayPal)'),
+      el('span', 'pay-badge', money(data.game.price) + ' per session'));
+
+    var skipMap = {};
+    data.skips.forEach(function (s) { skipMap[s.uid + '|' + s.session_ts] = s.by; });
+    var players = data.players.filter(function (p) { return p.status === 'active'; });
+
+    var up = document.getElementById('pay-upcoming');
+    up.innerHTML = '';
+    var head = el('tr');
+    head.append(el('th', null, 'Player'));
+    data.sessions.forEach(function (ts) { head.append(el('th', null, day(ts))); });
+    head.append(el('th', null, ''));
+    up.append(head);
+    if (!players.length) {
+      var empty = el('tr'); var td = el('td', 'pay-muted', 'Nobody has joined online yet.'); td.colSpan = data.sessions.length + 2; empty.append(td); up.append(empty);
+    }
+    players.forEach(function (p) {
+      var tr = el('tr');
+      var who = el('td');
+      who.append(el('div', null, p.name || p.email), el('div', 'pay-muted', p.email + (p.card ? ' · ' + p.card : '')));
+      tr.append(who);
+      data.sessions.forEach(function (ts) {
+        var by = skipMap[p.uid + '|' + ts];
+        var cell = el('td');
+        var box = el('div', 'pay-cell' + (by ? ' skipped' : ''));
+        box.append(el('span', 'pay-state', by ? (by === 'admin' ? 'Skipped by you' : 'Skipped') : 'Playing'));
+        box.append(button(by ? 'Undo skip' : 'Skip for them', function () {
+          return call('admin/skip', { uid: p.uid, ts: ts, skipped: !by });
+        }));
+        cell.append(box);
+        tr.append(cell);
+      });
+      var last = el('td');
+      last.append(button('Remove', function () {
+        if (!confirm('Remove ' + (p.name || p.email) + ' from this game? They will not be charged again.')) return Promise.reject(new Error('Cancelled.'));
+        return call('admin/remove', { uid: p.uid });
+      }));
+      tr.append(last);
+      up.append(tr);
+    });
+
+    var past = document.getElementById('pay-past');
+    past.innerHTML = '';
+    var firstJoin = data.players.reduce(function (min, p) { return !min || p.joinedAt < min ? p.joinedAt : min; }, '');
+    var pastSessions = data.pastSessions.filter(function (ts) { return firstJoin && ts > firstJoin; }).slice(0, 4);
+    var ph = el('tr');
+    ph.append(el('th', null, 'Player'));
+    pastSessions.forEach(function (ts) { ph.append(el('th', null, day(ts))); });
+    past.append(ph);
+    var everyone = data.players.filter(function (p) {
+      return p.status === 'active' || data.charges.some(function (c) { return c.uid === p.uid; });
+    });
+    if (!everyone.length) {
+      var e2 = el('tr'); var t2 = el('td', 'pay-muted', 'No charges yet.'); t2.colSpan = pastSessions.length + 1; e2.append(t2); past.append(e2);
+    }
+    everyone.forEach(function (p) {
+      var tr = el('tr');
+      tr.append(el('td', null, p.name || p.email));
+      pastSessions.forEach(function (ts) {
+        var cell = el('td');
+        var c = data.charges.filter(function (x) { return x.uid === p.uid && x.ts === ts; })[0];
+        var skipped = skipMap[p.uid + '|' + ts];
+        var box = el('div', 'pay-cell');
+        if (c) {
+          var label = { paid: 'Paid ' + money(c.amount), refunded: 'Refunded', failed: 'Card declined', failed_final: 'Gave up', pending: 'Processing', unknown: 'Check Whop', 'new': 'Queued' }[c.status] || c.status;
+          if (c.status === 'paid' && c.refunded > 0) label += ' (' + money(c.refunded) + ' refunded)';
+          box.append(el('span', 'pay-state ' + c.status, label));
+          if (c.error && (c.status === 'failed' || c.status === 'failed_final' || c.status === 'unknown')) box.append(el('span', 'pay-muted', c.error));
+          if (c.status === 'paid') {
+            box.append(button('Refund', function () {
+              if (!confirm('Refund ' + money(c.amount - c.refunded) + ' to ' + (p.name || p.email) + '?')) return Promise.reject(new Error('Cancelled.'));
+              return call('admin/refund', { uid: p.uid, ts: ts });
+            }));
+          }
+          if (c.status === 'failed_final') box.append(button('Try again', function () { return call('admin/retry', { uid: p.uid, ts: ts }); }));
+        } else {
+          box.append(el('span', 'pay-muted', skipped ? 'Skipped' : (p.joinedAt && p.joinedAt >= ts ? 'Not in yet' : '-')));
+        }
+        cell.append(box);
+        tr.append(cell);
+      });
+      past.append(tr);
+    });
+  }
+
+  function load() {
+    return call('admin/roster').then(function (data) {
+      render(data);
+      statusEl.textContent = '';
+    }).catch(function (err) {
+      statusEl.textContent = err.message;
+      statusEl.className = 'slot-status error';
+    });
+  }
+
+  firebase.auth().onAuthStateChanged(function (user) { if (user) load(); });
 })();
 </script>
 </body>

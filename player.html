@@ -127,6 +127,7 @@
       <!-- Joined -->
       <div id="pp-joined-panel" hidden>
         <div class="pp-billing" id="pp-billing-active"></div>
+        <button type="button" class="link-button" id="pp-update-card" hidden>Update my card</button>
         <h3>Upcoming sessions</h3>
         <p class="pp-fineprint" id="pp-manage-note" hidden>Skipping a session or leaving the game is being connected. For now, message Ash and it gets done for you.</p>
         <ul class="pp-sessions" id="pp-sessions"></ul>
@@ -157,7 +158,10 @@
       <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
     </button>
     <h3 id="pp-checkout-title">Confirm booking</h3>
-    <p class="pp-demo-banner" id="pp-demo-banner" hidden><strong>DEMO MODE</strong> (this computer only). You are pretending to be logged in. This is the real payment form, so do not enter a real card unless you want a real subscription.</p>
+    <div class="pp-done" id="pp-done" hidden>
+      <p id="pp-done-text"></p>
+      <button type="button" class="btn btn-primary" id="pp-done-close">See my table</button>
+    </div>
 
     <div class="pp-cb-grid">
       <div class="pp-cb-left">
@@ -171,6 +175,7 @@
               <input id="pp-auth-email" type="email" required placeholder="Email" autocomplete="username" style="width:100%">
               <input id="pp-auth-pass" type="password" required placeholder="Password" autocomplete="current-password" style="width:100%;margin-top:.6em">
               <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.8em">Log in</button>
+              <button type="button" class="link-button" id="pp-auth-forgot" style="margin-top:.6em">Forgot your password?</button>
               <p class="modal-status" id="pp-auth-status" role="status" aria-live="polite"></p>
             </form>
           </div>
@@ -192,6 +197,7 @@
           <div class="pp-when-charged"><strong>You are charged on game night.</strong><span id="cb-charge-line"></span></div>
           <div class="pp-billing" id="pp-billing-modal"></div>
           <div id="pp-embed"></div>
+          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $10 on game night for each session you have not skipped, until you leave the game. Skip a session or leave any time up to 24 hours before it starts.</p>
           <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
           <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
           <p class="pp-fineprint" id="pp-checkout-note" hidden></p>

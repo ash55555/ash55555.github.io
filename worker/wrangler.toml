@@ -11,5 +11,20 @@ WHOP_COMPANY_ID = "biz_iSafQUiIY2ST8C"
 WHOP_PRODUCT_ID = "prod_WkFRIyVpCDiJo"
 TEST_PLAYER_EMAILS = "biancas@me.com"
 
+# Card-on-file system. PAY_MODE "sandbox" = pretend money at sandbox.whop.com,
+# "live" = real money. CHARGING_MODE: "off" (never charge), "dry" (log what it
+# would charge, charge nothing), "on" (really charge).
+PAY_MODE = "sandbox"
+CHARGING_MODE = "dry"
+WHOP_SANDBOX_COMPANY_ID = "biz_A06wLWpjYsaAxB"
+
 # EMAIL_API_KEY is a secret, never stored here.
 # Set it once with: wrangler secret put EMAIL_API_KEY
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ash-tabletop-pay"
+database_id = "f709f540-fd5b-4838-b4a2-a4268b3f28e4"

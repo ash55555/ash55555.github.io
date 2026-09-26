@@ -1,5 +1,6 @@
-// PREVIEW ONLY: this page runs on sample data so Ash can see what a player
-// sees. Nothing here talks to Firebase, Whop, or any real account yet.
+// The player page. Games listed in REAL_GAMES talk to the Worker (real card-on-file
+// booking, skipping, leaving). Everything else on this page still runs on sample
+// data for preview.
 
 const CAMPAIGN_NAMES = {
   "flying-city": "The Prophecy of the Flying City",
@@ -28,10 +29,7 @@ const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("s
 const realGame = hasGame && REAL_GAMES.has(gameKey);
 const planLink = null;
 let me = null;
-// Demo mode (this computer only): pretend to be logged in so the payment page can be previewed.
-const demo = query.get("demo") === "1" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const DEMO_CONFIG_ID = "ch_i1dSnRGjUTub4Jb";
-if (demo) me = { email: "demo.player@example.com", uid: "demo", displayName: "Demo Player", getIdToken: async () => "demo" };
+let serverState = null; // what the Worker says about this player and this game
 if (query.get("embed") === "1") document.body.classList.add("pp-embed");
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
 const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
@@ -149,11 +147,17 @@ function renderRoster() {
     list.appendChild(li);
   };
   add('Ash', 'dragon', 'DM');
-  SAMPLE_OTHERS.forEach((p) => add(p.name, p.token));
-  const mine = view === 'joined' || view === 'skipped';
-  if (mine) add((profile.name.trim() || 'Player') + ' (you)', profile.token);
-  const filled = SAMPLE_OTHERS.length + (mine ? 1 : 0);
-  const open = TEST_GAME.seatsMax - filled;
+  const seats = seatNumbers();
+  if (realGame && serverState) {
+    const anonymous = Math.max(0, seats.filled - serverState.roster.length);
+    for (let i = 0; i < anonymous; i++) add('Player', OTHER_TOKENS[i % OTHER_TOKENS.length]);
+    serverState.roster.forEach((p) => add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice'));
+  } else {
+    SAMPLE_OTHERS.forEach((p) => add(p.name, p.token));
+    if (view === 'joined' || view === 'skipped') add((profile.name.trim() || 'Player') + ' (you)', profile.token);
+  }
+  const filled = seats.filled;
+  const open = seats.max - filled;
   for (let i = 0; i < Math.min(open, 2); i++) {
     const li = document.createElement('li');
     li.className = 'pp-open';
@@ -166,8 +170,15 @@ function renderRoster() {
     li.textContent = '+' + (open - 2) + ' more open';
     list.appendChild(li);
   }
-  $('pp-seats').textContent = filled + ' of ' + TEST_GAME.seatsMax + ' filled';
-  $('pp-seatbar-fill').style.width = (filled / TEST_GAME.seatsMax) * 100 + '%';
+  $('pp-seats').textContent = filled + ' of ' + seats.max + ' filled';
+  $('pp-seatbar-fill').style.width = (filled / seats.max) * 100 + '%';
+}
+
+// Seat counts: the Worker's numbers for real games once we have them, sample numbers otherwise.
+function seatNumbers() {
+  if (realGame && serverState) return { filled: serverState.seats.filled, max: serverState.seats.max };
+  const mine = view === 'joined' || view === 'skipped';
+  return { filled: SAMPLE_OTHERS.length + (mine ? 1 : 0), max: TEST_GAME.seatsMax };
 }
 
 function billingHtml(next) {
@@ -181,11 +192,11 @@ function renderGame() {
   $("pp-game-eyebrow").textContent = TEST_GAME.eyebrow;
   document.title = TEST_GAME.title + " | Ash Tabletop";
   $("pp-left-title").textContent = "You left " + TEST_GAME.title + ".";
-  const openSeats = TEST_GAME.seatsMax - SAMPLE_OTHERS.length - (view === "joined" || view === "skipped" ? 1 : 0);
+  const openSeats = seatNumbers().max - seatNumbers().filled;
   $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to Ash about a spot.";
   const joinClosed = !preview && !realGame;
   if (joinClosed && openSeats > 0) $("pp-open-seats").textContent = openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left.";
-  const full = SAMPLE_OTHERS.length >= TEST_GAME.seatsMax;
+  const full = openSeats <= 0 && view !== "joined" && view !== "skipped";
   ["pp-join-btn", "pp-rejoin-btn"].forEach((id) => { $(id).disabled = full; });
   const sessions = upcomingSessions(4);
   const next = sessions[0];
@@ -218,31 +229,38 @@ function renderGame() {
   const billing = billingHtml(next);
   $('pp-billing-preview').innerHTML = billing;
   $('pp-billing-modal').innerHTML = billing;
-  const chargeDate = realControls() && nextChargeAt ? new Date(nextChargeAt) : null;
-  $('pp-billing-active').innerHTML = '<strong>' + (view === 'skipped' ? 'This session is skipped. ' : '') + 'Next charge: ' +
-    (chargeDate ? fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) : fmtDay(view === 'skipped' ? sessions[1] : next) + ' at ' + fmtTime(next)) + '</strong>' +
-    '<span>$' + TEST_GAME.price + ' per session. Billed only for the weeks you play.</span>';
+  const real = realControls() && serverState && serverState.joined;
+  const rows = real
+    ? serverState.sessions.map((s) => ({ d: new Date(s.ts), ts: s.ts, skipped: s.skipped, canChange: s.canChange, by: s.skippedBy }))
+    : sessions.map((d, i) => ({ d, ts: null, skipped: skippedIdx.has(i), canChange: preview, by: null }));
+  const nextCharged = rows.find((r) => !r.skipped);
+  const chargeDate = real ? (nextCharged ? nextCharged.d : null) : (view === 'skipped' ? sessions[1] : next);
+  const card = real && serverState.card && serverState.card.last4 ? ' Card on file: ' + (serverState.card.brand || 'card') + ' ending ' + serverState.card.last4 + '.' : '';
+  $('pp-billing-active').innerHTML = '<strong>' + (rows[0] && rows[0].skipped ? 'This session is skipped. ' : '') + 'Next charge: ' +
+    (chargeDate ? fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) : 'none scheduled') + '</strong>' +
+    '<span>$' + TEST_GAME.price + ' per session. Billed only for the weeks you play.' + card + '</span>';
+  $('pp-update-card').hidden = !real;
 
   const list = $('pp-sessions');
   list.innerHTML = '';
-  sessions.forEach((d, i) => {
-    const skipped = skippedIdx.has(i);
+  rows.forEach((row, i) => {
+    const d = row.d;
+    const skipped = row.skipped;
     const li = document.createElement('li');
     li.className = 'pp-session' + (skipped ? ' skipped' : '');
     const info = document.createElement('div');
     info.innerHTML = '<span class="pp-session-when">' + fmtDay(d) + ' · ' + fmtTime(d) + '</span>' +
-      '<span class="pp-session-note">' + (skipped ? "Skipped. You won't be charged this week." : 'You are playing. $' + TEST_GAME.price + ' will be charged.') + '</span>';
+      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by Ash. You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing. $' + TEST_GAME.price + ' will be charged.') + '</span>';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-ghost btn-small';
     btn.textContent = skipped ? 'Undo skip' : 'Skip this session';
-    const real = realControls();
     btn.addEventListener('click', () => {
       if (real) {
         const action = skipped ? 'unskip' : 'skip';
         const go = async () => {
           try {
-            applyStatus(await api(action));
+            applyStatus(await api(action, { ts: row.ts }));
             toast(skipped ? 'Skip undone.' : "Skipped. You won't be charged for this session.");
           } catch (err) { toast(err.message); }
         };
@@ -253,33 +271,34 @@ function renderGame() {
       if (skipped) { skippedIdx.delete(i); syncView(); return; }
       ask('Skip ' + fmtDay(d) + '?', "Your seat stays yours and you won't be charged for this session.", () => { skippedIdx.add(i); syncView(); });
     });
-    if ((real && i === 0) || (!real && preview)) li.append(info, btn); else li.append(info);
+    if (row.canChange) li.append(info, btn); else li.append(info);
     list.appendChild(li);
   });
 }
 
-let nextChargeAt = null;
-const realControls = () => realGame && !!me && !demo;
+const realControls = () => realGame && !!me;
 
-async function api(action) {
+async function api(action, extra) {
   const idToken = await me.getIdToken();
-  const res = await fetch(WORKER_URL + '/whop/' + action, {
+  const res = await fetch(WORKER_URL + '/pay/' + action, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idToken, game: gameKey }),
+    body: JSON.stringify({ ...(extra || {}), idToken, game: gameKey }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+  if (!res.ok && res.status !== 202) throw new Error(data.error || 'Something went wrong. Please try again.');
+  data._status = res.status;
   return data;
 }
 
 function applyStatus(s) {
-  nextChargeAt = s.nextChargeAt || null;
+  serverState = s;
   if (s.joined) {
-    view = s.paused ? 'skipped' : 'joined';
-    skippedIdx = s.paused ? new Set([0]) : new Set();
-  } else if (view === 'joined' || view === 'skipped') {
-    view = 'notjoined';
+    const first = s.sessions && s.sessions[0];
+    view = first && first.skipped ? 'skipped' : 'joined';
+    skippedIdx = new Set();
+  } else {
+    view = s.left ? 'left' : 'notjoined';
     skippedIdx = new Set();
   }
   renderAll();
@@ -374,11 +393,12 @@ function syncCheckoutAuth() {
   }
 }
 $('pp-join-btn').addEventListener('click', startJoin);
+$('pp-update-card').addEventListener('click', startJoin);
 $('pp-rejoin-btn').addEventListener('click', startJoin);
 
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
-    if (!demo) me = user;
+    me = user;
     if (user && realGame) {
       if (!store.get('pp-profile-set', false)) {
         profile.name = user.displayName || (user.email || 'Player').split('@')[0];
@@ -391,6 +411,14 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
   });
   $('pp-auth-google').addEventListener('click', () => {
     firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => { $('pp-auth-status').textContent = e.message; });
+  });
+  $('pp-auth-forgot').addEventListener('click', async () => {
+    const email = $('pp-auth-email').value.trim();
+    if (!email) { $('pp-auth-status').textContent = 'Type your email above first, then tap "Forgot your password?" again.'; return; }
+    try { await firebase.auth().sendPasswordResetEmail(email); } catch (err) {
+      if (err.code !== 'auth/user-not-found' && err.code !== 'auth/invalid-email') { $('pp-auth-status').textContent = err.message; return; }
+    }
+    $('pp-auth-status').textContent = 'If ' + email + ' has an account, a link to choose a new password is on its way. Check Spam too.';
   });
   $('pp-auth-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -442,44 +470,38 @@ function loadWhopElements() {
   return whopElementsPromise;
 }
 
+// Step 2 of booking: the player ticks the consent boxes, then Whop's secure form
+// (save card only, nothing charged today) appears. Once Whop says the card is
+// saved, the Worker double-checks with Whop and records the player as joined.
+let checkoutRun = 0;
 async function openRealCheckout() {
   fillBooking();
+  const run = ++checkoutRun;
+  showDone(null);
   const note = $('pp-checkout-note');
-  $('pp-checkout-sub').textContent = "You'll pay on Whop's own secure form, so your card details never touch this website.";
+  const updating = !!(serverState && serverState.joined);
+  $('pp-checkout-title').textContent = updating ? 'Update your card' : 'Confirm booking';
+  $('pp-checkout-sub').textContent = "You'll add your card on Whop's own secure form, so your card details never touch this website.";
   $('pp-billing-modal').hidden = true;
   $('pp-checkout-go').hidden = true;
   $('pp-paid-done').hidden = true;
   $('pp-embed').innerHTML = '';
-  note.hidden = false;
-  note.textContent = 'Getting your secure checkout ready...';
+  $('pp-consent').hidden = false;
   openModal('pp-checkout');
+  mountCardForm(run);
+}
+
+async function mountCardForm(run) {
+  const note = $('pp-checkout-note');
+  note.hidden = false;
+  note.textContent = 'Getting your secure card form ready...';
   try {
-    let data;
-    if (demo) {
-      data = { configId: DEMO_CONFIG_ID, planId: 'demo' };
-    } else {
-      const idToken = await me.getIdToken();
-      const res = await fetch(WORKER_URL + '/whop/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken, game: gameKey }),
-      });
-      data = await res.json();
-      if (!res.ok || !data.planId) throw new Error(data.error || 'Something went wrong. Please try again.');
-    }
+    const data = await api('setup', { returnQuery: window.location.search });
     await loadWhopElements();
-    const onComplete = () => {
-      setTimeout(loadStatus, 3000);
-      setTimeout(loadStatus, 9000);
-      view = 'joined';
-      skippedIdx = new Set();
-      renderAll();
-      $('pp-checkout-title').textContent = "You're in!";
-      $('pp-paid-done').textContent = 'See my table';
-      $('pp-paid-done').hidden = false;
-    };
-    const session = window.WhopElements().checkout.create({ checkoutConfiguration: data.configId, onComplete });
-    const element = session.create('checkout', demo ? { onComplete } : { buyerEmail: me.email, lockBuyerEmail: true, onComplete });
+    if (run !== checkoutRun) return;
+    const elements = window.WhopElements(data.environment === 'sandbox' ? { environment: 'sandbox' } : {});
+    const session = elements.checkout.create({ checkoutConfiguration: data.configId, onComplete: () => finishJoin(data.configId, run) });
+    const element = session.create('checkout', { buyerEmail: me.email, lockBuyerEmail: true, onComplete: () => finishJoin(data.configId, run) });
     element.mount($('pp-embed'));
     note.hidden = true;
   } catch (err) {
@@ -487,15 +509,56 @@ async function openRealCheckout() {
   }
 }
 
+// Replaces the whole booking screen with one short message (or brings it back when text is null).
+function showDone(text, title) {
+  const dialog = document.querySelector('.pp-checkout-dialog');
+  dialog.classList.toggle('is-done', text !== null);
+  $('pp-done').hidden = text === null;
+  if (text !== null) {
+    $('pp-done-text').textContent = text;
+    if (title) $('pp-checkout-title').textContent = title;
+  }
+}
+
+let finishing = false;
+async function finishJoin(configId, run, setupIntentId) {
+  if (finishing || (run !== undefined && run !== checkoutRun)) return;
+  finishing = true;
+  showDone('One moment, saving your seat...', 'Saving your seat');
+  $('pp-done-close').hidden = true;
+  try {
+    let status = null;
+    for (let i = 0; i < 10 && !status; i++) {
+      const r = await api('complete', { configId, setupIntentId, consent: true, adult: true, name: profile.name, token: profile.token });
+      if (r._status === 202) { await new Promise((ok) => setTimeout(ok, 1500)); continue; }
+      status = r;
+    }
+    if (!status) throw new Error('Your card was saved but we could not confirm your seat yet. Refresh in a moment, or message Ash.');
+    applyStatus(status);
+    $('pp-embed').innerHTML = '';
+    $('pp-consent').hidden = true;
+    showDone('Your card is saved and your seat is confirmed. See you at the table!', "You're all set!");
+    $('pp-done-close').hidden = false;
+  } catch (err) {
+    showDone(err.message, 'Something went wrong');
+    $('pp-done-close').textContent = 'Close';
+    $('pp-done-close').hidden = false;
+  } finally {
+    finishing = false;
+  }
+}
+
 $('pp-checkout-go').addEventListener('click', () => { markJoined(); });
 $('pp-paid-done').addEventListener('click', closeModals);
+$('pp-done-close').addEventListener('click', closeModals);
 $('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", async () => {
   if (realControls()) {
     try { await api('leave'); } catch (err) { toast(err.message); return; }
+    try { applyStatus(await api('status')); return; } catch (err) { /* fall through to the simple view */ }
   }
   view = 'left';
   skippedIdx = new Set();
-  nextChargeAt = null;
+  serverState = null;
   renderAll();
 }));
 $('pp-confirm-yes').addEventListener('click', () => { const fn = onConfirm; onConfirm = null; closeModals(); if (fn) fn(); });
@@ -506,8 +569,23 @@ if (hasGame && query.get("back")) {
   backLink.href = back.endsWith("/") || back.endsWith("index.html") ? back + "#campaigns" : back;
   backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
 }
-if (demo) $("pp-demo-banner").hidden = false;
 document.querySelector(".pp-previewbar").hidden = !preview;
 if (!preview && !hasGame) { $("pp-game-card").hidden = true; $("pp-nogames").hidden = false; }
 renderProfile();
 renderAll();
+
+// Coming back from Whop after saving a card: finish booking the seat.
+(async function returnFromWhop() {
+  const intentId = query.get('setup_intent_id');
+  if (!realGame || !intentId || query.get('checkout_status') === 'failed') return;
+  await authReady;
+  if (!me) return;
+  $('pp-consent').hidden = true;
+  $('pp-embed').innerHTML = '';
+  openModal('pp-checkout');
+  await finishJoin(null, undefined, intentId);
+  // Tidy the address bar so a refresh does not try to save the same card twice.
+  const clean = new URLSearchParams(window.location.search);
+  ['setup_intent_id', 'payment_method_id', 'checkout_status', 'status', 'state_id', 'saved'].forEach((k) => clean.delete(k));
+  history.replaceState(null, '', window.location.pathname + (clean.toString() ? '?' + clean.toString() : ''));
+})();
