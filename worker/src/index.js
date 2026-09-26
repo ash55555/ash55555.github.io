@@ -37,8 +37,11 @@ export default {
     if (url.pathname === '/welcome-email') {
       return handleWelcomeEmail(request, env, corsHeaders);
     }
-    if (url.pathname.startsWith('/whop/') && url.pathname !== '/whop/checkout') {
+    if (url.pathname.startsWith('/whop/') && url.pathname !== '/whop/checkout' && url.pathname !== '/whop/setup') {
       return handleWhopMembership(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice(6));
+    }
+    if (url.pathname === '/whop/setup') {
+      return handleWhopSetup(request, env, corsHeaders, originOk ? requestOrigin : null);
     }
     if (url.pathname === '/whop/checkout') {
       return handleWhopCheckout(request, env, corsHeaders, originOk ? requestOrigin : null);
@@ -413,4 +416,49 @@ async function handleWhopMembership(request, env, corsHeaders, origin, action) {
   } catch (err) {
     return json({ error: err.message }, 502, corsHeaders);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Card-on-file: this checkout only SAVES a card (no charge, no trial). The
+// Worker charges it later, on game nights, itself.
+// ---------------------------------------------------------------------------
+async function handleWhopSetup(request, env, corsHeaders, origin) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400, corsHeaders); }
+  const { idToken, game: gameKey } = body || {};
+  if (!idToken || !GAMES[gameKey]) return json({ error: 'Missing sign-in or unknown game' }, 400, corsHeaders);
+
+  let user;
+  try {
+    const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
+    const { payload } = await jwtVerify(idToken, jwks, {
+      issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
+      audience: env.FIREBASE_PROJECT_ID,
+    });
+    user = payload;
+  } catch {
+    return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+  }
+  const allowed = (env.TEST_PLAYER_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const email = (user.email || '').toLowerCase();
+  if (user.sub !== env.ADMIN_UID && !allowed.includes(email)) {
+    return json({ error: 'Joining online is not open to everyone yet. Please message Ash.' }, 403, corsHeaders);
+  }
+
+  const r = await whopCall(env, '/checkout_configurations', {
+    method: 'POST',
+    body: JSON.stringify({
+      mode: 'setup',
+      account_id: env.WHOP_COMPANY_ID,
+      currency: 'usd',
+      payment_method_configuration: { enabled: ['card'], disabled: [], include_platform_defaults: false },
+      three_ds_level: 'mandate_challenge',
+      metadata: { uid: user.sub, email, game: gameKey },
+    }),
+  });
+  if (!r.ok) return json({ error: 'Could not start card setup.', detail: r.data }, 502, corsHeaders);
+  return json({ configId: r.data.id }, 200, corsHeaders);
 }
