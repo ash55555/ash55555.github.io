@@ -210,14 +210,17 @@ function renderGame() {
   $('pp-join-steps').hidden = joinClosed;
   $('pp-billing-preview').hidden = joinClosed;
   $('pp-join-closed').hidden = !joinClosed;
-  $('pp-manage-note').hidden = preview;
-  $('pp-skip-fineprint').hidden = !preview;
-  $('pp-leave-btn').hidden = !preview;
+  const controlsOn = preview || realControls();
+  $('pp-manage-note').hidden = controlsOn;
+  $('pp-skip-fineprint').hidden = !controlsOn;
+  $('pp-leave-btn').hidden = !controlsOn;
 
   const billing = billingHtml(next);
   $('pp-billing-preview').innerHTML = billing;
   $('pp-billing-modal').innerHTML = billing;
-  $('pp-billing-active').innerHTML = '<strong>Next charge: ' + fmtDay(view === 'skipped' ? sessions[1] : next) + ' at ' + fmtTime(next) + '</strong>' +
+  const chargeDate = realControls() && nextChargeAt ? new Date(nextChargeAt) : null;
+  $('pp-billing-active').innerHTML = '<strong>' + (view === 'skipped' ? 'This session is skipped. ' : '') + 'Next charge: ' +
+    (chargeDate ? fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) : fmtDay(view === 'skipped' ? sessions[1] : next) + ' at ' + fmtTime(next)) + '</strong>' +
     '<span>$' + TEST_GAME.price + ' per session. Billed only for the weeks you play.</span>';
 
   const list = $('pp-sessions');
@@ -233,13 +236,58 @@ function renderGame() {
     btn.type = 'button';
     btn.className = 'btn btn-ghost btn-small';
     btn.textContent = skipped ? 'Undo skip' : 'Skip this session';
+    const real = realControls();
     btn.addEventListener('click', () => {
+      if (real) {
+        const action = skipped ? 'unskip' : 'skip';
+        const go = async () => {
+          try {
+            applyStatus(await api(action));
+            toast(skipped ? 'Skip undone.' : "Skipped. You won't be charged for this session.");
+          } catch (err) { toast(err.message); }
+        };
+        if (skipped) go();
+        else ask('Skip ' + fmtDay(d) + '?', "Your seat stays yours and you won't be charged for this session.", go);
+        return;
+      }
       if (skipped) { skippedIdx.delete(i); syncView(); return; }
       ask('Skip ' + fmtDay(d) + '?', "Your seat stays yours and you won't be charged for this session.", () => { skippedIdx.add(i); syncView(); });
     });
-    if (preview) li.append(info, btn); else li.append(info);
+    if ((real && i === 0) || (!real && preview)) li.append(info, btn); else li.append(info);
     list.appendChild(li);
   });
+}
+
+let nextChargeAt = null;
+const realControls = () => realGame && !!me && !demo;
+
+async function api(action) {
+  const idToken = await me.getIdToken();
+  const res = await fetch(WORKER_URL + '/whop/' + action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ idToken, game: gameKey }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
+}
+
+function applyStatus(s) {
+  nextChargeAt = s.nextChargeAt || null;
+  if (s.joined) {
+    view = s.paused ? 'skipped' : 'joined';
+    skippedIdx = s.paused ? new Set([0]) : new Set();
+  } else if (view === 'joined' || view === 'skipped') {
+    view = 'notjoined';
+    skippedIdx = new Set();
+  }
+  renderAll();
+}
+
+async function loadStatus() {
+  if (!realControls()) return;
+  try { applyStatus(await api('status')); } catch (err) { /* keep what is on screen */ }
 }
 
 function syncView() {
@@ -335,10 +383,10 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
       if (!store.get('pp-profile-set', false)) {
         profile.name = user.displayName || (user.email || 'Player').split('@')[0];
       }
-      if (store.get(joinedKey(user.uid), false) && view === 'notjoined') view = 'joined';
       renderProfile(); renderAll();
     }
     resolveAuthReady();
+    loadStatus();
     if (realGame && !$('pp-checkout').hidden) syncCheckoutAuth();
   });
   $('pp-auth-google').addEventListener('click', () => {
@@ -421,7 +469,8 @@ async function openRealCheckout() {
     }
     await loadWhopElements();
     const onComplete = () => {
-      store.set(joinedKey(me.uid), true);
+      setTimeout(loadStatus, 3000);
+      setTimeout(loadStatus, 9000);
       view = 'joined';
       skippedIdx = new Set();
       renderAll();
@@ -440,7 +489,15 @@ async function openRealCheckout() {
 
 $('pp-checkout-go').addEventListener('click', () => { markJoined(); });
 $('pp-paid-done').addEventListener('click', closeModals);
-$('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", () => { view = 'left'; skippedIdx = new Set(); renderAll(); }));
+$('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", async () => {
+  if (realControls()) {
+    try { await api('leave'); } catch (err) { toast(err.message); return; }
+  }
+  view = 'left';
+  skippedIdx = new Set();
+  nextChargeAt = null;
+  renderAll();
+}));
 $('pp-confirm-yes').addEventListener('click', () => { const fn = onConfirm; onConfirm = null; closeModals(); if (fn) fn(); });
 
 if (hasGame && query.get("back")) {

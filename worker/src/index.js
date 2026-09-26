@@ -37,6 +37,9 @@ export default {
     if (url.pathname === '/welcome-email') {
       return handleWelcomeEmail(request, env, corsHeaders);
     }
+    if (url.pathname.startsWith('/whop/') && url.pathname !== '/whop/checkout') {
+      return handleWhopMembership(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice(6));
+    }
     if (url.pathname === '/whop/checkout') {
       return handleWhopCheckout(request, env, corsHeaders, originOk ? requestOrigin : null);
     }
@@ -298,4 +301,116 @@ async function handleWhopCheckout(request, env, corsHeaders, origin) {
   }
   const url = data.purchase_url && data.purchase_url.startsWith('http') ? data.purchase_url : `https://whop.com${data.purchase_url}`;
   return json({ url, configId: data.id, planId: data.plan && data.plan.id, firstChargeAt: new Date(now.getTime() + trialDays * DAY_MS).toISOString(), gameStart: start.toISOString(), trialDays }, 200, corsHeaders);
+}
+
+// ---------------------------------------------------------------------------
+// Player self-service: status, skip, undo skip, leave. All of these act ONLY on
+// the signed-in player's own membership (matched by their verified email) and
+// are limited to the same test list as checkout.
+// ---------------------------------------------------------------------------
+const WHOP_API = 'https://api.whop.com/api/v1';
+const SKIP_CUTOFF_MS = 24 * 60 * 60 * 1000;
+
+async function whopCall(env, path, init = {}) {
+  const res = await fetch(WHOP_API + path, {
+    ...init,
+    headers: { Authorization: `Bearer ${env.WHOP_API_KEY}`, 'Content-Type': 'application/json' },
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function findMembership(env, uid, gameKey) {
+  const r = await whopCall(env, `/memberships?account_id=${env.WHOP_COMPANY_ID}&first=100&order=created_at&direction=desc`);
+  if (!r.ok) throw new Error(`Whop lookup failed (${r.status})`);
+  const list = r.data.data || [];
+  const mine = list.filter((m) => m.metadata && m.metadata.uid === uid && m.metadata.game === gameKey);
+  const live = mine.find((m) => ['trialing', 'active', 'past_due', 'canceling'].includes(m.status));
+  return live || mine[0] || null;
+}
+
+function isSkipped(m) {
+  return !!(m.payment_collection_paused || (m.metadata && m.metadata.skip_resumes_at && new Date(m.metadata.skip_resumes_at) > new Date()));
+}
+
+function membershipView(m) {
+  if (!m) return { joined: false };
+  const live = ['trialing', 'active', 'past_due'].includes(m.status);
+  return {
+    joined: live,
+    status: m.status,
+    membershipId: m.id,
+    paused: live && isSkipped(m),
+    nextChargeAt: m.current_period_end || null,
+  };
+}
+
+async function handleWhopMembership(request, env, corsHeaders, origin, action) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
+  if (!['status', 'skip', 'unskip', 'leave'].includes(action)) return json({ error: 'Unknown action' }, 404, corsHeaders);
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400, corsHeaders); }
+  if (!body || !body.idToken) return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+
+  let user;
+  try {
+    const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
+    const { payload } = await jwtVerify(body.idToken, jwks, {
+      issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
+      audience: env.FIREBASE_PROJECT_ID,
+    });
+    user = payload;
+  } catch {
+    return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+  }
+  const allowed = (env.TEST_PLAYER_EMAILS || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const email = (user.email || '').toLowerCase();
+  if (user.sub !== env.ADMIN_UID && !allowed.includes(email)) {
+    return json({ error: 'Joining online is not open to everyone yet. Please message Ash.' }, 403, corsHeaders);
+  }
+
+  try {
+    const gameKey = body.game;
+    if (!GAMES[gameKey]) return json({ error: 'Unknown game' }, 400, corsHeaders);
+    const m = await findMembership(env, user.sub, gameKey);
+    if (action === 'status') return json(membershipView(m), 200, corsHeaders);
+    if (!m || !['trialing', 'active', 'past_due'].includes(m.status)) {
+      return json({ error: 'You are not in this game right now.' }, 409, corsHeaders);
+    }
+
+    if (action === 'skip') {
+      const charge = m.current_period_end ? new Date(m.current_period_end) : null;
+      if (!charge) return json({ error: 'Could not find your next session. Please message Ash.' }, 409, corsHeaders);
+      if (charge.getTime() - Date.now() < SKIP_CUTOFF_MS) {
+        return json({ error: 'It is less than 24 hours before this session, so it is too late to skip it here. Please message Ash.' }, 409, corsHeaders);
+      }
+      const resumesAt = new Date(charge.getTime() + 2 * 60 * 60 * 1000).toISOString();
+      if (isSkipped(m)) return json({ ...membershipView(m), skipped: true }, 200, corsHeaders);
+      const r = await whopCall(env, `/memberships/${m.id}/pause`, { method: 'POST', body: JSON.stringify({ resumes_at: resumesAt }) });
+      if (!r.ok) return json({ error: 'Could not skip. Please message Ash.', detail: r.data }, 502, corsHeaders);
+      const marked = await whopCall(env, `/memberships/${m.id}`, { method: 'PATCH', body: JSON.stringify({ metadata: { ...(m.metadata || {}), skip_resumes_at: resumesAt } }) });
+      return json({ ...membershipView(marked.ok ? marked.data : { ...m, metadata: { ...(m.metadata || {}), skip_resumes_at: resumesAt } }), skipped: true, resumesAt, pauseResponseKeys: Object.keys(r.data || {}) }, 200, corsHeaders);
+    }
+
+    if (action === 'unskip') {
+      const charge = m.current_period_end ? new Date(m.current_period_end) : null;
+      if (charge && charge.getTime() - Date.now() < SKIP_CUTOFF_MS) {
+        return json({ error: 'It is too close to the session to change this here. Please message Ash.' }, 409, corsHeaders);
+      }
+      const r = await whopCall(env, `/memberships/${m.id}/resume`, { method: 'POST', body: '{}' });
+      if (!r.ok) return json({ error: 'Could not undo the skip. Please message Ash.', detail: r.data }, 502, corsHeaders);
+      const cleared = { ...(m.metadata || {}), skip_resumes_at: '' };
+      const marked = await whopCall(env, `/memberships/${m.id}`, { method: 'PATCH', body: JSON.stringify({ metadata: cleared }) });
+      return json({ ...membershipView(marked.ok ? marked.data : { ...m, metadata: cleared }), skipped: false }, 200, corsHeaders);
+    }
+
+    // leave
+    const r = await whopCall(env, `/memberships/${m.id}/cancel`, { method: 'POST', body: JSON.stringify({ cancellation_mode: 'immediate' }) });
+    if (!r.ok) return json({ error: 'Could not leave the game. Please message Ash.', detail: r.data }, 502, corsHeaders);
+    return json({ joined: false, left: true }, 200, corsHeaders);
+  } catch (err) {
+    return json({ error: err.message }, 502, corsHeaders);
+  }
 }
