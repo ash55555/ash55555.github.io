@@ -10,6 +10,8 @@ const CAMPAIGN_NAMES = {
 };
 const query = new URLSearchParams(window.location.search);
 const hasGame = query.has("campaign");
+// Preview = this computer only. On the live site the pretend parts (fake checkout, fake skip/leave) stay hidden.
+const preview = ["localhost", "127.0.0.1"].includes(window.location.hostname) && query.get("live") !== "1";
 const num = (key, fallback) => { const n = parseInt(query.get(key), 10); return Number.isNaN(n) ? fallback : n; };
 const campaignName = CAMPAIGN_NAMES[query.get("campaign")] || "The Test Table";
 const groupName = query.get("group") || "";
@@ -181,6 +183,8 @@ function renderGame() {
   $("pp-left-title").textContent = "You left " + TEST_GAME.title + ".";
   const openSeats = TEST_GAME.seatsMax - SAMPLE_OTHERS.length - (view === "joined" || view === "skipped" ? 1 : 0);
   $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to Ash about a spot.";
+  const joinClosed = !preview && !realGame;
+  if (joinClosed && openSeats > 0) $("pp-open-seats").textContent = openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left.";
   const full = SAMPLE_OTHERS.length >= TEST_GAME.seatsMax;
   ["pp-join-btn", "pp-rejoin-btn"].forEach((id) => { $(id).disabled = full; });
   const sessions = upcomingSessions(4);
@@ -201,6 +205,14 @@ function renderGame() {
   $('pp-join-panel').hidden = view !== 'notjoined';
   $('pp-joined-panel').hidden = !(view === 'joined' || view === 'skipped');
   $('pp-left-panel').hidden = view !== 'left';
+  $('pp-join-btn').hidden = joinClosed;
+  $('pp-rejoin-btn').hidden = joinClosed;
+  $('pp-join-steps').hidden = joinClosed;
+  $('pp-billing-preview').hidden = joinClosed;
+  $('pp-join-closed').hidden = !joinClosed;
+  $('pp-manage-note').hidden = preview;
+  $('pp-skip-fineprint').hidden = !preview;
+  $('pp-leave-btn').hidden = !preview;
 
   const billing = billingHtml(next);
   $('pp-billing-preview').innerHTML = billing;
@@ -225,7 +237,7 @@ function renderGame() {
       if (skipped) { skippedIdx.delete(i); syncView(); return; }
       ask('Skip ' + fmtDay(d) + '?', "Your seat stays yours and you won't be charged for this session.", () => { skippedIdx.add(i); syncView(); });
     });
-    li.append(info, btn);
+    if (preview) li.append(info, btn); else li.append(info);
     list.appendChild(li);
   });
 }
@@ -438,5 +450,7 @@ if (hasGame && query.get("back")) {
   backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
 }
 if (demo) $("pp-demo-banner").hidden = false;
+document.querySelector(".pp-previewbar").hidden = !preview;
+if (!preview && !hasGame) { $("pp-game-card").hidden = true; $("pp-nogames").hidden = false; }
 renderProfile();
 renderAll();

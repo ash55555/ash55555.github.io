@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="player.css">
+<link rel="stylesheet" href="style.css?v=20260926a">
+<link rel="stylesheet" href="player.css?v=20260926a">
 </head>
 <body>
 
@@ -67,7 +67,7 @@
     </section>
 
     <!-- ================= GAME ================= -->
-    <section class="pp-card pp-card-wide" aria-labelledby="pp-game-title">
+    <section class="pp-card pp-card-wide" id="pp-game-card" aria-labelledby="pp-game-title">
       <div class="pp-game-head">
         <div>
           <p class="eyebrow" id="pp-game-eyebrow">Test Table</p>
@@ -113,12 +113,13 @@
       <div id="pp-join-panel" hidden>
         <h3>Do you want to join this campaign?</h3>
         <p class="pp-open-seats" id="pp-open-seats"></p>
-        <ol class="pp-steps">
+        <ol class="pp-steps" id="pp-join-steps">
           <li class="done"><strong>Make your profile.</strong> Your name and token, on the left.</li>
           <li><strong>Add a payment method.</strong> You do this on a secure Whop page. Your card details never touch this website.</li>
           <li><strong>You're in!</strong> You'll get a seat and show up on the roster.</li>
         </ol>
         <div class="pp-billing" id="pp-billing-preview"></div>
+        <p class="pp-fineprint" id="pp-join-closed" hidden>Online booking for this group is opening soon. Tap Talk to Ash above and Ash will save you a seat.</p>
         <button type="button" class="btn btn-primary btn-large" id="pp-join-btn">Join this game</button>
         <p class="pp-fineprint">Skip any week or leave the game whenever you like. Change of plans? Message Ash and it gets sorted out.</p>
       </div>
@@ -127,8 +128,9 @@
       <div id="pp-joined-panel" hidden>
         <div class="pp-billing" id="pp-billing-active"></div>
         <h3>Upcoming sessions</h3>
+        <p class="pp-fineprint" id="pp-manage-note" hidden>Skipping a session or leaving the game is being connected. For now, message Ash and it gets done for you.</p>
         <ul class="pp-sessions" id="pp-sessions"></ul>
-        <p class="pp-fineprint">You can skip a session up to 24 hours before it starts, and you won't be charged for it.</p>
+        <p class="pp-fineprint" id="pp-skip-fineprint">You can skip a session up to 24 hours before it starts, and you won't be charged for it.</p>
         <div class="pp-danger-zone">
           <button type="button" class="btn btn-ghost" id="pp-leave-btn">Leave this game</button>
           <a class="link-button" href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener">Need a refund or have a problem? Message Ash</a>
@@ -145,6 +147,7 @@
       </div>
     </section>
   </div>
+  <p class="pp-muted" id="pp-nogames" hidden>Your games will show up here once you join one.</p>
 </main>
 
 <!-- ================= CHECKOUT MODAL ================= -->
@@ -260,7 +263,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="firebase-init.js"></script>
-<script src="player.js"></script>
+<script src="firebase-init.js?v=20260926a"></script>
+<script src="player.js?v=20260926a"></script>
 </body>
 </html>
