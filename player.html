@@ -147,19 +147,79 @@
   </div>
 </main>
 
-<!-- ================= CHECKOUT MODAL (mock) ================= -->
+<!-- ================= CHECKOUT MODAL ================= -->
 <div class="modal" id="pp-checkout" hidden>
   <div class="modal-dialog pp-checkout-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-checkout-title">
     <button type="button" class="modal-close js-close" aria-label="Close">
       <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
     </button>
-    <h3 id="pp-checkout-title">Secure checkout</h3>
-    <p class="modal-sub" id="pp-checkout-sub">In the real version, this is where Whop&#39;s own secure payment page opens so you can add your card. This preview skips it.</p>
-    <div class="pp-billing" id="pp-billing-modal"></div>
-    <div id="pp-embed"></div>
-    <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center;">Pretend I paid</button>
-    <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
-    <p class="pp-fineprint" id="pp-checkout-note" hidden>Whop opened in a new tab. Add your card there, then come back and press the button above.</p>
+    <h3 id="pp-checkout-title">Confirm booking</h3>
+
+    <div class="pp-cb-grid">
+      <div class="pp-cb-left">
+        <section class="pp-cb-card">
+          <h4>1. Your seat</h4>
+          <div class="pp-cb-player">
+            <div class="pp-token pp-token-sm" id="cb-token" aria-hidden="true"></div>
+            <div>
+              <strong id="cb-name">Player</strong>
+              <span class="pp-cb-muted" id="cb-email"></span>
+            </div>
+          </div>
+          <p class="pp-cb-muted">One seat at <span id="cb-game-inline"></span>.</p>
+        </section>
+
+        <section class="pp-cb-card">
+          <h4>2. Payment</h4>
+          <p class="pp-cb-muted" id="pp-checkout-sub">Add your card on Whop's secure form below. Your card details never touch this website.</p>
+          <div class="pp-billing" id="pp-billing-modal"></div>
+          <div id="pp-embed"></div>
+          <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
+          <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
+          <p class="pp-fineprint" id="pp-checkout-note" hidden></p>
+        </section>
+      </div>
+
+      <div class="pp-cb-right">
+        <section class="pp-cb-card">
+          <h4 class="pp-cb-game" id="cb-game"></h4>
+          <p class="pp-cb-muted">Dungeons &amp; Dragons 5e</p>
+          <dl class="pp-cb-details">
+            <div><dt>Session</dt><dd id="cb-when"></dd></div>
+            <div><dt>Format</dt><dd>Weekly campaign</dd></div>
+            <div><dt>Seats</dt><dd id="cb-seats"></dd></div>
+          </dl>
+          <div class="pp-cb-gm">
+            <div class="pp-token pp-token-sm" style="--tk:#6b46c1" aria-hidden="true">🐉</div>
+            <div><span class="pp-cb-label">Game Master</span><strong>Ash</strong></div>
+          </div>
+          <div class="pp-cb-summary">
+            <span class="pp-cb-label">Summary</span>
+            <div class="pp-cb-line"><span id="cb-price-line"></span><span id="cb-price-amount"></span></div>
+            <div class="pp-cb-line pp-cb-total"><strong>Total</strong><strong id="cb-total"></strong></div>
+            <p class="pp-cb-muted" id="cb-first"></p>
+          </div>
+        </section>
+
+        <section class="pp-cb-card">
+          <h4>Cancellation &amp; refund policy</h4>
+          <ul class="pp-cb-list">
+            <li>You can skip a session or leave the game any time up to 24 hours before game time.</li>
+            <li>Less than 24 hours? Message Ash. Late changes are at Ash's discretion.</li>
+            <li>Need a refund? Message Ash and it gets sorted out.</li>
+          </ul>
+        </section>
+
+        <section class="pp-cb-card">
+          <h4>Payment details</h4>
+          <ul class="pp-cb-list">
+            <li>Nothing is charged today. You're charged for your first session on game night.</li>
+            <li>After that, each session is charged weekly on game night.</li>
+            <li>Skip a week and you're not charged for it.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
   </div>
 </div>
 

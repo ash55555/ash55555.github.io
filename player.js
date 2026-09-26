@@ -286,6 +286,7 @@ const authReady = new Promise((resolve) => { resolveAuthReady = resolve; });
 const joinedKey = (uid) => 'pp-joined::' + gameKey + '::' + uid;
 
 async function startJoin() {
+  fillBooking();
   if (!realGame) { openModal('pp-checkout'); return; }
   await authReady;
   if (!me) { openModal('pp-auth'); return; }
@@ -320,6 +321,27 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
   resolveAuthReady();
 }
 
+function fillBooking() {
+  const sessions = upcomingSessions(2);
+  const next = sessions[0];
+  const name = profile.name.trim() || "Player";
+  const t = tokenById(profile.token);
+  const tk = $("cb-token");
+  tk.style.setProperty("--tk", t.color);
+  tk.textContent = t.emoji;
+  $("cb-name").textContent = name;
+  $("cb-email").textContent = me && me.email ? me.email : "";
+  $("cb-game-inline").textContent = TEST_GAME.title;
+  $("cb-game").textContent = TEST_GAME.title;
+  $("cb-when").textContent = weekdayName(next) + "s at " + fmtTime(next);
+  const filled = SAMPLE_OTHERS.length;
+  $("cb-seats").textContent = (filled + 1) + " of " + TEST_GAME.seatsMax + " filled with you";
+  $("cb-price-line").textContent = "$" + TEST_GAME.price + ".00 x 1 player";
+  $("cb-price-amount").textContent = "$" + TEST_GAME.price + ".00";
+  $("cb-total").textContent = "$" + TEST_GAME.price + ".00 / session";
+  $("cb-first").textContent = "Nothing is charged today. Your first charge is on game night, " + fmtDay(next) + ".";
+}
+
 function markJoined() { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); }
 
 let whopElementsPromise = null;
@@ -339,8 +361,8 @@ function loadWhopElements() {
 }
 
 async function openRealCheckout() {
+  fillBooking();
   const note = $('pp-checkout-note');
-  $('pp-checkout-title').textContent = 'Join ' + TEST_GAME.title;
   $('pp-checkout-sub').textContent = "You'll pay on Whop's own secure form, so your card details never touch this website.";
   $('pp-billing-modal').hidden = true;
   $('pp-checkout-go').hidden = true;

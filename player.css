@@ -171,5 +171,26 @@ body.pp-embed .site-footer,
 body.pp-embed #pp-back { display: none; }
 body.pp-embed .pp { padding: 1.4em 1.4em 2em; }
 body.pp-embed .pp-welcome { margin-bottom: 1.2em; }
-.pp-checkout-dialog { max-width: 560px; }
+.pp-checkout-dialog { max-width: 1020px; width: 96vw; max-height: 94vh; overflow-y: auto; }
 #pp-embed { margin-top: 1em; min-height: 0; }
+
+/* Confirm booking layout */
+.pp-cb-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 1.2em; align-items: start; margin-top: 0.6em; }
+.pp-cb-left, .pp-cb-right { display: grid; gap: 1em; }
+.pp-cb-card { background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 16px; padding: 1.2em 1.4em; }
+.pp-cb-card h4 { margin: 0 0 0.6em; font-family: var(--font-display); font-size: 1rem; }
+.pp-cb-game { font-size: 1.15rem !important; margin-bottom: 0.1em !important; }
+.pp-cb-muted { color: var(--text-muted); font-size: 0.88rem; margin: 0.2em 0; display: block; }
+.pp-cb-label { display: block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
+.pp-cb-player { display: flex; align-items: center; gap: 0.8em; margin-bottom: 0.4em; }
+.pp-cb-player strong { display: block; }
+.pp-cb-details { margin: 0.8em 0; padding: 0.8em 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); display: grid; gap: 0.5em; }
+.pp-cb-details div { display: flex; justify-content: space-between; gap: 1em; font-size: 0.92rem; }
+.pp-cb-details dt { color: var(--text-muted); }
+.pp-cb-details dd { margin: 0; font-weight: 700; text-align: right; }
+.pp-cb-gm { display: flex; align-items: center; gap: 0.8em; margin-bottom: 0.8em; }
+.pp-cb-summary { border-top: 1px solid var(--border); padding-top: 0.8em; }
+.pp-cb-line { display: flex; justify-content: space-between; gap: 1em; margin-top: 0.4em; font-size: 0.92rem; }
+.pp-cb-total { border-top: 1px solid var(--border); margin-top: 0.6em; padding-top: 0.6em; }
+.pp-cb-list { margin: 0; padding-left: 1.1em; display: grid; gap: 0.5em; color: var(--text-muted); font-size: 0.9rem; }
+@media (max-width: 860px) { .pp-cb-grid { grid-template-columns: 1fr; } }
