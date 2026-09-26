@@ -5,7 +5,11 @@ compatibility_date = "2024-09-23"
 [vars]
 FIREBASE_PROJECT_ID = "ash-ttrpg"
 ADMIN_UID = "VHPYS7qmjoNugPZ86hNppMWiW6k1"
-ALLOWED_ORIGIN = "https://ashtabletop.com"
+ALLOWED_ORIGIN = "https://ashtabletop.com,http://localhost:5500"
+
+WHOP_COMPANY_ID = "biz_iSafQUiIY2ST8C"
+WHOP_PRODUCT_ID = "prod_WkFRIyVpCDiJo"
+TEST_PLAYER_EMAILS = "biancas@me.com"
 
 # EMAIL_API_KEY is a secret, never stored here.
 # Set it once with: wrangler secret put EMAIL_API_KEY

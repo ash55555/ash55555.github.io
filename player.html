@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>My Table | Ash Tabletop</title>
+<link rel="icon" href="medie/ash-token.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20260926a">
+<link rel="stylesheet" href="player.css?v=20260926a">
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="Ash's character token" width="44" height="44">
+      <span class="brand-name">Ash Tabletop</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#campaigns">Campaigns</a>
+      <span class="pp-member-pill" id="pp-nav-name">Player</span>
+    </div>
+  </nav>
+</header>
+
+<div class="pp-previewbar" role="region" aria-label="Preview controls">
+  <strong>PREVIEW MODE</strong>
+  <span>Sample data only. Nothing here is real or saved on the live site.</span>
+  <span class="pp-previewbar-states">
+    Show me:
+    <button type="button" data-state="notjoined">Not joined yet</button>
+    <button type="button" data-state="joined">Joined</button>
+    <button type="button" data-state="skipped">Skipped next week</button>
+    <button type="button" data-state="left">Left the game</button>
+  </span>
+</div>
+
+<main class="pp">
+  <a class="link-button pp-back" id="pp-back" href="index.html#campaigns">&larr; Back to campaigns</a>
+  <section class="pp-welcome">
+    <div class="pp-token pp-token-lg" id="pp-welcome-token" aria-hidden="true"></div>
+    <div>
+      <p class="eyebrow">Your player page</p>
+      <h1 id="pp-welcome-title">Welcome</h1>
+      <p class="pp-muted" id="pp-welcome-sub"></p>
+    </div>
+  </section>
+
+  <div class="pp-grid">
+    <!-- ================= PROFILE ================= -->
+    <section class="pp-card" aria-labelledby="pp-profile-title">
+      <h2 id="pp-profile-title">My profile</h2>
+      <label for="pp-name">Display name</label>
+      <input id="pp-name" type="text" maxlength="30" placeholder="What should the table call you?">
+      <label>My token</label>
+      <div class="pp-token-grid" id="pp-token-grid" role="radiogroup" aria-label="Choose your token"></div>
+      <label for="pp-about">About your character (optional)</label>
+      <textarea id="pp-about" rows="3" maxlength="200" placeholder="A sneaky halfling rogue who is definitely not stealing that."></textarea>
+      <div class="pp-row">
+        <button type="button" class="btn btn-primary" id="pp-save">Save profile</button>
+        <span class="pp-saved" id="pp-saved" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <!-- ================= GAME ================= -->
+    <section class="pp-card pp-card-wide" id="pp-game-card" aria-labelledby="pp-game-title">
+      <div class="pp-game-head">
+        <div>
+          <p class="eyebrow" id="pp-game-eyebrow">Test Table</p>
+          <h2 id="pp-game-title">The Test Table</h2>
+          <p class="pp-muted">D&amp;D 5e with Ash · Roll20 + Discord + D&amp;D Beyond</p>
+        </div>
+        <span class="pp-badge" id="pp-status-badge"></span>
+      </div>
+
+      <div class="pp-talk">
+        <div>
+          <strong>Questions before you join?</strong>
+          <span>Chat with Ash first. No pressure, no commitment.</span>
+        </div>
+        <a class="btn btn-discord" href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="6"/><circle cx="9" cy="13" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.2" fill="currentColor" stroke="none"/><path d="M8 7l1-2.5h6L16 7"/></svg>
+          Talk to Ash
+        </a>
+      </div>
+
+      <div class="pp-facts">
+        <div class="pp-fact">
+          <span class="pp-fact-label">Session time</span>
+          <span class="pp-fact-value" id="pp-when"></span>
+          <span class="pp-fact-sub" id="pp-when-sub"></span>
+        </div>
+        <div class="pp-fact">
+          <span class="pp-fact-label">Seats</span>
+          <span class="pp-fact-value" id="pp-seats"></span>
+          <div class="pp-seatbar" aria-hidden="true"><span id="pp-seatbar-fill"></span></div>
+        </div>
+        <div class="pp-fact">
+          <span class="pp-fact-label">Price</span>
+          <span class="pp-fact-value">$10 per session</span>
+          <span class="pp-fact-sub">Billed weekly, only for weeks you play</span>
+        </div>
+      </div>
+
+      <h3>Who's at the table</h3>
+      <ul class="pp-roster" id="pp-roster"></ul>
+
+      <!-- Not joined -->
+      <div id="pp-join-panel" hidden>
+        <h3>Do you want to join this campaign?</h3>
+        <p class="pp-open-seats" id="pp-open-seats"></p>
+        <ol class="pp-steps" id="pp-join-steps">
+          <li class="done"><strong>Make your profile.</strong> Your name and token, on the left.</li>
+          <li><strong>Add a payment method.</strong> You do this on a secure Whop page. Your card details never touch this website.</li>
+          <li><strong>You're in!</strong> You'll get a seat and show up on the roster.</li>
+        </ol>
+        <div class="pp-billing" id="pp-billing-preview"></div>
+        <p class="pp-fineprint" id="pp-join-closed" hidden>Online booking for this group is opening soon. Tap Talk to Ash above and Ash will save you a seat.</p>
+        <button type="button" class="btn btn-primary btn-large" id="pp-join-btn">Join this game</button>
+        <p class="pp-fineprint">Skip any week or leave the game whenever you like. Change of plans? Message Ash and it gets sorted out.</p>
+      </div>
+
+      <!-- Joined -->
+      <div id="pp-joined-panel" hidden>
+        <div class="pp-billing" id="pp-billing-active"></div>
+        <h3>Upcoming sessions</h3>
+        <p class="pp-fineprint" id="pp-manage-note" hidden>Skipping a session or leaving the game is being connected. For now, message Ash and it gets done for you.</p>
+        <ul class="pp-sessions" id="pp-sessions"></ul>
+        <p class="pp-fineprint" id="pp-skip-fineprint">You can skip a session up to 24 hours before it starts, and you won't be charged for it.</p>
+        <div class="pp-danger-zone">
+          <button type="button" class="btn btn-ghost" id="pp-leave-btn">Leave this game</button>
+          <a class="link-button" href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener">Need a refund or have a problem? Message Ash</a>
+        </div>
+      </div>
+
+      <!-- Left -->
+      <div id="pp-left-panel" hidden>
+        <div class="pp-notice">
+          <strong id="pp-left-title">You left The Test Table.</strong>
+          <p>You won't be charged again, and your seat is open for someone else. You're always welcome back.</p>
+          <button type="button" class="btn btn-primary" id="pp-rejoin-btn">Join again</button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <p class="pp-muted" id="pp-nogames" hidden>Your games will show up here once you join one.</p>
+</main>
+
+<!-- ================= CHECKOUT MODAL ================= -->
+<div class="modal" id="pp-checkout" hidden>
+  <div class="modal-dialog pp-checkout-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-checkout-title">
+    <button type="button" class="modal-close js-close" aria-label="Close">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+    <h3 id="pp-checkout-title">Confirm booking</h3>
+    <p class="pp-demo-banner" id="pp-demo-banner" hidden><strong>DEMO MODE</strong> (this computer only). You are pretending to be logged in. This is the real payment form, so do not enter a real card unless you want a real subscription.</p>
+
+    <div class="pp-cb-grid">
+      <div class="pp-cb-left">
+        <section class="pp-cb-card">
+          <h4>1. Your seat</h4>
+          <div id="pp-inline-auth">
+            <p class="pp-cb-muted">Log in to the account you made on Ash Tabletop to continue.</p>
+            <button type="button" class="btn btn-google" id="pp-auth-google">Continue with Google</button>
+            <div class="modal-divider"><span>or</span></div>
+            <form id="pp-auth-form">
+              <input id="pp-auth-email" type="email" required placeholder="Email" autocomplete="username" style="width:100%">
+              <input id="pp-auth-pass" type="password" required placeholder="Password" autocomplete="current-password" style="width:100%;margin-top:.6em">
+              <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.8em">Log in</button>
+              <p class="modal-status" id="pp-auth-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+          <div id="pp-seat-info">
+          <div class="pp-cb-player">
+            <div class="pp-token pp-token-sm" id="cb-token" aria-hidden="true"></div>
+            <div>
+              <strong id="cb-name">Player</strong>
+              <span class="pp-cb-muted" id="cb-email"></span>
+            </div>
+          </div>
+          <p class="pp-cb-muted">One seat at <span id="cb-game-inline"></span>.</p>
+          </div>
+        </section>
+
+        <section class="pp-cb-card">
+          <h4>2. Payment</h4>
+          <p class="pp-cb-muted" id="pp-checkout-sub">Add your card on Whop's secure form below. Your card details never touch this website.</p>
+          <div class="pp-when-charged"><strong>You are charged on game night.</strong><span id="cb-charge-line"></span></div>
+          <div class="pp-billing" id="pp-billing-modal"></div>
+          <div id="pp-embed"></div>
+          <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
+          <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
+          <p class="pp-fineprint" id="pp-checkout-note" hidden></p>
+        </section>
+      </div>
+
+      <div class="pp-cb-right">
+        <section class="pp-cb-card">
+          <h4 class="pp-cb-game" id="cb-game"></h4>
+          <p class="pp-cb-muted">Dungeons &amp; Dragons 5e</p>
+          <dl class="pp-cb-details">
+            <div><dt>Session</dt><dd id="cb-when"></dd></div>
+            <div><dt>Format</dt><dd>Weekly campaign</dd></div>
+            <div><dt>Seats</dt><dd id="cb-seats"></dd></div>
+          </dl>
+          <div class="pp-cb-gm">
+            <div class="pp-token pp-token-sm" style="--tk:#6b46c1" aria-hidden="true">🐉</div>
+            <div><span class="pp-cb-label">Game Master</span><strong>Ash</strong></div>
+          </div>
+          <div class="pp-cb-summary">
+            <span class="pp-cb-label">Summary</span>
+            <div class="pp-cb-line"><span id="cb-price-line"></span><span id="cb-price-amount"></span></div>
+            <div class="pp-cb-line pp-cb-total"><strong>Total</strong><strong id="cb-total"></strong></div>
+            <p class="pp-cb-muted" id="cb-first"></p>
+          </div>
+        </section>
+
+        <section class="pp-cb-card">
+          <h4>Cancellation &amp; refund policy</h4>
+          <ul class="pp-cb-list">
+            <li>You can skip a session or leave the game any time up to 24 hours before game time.</li>
+            <li>Less than 24 hours? Message Ash. Late changes are at Ash's discretion.</li>
+            <li>Need a refund? Message Ash and it gets sorted out.</li>
+          </ul>
+        </section>
+
+        <section class="pp-cb-card">
+          <h4>Payment details</h4>
+          <ul class="pp-cb-list">
+            <li>Nothing is charged today. You're charged for your first session on game night.</li>
+            <li>After that, each session is charged weekly on game night.</li>
+            <li>Skip a week and you're not charged for it.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= CONFIRM MODAL ================= -->
+<div class="modal" id="pp-confirm" hidden>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-confirm-title">
+    <button type="button" class="modal-close js-close" aria-label="Close">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+    <h3 id="pp-confirm-title"></h3>
+    <p class="modal-sub" id="pp-confirm-text"></p>
+    <div class="pp-row">
+      <button type="button" class="btn btn-primary" id="pp-confirm-yes">Yes</button>
+      <button type="button" class="btn btn-ghost js-close">Never mind</button>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32">
+  <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-init.js?v=20260926a"></script>
+<script src="player.js?v=20260926a"></script>
+</body>
+</html>

@@ -268,12 +268,55 @@ function setupPaypalModal() {
   });
 }
 
+// Opens the join page inside a popup on the current page, so visitors never
+// leave the campaign they were reading.
+let joinModal = null;
+function openJoinPopup(src) {
+  if (!joinModal) {
+    joinModal = document.createElement("div");
+    joinModal.className = "modal join-modal";
+    joinModal.hidden = true;
+    joinModal.innerHTML =
+      '<div class="modal-dialog join-dialog" role="dialog" aria-modal="true" aria-label="Join this game">' +
+      '<button type="button" class="modal-close" aria-label="Close"><svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg></button>' +
+      '<iframe title="Join this game" src="about:blank"></iframe></div>';
+    document.body.appendChild(joinModal);
+    const close = () => {
+      joinModal.hidden = true;
+      joinModal.querySelector("iframe").src = "about:blank";
+      document.body.classList.remove("modal-open");
+    };
+    joinModal.querySelector(".modal-close").addEventListener("click", close);
+    joinModal.addEventListener("click", (event) => { if (event.target === joinModal) close(); });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !joinModal.hidden) close(); });
+  }
+  joinModal.querySelector("iframe").src = src;
+  joinModal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
 function setupSessionButtons() {
-  document.querySelectorAll('.session-chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      // Talk-first flow: every time slot just opens a DM to Ash, regardless
-      // of whether that slot has a PayPal plan configured. See ASH_DISCORD_URL.
-      window.open(ASH_DISCORD_URL, '_blank', 'noopener');
+  document.querySelectorAll(".session-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const params = new URLSearchParams({
+        campaign: chip.dataset.campaign || "",
+        slot: chip.dataset.slot || "",
+        group: chip.dataset.group || "",
+        day: chip.dataset.day || "0",
+        hour: chip.dataset.hour || "0",
+        minute: chip.dataset.minute || "0",
+        offset: chip.dataset.offset || "1",
+        embed: "1",
+      });
+      if (new URLSearchParams(window.location.search).get("demo") === "1") params.set("demo", "1");
+      const seatsText = (chip.querySelector(".session-seats") || {}).textContent || "";
+      const seatsMatch = seatsText.match(/\((\d+)\/(\d+)\)/);
+      if (seatsMatch) {
+        params.set("filled", seatsMatch[1]);
+        params.set("max", seatsMatch[2]);
+      }
+      const base = window.location.pathname.includes("/blog/") ? "../player.html" : "player.html";
+      openJoinPopup(base + "?" + params.toString());
     });
   });
 }
