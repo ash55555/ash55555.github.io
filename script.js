@@ -308,6 +308,7 @@ function setupSessionButtons() {
         offset: chip.dataset.offset || "1",
         embed: "1",
       });
+      if (new URLSearchParams(window.location.search).get("demo") === "1") params.set("demo", "1");
       const seatsText = (chip.querySelector(".session-seats") || {}).textContent || "";
       const seatsMatch = seatsText.match(/\((\d+)\/(\d+)\)/);
       if (seatsMatch) {

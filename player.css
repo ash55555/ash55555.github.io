@@ -194,3 +194,9 @@ body.pp-embed .pp-welcome { margin-bottom: 1.2em; }
 .pp-cb-total { border-top: 1px solid var(--border); margin-top: 0.6em; padding-top: 0.6em; }
 .pp-cb-list { margin: 0; padding-left: 1.1em; display: grid; gap: 0.5em; color: var(--text-muted); font-size: 0.9rem; }
 @media (max-width: 860px) { .pp-cb-grid { grid-template-columns: 1fr; } }
+
+.pp-demo-banner { background: rgba(224, 85, 111, 0.15); border: 1px solid rgba(224, 85, 111, 0.5); color: var(--text); border-radius: 12px; padding: 0.7em 1em; font-size: 0.88rem; margin: 0.6em 0 0; }
+.pp-demo-banner strong { color: #ff8ea3; }
+
+[hidden] { display: none !important; }
+#pp-embed:not(:empty) { background: #fff; border-radius: 14px; padding: 8px; margin-top: 0.8em; }

@@ -26,6 +26,10 @@ const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("s
 const realGame = hasGame && REAL_GAMES.has(gameKey);
 const planLink = null;
 let me = null;
+// Demo mode (this computer only): pretend to be logged in so the payment page can be previewed.
+const demo = query.get("demo") === "1" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const DEMO_CONFIG_ID = "ch_i1dSnRGjUTub4Jb";
+if (demo) me = { email: "demo.player@example.com", uid: "demo", displayName: "Demo Player", getIdToken: async () => "demo" };
 if (query.get("embed") === "1") document.body.classList.add("pp-embed");
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
 const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
@@ -314,7 +318,7 @@ $('pp-rejoin-btn').addEventListener('click', startJoin);
 
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
-    me = user;
+    if (!demo) me = user;
     if (user && realGame) {
       if (!store.get('pp-profile-set', false)) {
         profile.name = user.displayName || (user.email || 'Player').split('@')[0];
@@ -389,14 +393,19 @@ async function openRealCheckout() {
   note.textContent = 'Getting your secure checkout ready...';
   openModal('pp-checkout');
   try {
-    const idToken = await me.getIdToken();
-    const res = await fetch(WORKER_URL + '/whop/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken, game: gameKey }),
-    });
-    const data = await res.json();
-    if (!res.ok || !data.planId) throw new Error(data.error || 'Something went wrong. Please try again.');
+    let data;
+    if (demo) {
+      data = { configId: DEMO_CONFIG_ID, planId: 'demo' };
+    } else {
+      const idToken = await me.getIdToken();
+      const res = await fetch(WORKER_URL + '/whop/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, game: gameKey }),
+      });
+      data = await res.json();
+      if (!res.ok || !data.planId) throw new Error(data.error || 'Something went wrong. Please try again.');
+    }
     await loadWhopElements();
     const onComplete = () => {
       store.set(joinedKey(me.uid), true);
@@ -408,7 +417,7 @@ async function openRealCheckout() {
       $('pp-paid-done').hidden = false;
     };
     const session = window.WhopElements().checkout.create({ checkoutConfiguration: data.configId, onComplete });
-    const element = session.create('checkout', { buyerEmail: me.email, lockBuyerEmail: true, onComplete });
+    const element = session.create('checkout', demo ? { onComplete } : { buyerEmail: me.email, lockBuyerEmail: true, onComplete });
     element.mount($('pp-embed'));
     note.hidden = true;
   } catch (err) {
@@ -427,5 +436,6 @@ if (hasGame && query.get("back")) {
   backLink.href = back.endsWith("/") || back.endsWith("index.html") ? back + "#campaigns" : back;
   backLink.textContent = back.includes("/blog/") ? "← Back to the campaign" : "← Back to campaigns";
 }
+if (demo) $("pp-demo-banner").hidden = false;
 renderProfile();
 renderAll();
