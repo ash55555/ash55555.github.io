@@ -1530,6 +1530,17 @@
 (function () {
   var CONTENT_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/';
   var RESERVED_SLUGS = { 'flying-city': 1, 'curse-of-strahd': 1, 'ravenloft-undead-survival': 1, 'crooked-moon': 1, 'witchlight': 1 };
+  // The 5 original campaigns' banner picture still lives as a static file on their
+  // page (nobody has uploaded a replacement through this tab yet). Shown here and
+  // in the editor until a real bannerUrl comes back from the database, so this
+  // tab never shows Ash's own site avatar in place of the campaign's actual art.
+  var FALLBACK_BANNERS = {
+    'flying-city': 'medie/2139d310-c69b-4c0e-b8a0-2eded9ce8094%20%281%29.webp',
+    'curse-of-strahd': 'medie/1466afad-bf88-4950-9f9b-a82a40f44147.webp',
+    'ravenloft-undead-survival': 'medie/37528c55-aa34-4bfa-9f9c-2f9152faf651.webp',
+    'crooked-moon': 'medie/daaeef05-e995-40b5-84d6-4d6f5670fa47.webp',
+    'witchlight': 'medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp'
+  };
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var campaigns = [];
   var current = null;        // slug being edited, or null for a brand-new campaign
@@ -1575,7 +1586,7 @@
       card.type = 'button';
       var img = document.createElement('img');
       img.className = 'cc-card-img';
-      img.src = c.bannerUrl || 'medie/ash-token.png';
+      img.src = c.bannerUrl || FALLBACK_BANNERS[c.slug] || 'medie/ash-token.png';
       img.alt = '';
       card.appendChild(img);
       var body = el('div', 'cc-card-body');
@@ -1737,7 +1748,7 @@
       document.getElementById('cc-f-stakes').value = d.stakes || '';
       document.getElementById('cc-f-audience').value = d.audience || '';
       document.getElementById('cc-f-published').checked = !!d.published;
-      renderBannerPreview(d.bannerUrl);
+      renderBannerPreview(d.bannerUrl || FALLBACK_BANNERS[slug]);
       refreshCounts();
       return loadSlotState(slug).then(function () {
         if (seq !== editSeq) slotState = null; // stale by the time it landed; don't let it write
@@ -1804,7 +1815,7 @@
       pendingBanner = null;
       document.getElementById('cc-view-link').style.display = '';
       document.getElementById('cc-view-link').href = viewUrl(d.slug);
-      renderBannerPreview(d.bannerUrl);
+      renderBannerPreview(d.bannerUrl || FALLBACK_BANNERS[d.slug]);
 
       // Best-effort: also save the session time, when this campaign has a single group.
       var timeSaved = Promise.resolve();
