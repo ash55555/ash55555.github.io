@@ -104,6 +104,18 @@ async function whop(env, path, init = {}) {
   return { ok: res.ok, status: res.status, data };
 }
 
+// Whop's own error responses sometimes nest the real message inside an object
+// (e.g. { error: { message: '...' } }) instead of a plain string. Passing that
+// object straight into `new Error(...)` turns it into the literal text
+// "[object Object]" for whoever reads it, so this always digs out real text.
+function whopErrorText(data) {
+  const e = data && data.error;
+  if (typeof e === 'string' && e) return e;
+  if (e && typeof e === 'object') return e.message || e.error || JSON.stringify(e);
+  if (data && typeof data.message === 'string' && data.message) return data.message;
+  return null;
+}
+
 export async function verifyUser(env, idToken) {
   const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
   const { payload } = await jwtVerify(idToken, jwks, {
@@ -520,7 +532,7 @@ async function adminBalance(env, corsHeaders) {
   const c = cfg(env);
   if (!c.company) return json({ error: 'No Whop company is configured for this mode.' }, 500, corsHeaders);
   const r = await whop(env, `/ledger_accounts/${c.company}`);
-  if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || 'Could not read the Whop balance.' }, 502, corsHeaders);
+  if (!r.ok) return json({ error: whopErrorText(r.data) || 'Could not read the Whop balance.' }, 502, corsHeaders);
   const d = r.data || {};
   const usd = (d.balances || []).find((b) => b.currency === 'usd') || (d.balances && d.balances[0]) || null;
   const tb = d.treasury_balance || null;
