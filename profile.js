@@ -453,22 +453,69 @@ async function start(user) {
   refreshTotal();
   refreshPresetButtons();
   setPill();
-  if (window.location.hash === '#me-schedule') scrollToSchedule();
+  loadNotifBadge();
+  showTab(window.location.hash === '#me-schedule' ? 'schedule' : 'profile');
 }
 
-// Coming from "My schedule" in the nav dropdown: jump straight to the calendar.
-// Fonts and the calendar grid can still be settling into their final layout for a
-// moment after the page first paints, so this nudges the scroll a couple more
-// times rather than trusting a single scrollIntoView to land in the right spot.
-function scrollToSchedule() {
-  const target = $('me-schedule');
-  if (!target) return;
-  const jump = () => target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  jump();
-  setTimeout(jump, 300);
-  setTimeout(jump, 900);
+/* ---------------------------------------------------------- sidebar tabs */
+
+function showTab(name) {
+  document.querySelectorAll('.me-panel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+  document.querySelectorAll('.me-rail-btn').forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-current', String(on));
+  });
+  if (name === 'notifications') loadNotifications();
 }
-window.addEventListener('hashchange', () => { if (window.location.hash === '#me-schedule') scrollToSchedule(); });
+document.querySelectorAll('.me-rail-btn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+// Coming from "My schedule" in the nav dropdown, on this page or from another one.
+window.addEventListener('hashchange', () => { if (window.location.hash === '#me-schedule') showTab('schedule'); });
+
+/* ----------------------------------------------------------- notifications */
+
+const KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', removed: 'Removed from a game' };
+function timeAgo(iso) {
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 90) return 'just now';
+  if (s < 3600) return Math.round(s / 60) + ' min ago';
+  if (s < 86400) return Math.round(s / 3600) + ' h ago';
+  return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function renderNotifBadge(unread) {
+  const dot = $('me-rail-dot');
+  if (dot) dot.hidden = !unread;
+}
+async function loadNotifBadge() {
+  try { renderNotifBadge((await call('notifications')).unread); } catch (err) { /* leave the badge as-is */ }
+}
+async function loadNotifications() {
+  const list = $('me-notif-list');
+  flash('me-notif-status', 'Loading...', '');
+  try {
+    const data = await call('notifications');
+    renderNotifBadge(data.unread);
+    list.innerHTML = '';
+    if (!data.items.length) {
+      list.innerHTML = '<p class="me-notif-empty">Nothing yet. You will see it here the moment something needs your attention.</p>';
+    } else {
+      data.items.forEach((n) => {
+        const item = document.createElement('div');
+        item.className = 'me-notif-item' + (n.read ? '' : ' unread');
+        item.innerHTML = `<span class="ni-kind"></span><span class="ni-body"></span><span class="ni-time"></span>`;
+        item.querySelector('.ni-kind').textContent = KIND_LABEL[n.kind] || n.title;
+        item.querySelector('.ni-body').textContent = n.body || '';
+        item.querySelector('.ni-time').textContent = timeAgo(n.created_at);
+        list.appendChild(item);
+      });
+    }
+    flash('me-notif-status', '', '');
+  } catch (err) { flash('me-notif-status', err.message, 'err'); }
+}
+$('me-notif-read').addEventListener('click', async () => {
+  flash('me-notif-status', 'Marking as read...', '');
+  try { await call('notifications/read'); await loadNotifications(); } catch (err) { flash('me-notif-status', err.message, 'err'); }
+});
 
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {

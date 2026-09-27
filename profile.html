@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20260927h">
-<link rel="stylesheet" href="profile.css?v=20260927e">
+<link rel="stylesheet" href="profile.css?v=20260927f">
 </head>
 <body>
 
@@ -46,9 +46,31 @@
   </section>
 
   <div id="me-app" hidden>
+   <div class="me-shell">
+    <nav class="me-rail" aria-label="Profile sections">
+      <button type="button" class="me-rail-btn active" data-tab="profile" aria-current="true" aria-label="My profile">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 19.5c1.5-3.6 4.3-5.4 7.5-5.4s6 1.8 7.5 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>My profile</span>
+      </button>
+      <button type="button" class="me-rail-btn" data-tab="notifications" aria-current="false" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 10a6 6 0 1 1 12 0c0 3.2 1 5 2 6.5H4c1-1.5 2-3.3 2-6.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 19a2.6 2.6 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Notifications</span>
+        <span class="me-rail-dot" id="me-rail-dot" hidden></span>
+      </button>
+      <button type="button" class="me-rail-btn" data-tab="games" aria-current="false" aria-label="Campaigns I want">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
+        <span>Campaigns I want</span>
+      </button>
+      <button type="button" class="me-rail-btn" data-tab="schedule" aria-current="false" aria-label="When can I play">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h2.4M8 16.3h2.4M13.6 13H16M13.6 16.3H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>When can I play</span>
+      </button>
+    </nav>
+
+    <div class="me-panels">
 
     <!-- ============ WHO YOU ARE ============ -->
-    <section class="me-card me-hero">
+    <section class="me-card me-hero me-panel" data-panel="profile">
       <div class="me-avatar-col">
         <button type="button" class="me-avatar-btn" id="me-avatar-btn" aria-label="Change your picture">
           <span class="me-avatar" id="me-avatar" aria-hidden="true"></span>
@@ -86,8 +108,21 @@
       </div>
     </section>
 
+    <!-- ============ NOTIFICATIONS ============ -->
+    <section class="me-card me-panel" data-panel="notifications" hidden>
+      <div class="me-card-head">
+        <div>
+          <h2>Notifications</h2>
+          <p class="me-muted">Card declines, sessions Ash skips for you, and anything else about your seat show up here.</p>
+        </div>
+        <span class="me-status" id="me-notif-status" role="status" aria-live="polite"></span>
+      </div>
+      <button type="button" class="btn btn-ghost me-notif-read" id="me-notif-read">Mark all as read</button>
+      <div class="me-notif-list" id="me-notif-list"></div>
+    </section>
+
     <!-- ============ WHAT YOU WANT TO PLAY ============ -->
-    <section class="me-card">
+    <section class="me-card me-panel" data-panel="games" hidden>
       <div class="me-card-head">
         <div>
           <h2>What do you want to play?</h2>
@@ -109,7 +144,7 @@
     </section>
 
     <!-- ============ WHEN YOU CAN PLAY ============ -->
-    <section class="me-card" id="me-schedule">
+    <section class="me-card me-panel" data-panel="schedule" id="me-schedule" hidden>
       <div class="me-card-head">
         <div>
           <h2>When can you play?</h2>
@@ -131,6 +166,8 @@
       <p class="me-cal-total" id="me-cal-total"></p>
     </section>
 
+    </div>
+   </div>
   </div>
 </main>
 
@@ -145,6 +182,6 @@
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20260927b"></script>
 <script src="modules.js?v=20260927a"></script>
-<script src="profile.js?v=20260927f"></script>
+<script src="profile.js?v=20260927g"></script>
 </body>
 </html>
