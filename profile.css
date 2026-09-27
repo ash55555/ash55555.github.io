@@ -1,5 +1,8 @@
 /* Player profile page: picture, name, bio, games they want, weekly calendar. */
 
+/* Anything marked hidden must stay hidden, even when a class gives it a display style. */
+[hidden] { display: none !important; }
+
 .me { max-width: 1080px; margin: 0 auto; padding: 2.4em 1.25em 4.5em; }
 .me-muted { color: var(--text-muted); margin: 0.3em 0 0; }
 .me-pill {
