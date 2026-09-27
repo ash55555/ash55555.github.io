@@ -79,6 +79,15 @@
   .pay-details > summary::before { content: '▸  '; color: var(--gold); }
   .pay-details[open] > summary::before { content: '▾  '; }
   .pay-details > .pay-box { border: 0; margin: 0; padding-top: .2em; background: transparent; }
+  .camp-details > summary { display: flex; align-items: center; gap: .9em; }
+  .camp-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none; border: 1px solid var(--border); }
+  .camp-info { display: flex; flex-direction: column; gap: .15em; min-width: 0; }
+  .camp-info strong { font-size: 1.05rem; font-weight: 700; }
+  .camp-info span { display: block; font-size: .78rem; font-weight: 400; font-family: 'Nunito', sans-serif; color: var(--text-muted); }
+  .camp-groups { padding: 0 1.3em 1.1em; }
+  .camp-groups .pay-details { margin: .7em 0 0; }
+  .camp-groups .pay-details > summary { font-size: .92rem; padding: .8em 1.1em; }
+  .camp-single { padding: 0 1.3em 1.1em; }
   .plan-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
   .plan-box h2 { font-size: 1.2rem; }
   .plan-controls { display: flex; flex-wrap: wrap; gap: .8em; align-items: center; margin: 1em 0; }
@@ -815,6 +824,21 @@
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
   var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<h3 class='pay-sub'>Upcoming sessions</h3>\n<div class='pay-scroll'><table class='pay-table pay-upcoming'></table></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
+  // Same banner art already used on the public site's campaign cards (index.html),
+  // so the admin list is recognizable at a glance instead of reading slugs.
+  var CAMPAIGN_META = {
+    'flying-city': { title: 'The Prophecy of the Flying City', img: 'medie/2139d310-c69b-4c0e-b8a0-2eded9ce8094%20%281%29.webp' },
+    'curse-of-strahd': { title: 'Curse of Strahd', img: 'medie/1466afad-bf88-4950-9f9b-a82a40f44147.webp' },
+    'ravenloft-undead-survival': { title: 'Ravenloft: Undead Survival', img: 'medie/37528c55-aa34-4bfa-9f9c-2f9152faf651.webp' },
+    'crooked-moon': { title: 'The Crooked Moon', img: 'medie/daaeef05-e995-40b5-84d6-4d6f5670fa47.webp' },
+    'witchlight': { title: 'The Wild Beyond the Witchlight', img: 'medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp' },
+  };
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
 
   function setup(GAME, root) {
     var statusEl = root.querySelector('.pay-status');
@@ -1013,18 +1037,67 @@
         return data;
       });
     }).then(function (data) {
+      // One collapsible row per campaign (its banner art + title), so the list reads
+      // as 5 things instead of 9. Open it and a second row of groups appears
+      // (Group A / B / C); open one of those and the players/billing box you had
+      // before shows up. Campaigns with only one table skip the group step.
+      var bySlug = {};
+      var order = [];
       data.games.forEach(function (g) {
-        var det = document.createElement('details');
-        det.className = 'pay-details';
-        if (g.online > 0 || g.running) det.open = true;
+        var slug = g.key.indexOf('::') === -1 ? g.key : g.key.split('::')[0];
+        if (!bySlug[slug]) { bySlug[slug] = []; order.push(slug); }
+        bySlug[slug].push(g);
+      });
+      order.forEach(function (slug) {
+        var groups = bySlug[slug];
+        var meta = CAMPAIGN_META[slug] || { title: slug, img: '' };
+        var totalOnline = groups.reduce(function (n, g) { return n + g.online; }, 0);
+        var anyOpen = groups.some(function (g) { return g.online > 0 || g.running; });
+
+        var camp = document.createElement('details');
+        camp.className = 'pay-details camp-details';
+        if (anyOpen) camp.open = true;
+
         var sum = document.createElement('summary');
-        sum.textContent = g.title + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
-        var root = document.createElement('div');
-        root.className = 'pay-box';
-        root.innerHTML = BOX;
-        det.append(sum, root);
-        holder.appendChild(det);
-        setup(g.key, root)();
+        if (meta.img) {
+          var img = document.createElement('img');
+          img.className = 'camp-thumb';
+          img.src = meta.img;
+          img.alt = '';
+          sum.appendChild(img);
+        }
+        var info = el('div', 'camp-info');
+        info.appendChild(el('strong', null, meta.title));
+        info.appendChild(el('span', null, groups.length > 1
+          ? (groups.length + ' groups · ' + totalOnline + ' booked online')
+          : (totalOnline + ' booked online · Billing ' + (groups[0].running ? 'ON' : 'off') + (groups[0].enabled ? '' : ' · paused on the site'))));
+        sum.appendChild(info);
+        camp.appendChild(sum);
+
+        if (groups.length > 1) {
+          var wrap = el('div', 'camp-groups');
+          groups.forEach(function (g) {
+            var label = g.title.indexOf(meta.title) === 0 ? g.title.slice(meta.title.length).replace(/^,\s*/, '') : g.title;
+            var det = document.createElement('details');
+            det.className = 'pay-details';
+            if (g.online > 0 || g.running) det.open = true;
+            var gsum = document.createElement('summary');
+            gsum.textContent = (label || g.title) + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
+            var groot = el('div', 'pay-box');
+            groot.innerHTML = BOX;
+            det.append(gsum, groot);
+            wrap.appendChild(det);
+            setup(g.key, groot)();
+          });
+          camp.appendChild(wrap);
+        } else {
+          var single = el('div', 'camp-single pay-box');
+          single.innerHTML = BOX;
+          camp.appendChild(single);
+          setup(groups[0].key, single)();
+        }
+
+        holder.appendChild(camp);
       });
     }).catch(function (err) {
       var p = document.createElement('p');
