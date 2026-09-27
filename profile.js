@@ -434,6 +434,10 @@ async function start(user) {
   renderPicked();
   refreshTotal();
   setPill();
+  // Coming from "My schedule" in the nav dropdown: jump straight to the calendar.
+  if (window.location.hash === '#me-schedule') {
+    requestAnimationFrame(() => $('me-schedule').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
 }
 
 if (typeof firebase !== 'undefined' && firebase.apps.length) {

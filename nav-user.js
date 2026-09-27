@@ -58,6 +58,7 @@ var AshNav = (function () {
       '<div class="nu-panel nu-menu" hidden>' +
       '<div class="nu-menu-head"><span class="nu-avatar-img nu-avatar-img-lg"></span><div><strong class="nu-menu-name"></strong><span class="nu-menu-email"></span></div></div>' +
       '<a class="nu-menu-item" href="profile.html">My profile</a>' +
+      '<a class="nu-menu-item" href="profile.html#me-schedule">My schedule</a>' +
       '<button type="button" class="nu-menu-item nu-logout">Log out</button>' +
       '</div>' +
       '</div>';
