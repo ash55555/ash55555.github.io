@@ -37,14 +37,7 @@ function formatLocal(date) {
   const monthDay = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
-  let tzName = '';
-  try {
-    const parts = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(date);
-    const tzPart = parts.find((p) => p.type === 'timeZoneName');
-    if (tzPart) tzName = tzPart.value;
-  } catch (err) {
-    /* Intl.timeZoneName unsupported — fall back to no suffix */
-  }
+  const tzName = typeof friendlyTimeZone === 'function' ? friendlyTimeZone(date) : '';
 
   return `Next: ${weekday}, ${monthDay} · ${time}${tzName ? ' ' + tzName : ''}`;
 }
@@ -65,7 +58,7 @@ function renderSessionChips() {
       mainEl.textContent = formatLocal(next);
     }
     if (subEl) {
-      subEl.textContent = source ? `Weekly session · originally ${source}` : 'Weekly session';
+      subEl.textContent = 'Weekly session, shown in your time zone';
     }
 
     const key = sessionKey(chip.dataset.campaign, chip.dataset.slot);

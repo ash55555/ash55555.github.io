@@ -75,12 +75,8 @@ function upcomingSessions(count) {
 const fmtDay = (d) => d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 const fmtTime = (d) => {
   const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  let tz = '';
-  try {
-    const part = new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' }).formatToParts(d).find((p) => p.type === 'timeZoneName');
-    if (part) tz = ' ' + part.value;
-  } catch { /* no tz suffix */ }
-  return time + tz;
+  const tz = typeof friendlyTimeZone === 'function' ? friendlyTimeZone(d) : '';
+  return time + (tz ? ' ' + tz : '');
 };
 const weekdayName = (d) => d.toLocaleDateString(undefined, { weekday: 'long' });
 
@@ -183,8 +179,8 @@ function seatNumbers() {
 }
 
 function billingHtml(next) {
-  return '<strong>$' + TEST_GAME.price + ' per session, charged every ' + weekdayName(next) + ' at ' + fmtTime(next) + '</strong>' +
-    '<span>First charge: ' + fmtDay(next) + ' at ' + fmtTime(next) + '. Shown in your own time zone.</span>' +
+  return '<strong>You will be charged $' + TEST_GAME.price + ' on the day of each session.</strong>' +
+    '<span>Your first session is ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
 }
 
@@ -238,9 +234,8 @@ function renderGame() {
   const nextCharged = rows.find((r) => !r.skipped);
   const chargeDate = real ? (nextCharged ? nextCharged.d : null) : (view === 'skipped' ? sessions[1] : next);
   const card = real && serverState.card && serverState.card.last4 ? ' Card on file: ' + (serverState.card.brand || 'card') + ' ending ' + serverState.card.last4 + '.' : '';
-  $('pp-billing-active').innerHTML = '<strong>' + (rows[0] && rows[0].skipped ? 'This session is skipped. ' : '') + 'Next charge: ' +
-    (chargeDate ? fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) : 'none scheduled') + '</strong>' +
-    '<span>$' + TEST_GAME.price + ' per session. Billed only for the weeks you play.' + card + '</span>';
+  $('pp-billing-active').innerHTML = '<strong>You will be charged $' + TEST_GAME.price + ' on the day of each session.</strong>' +
+    (card ? '<span>' + card.trim() + '</span>' : '');
   $('pp-update-card').hidden = !real;
 
   const list = $('pp-sessions');

@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (subEl) {
-      subEl.textContent = slot.source ? 'Weekly session · originally ' + slot.source : 'Weekly session';
+      subEl.textContent = 'Weekly session, shown in your time zone';
     }
 
     if (typeof slot.max === 'number') {
