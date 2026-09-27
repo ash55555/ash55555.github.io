@@ -460,11 +460,14 @@ async function adminSkip(ctx) {
   if (body.skipped) {
     await env.DB.prepare('INSERT INTO skips (mode, game, uid, session_ts, by, created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(mode, game, uid, session_ts) DO UPDATE SET by=excluded.by')
       .bind(ctx.mode, gameKey, uid, ts, 'admin', iso(now)).run();
+    await notifyPlayer(env, ctx.mode, uid, 'skipped_admin', gameKey, 'Ash skipped a session for you', `Your ${fmtShort(ts)} session of ${game.title} is skipped. You will not be charged for it.`);
   } else {
     await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(ctx.mode, gameKey, uid, ts).run();
   }
   return json({ ok: true }, 200, corsHeaders);
 }
+
+function fmtShort(ts) { return new Date(ts).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }); }
 
 async function adminRefund(ctx) {
   const { env, body, gameKey, corsHeaders } = ctx;
@@ -570,9 +573,10 @@ async function adminGameRunning(ctx, running) {
 }
 
 async function adminRemove(ctx) {
-  const { env, body, gameKey, corsHeaders } = ctx;
+  const { env, body, gameKey, game, corsHeaders } = ctx;
   const uid = String(body.uid || '');
   await env.DB.prepare("UPDATE players SET status='left', left_at=? WHERE mode=? AND game=? AND uid=?").bind(iso(new Date()), ctx.mode, gameKey, uid).run();
+  await notifyPlayer(env, ctx.mode, uid, 'removed', gameKey, 'You were removed from a game', `Ash removed you from ${game.title}. You will not be charged again. Message Ash if this was not expected.`);
   return json({ ok: true }, 200, corsHeaders);
 }
 
@@ -686,7 +690,10 @@ async function settle(env, c, sendEmail, p, game, gameKey, ts, r) {
   const why = String(d.failure_message || (d.error && (d.error.message || d.error.type)) || `HTTP ${r.status}`).slice(0, 300);
   await env.DB.prepare("UPDATE charges SET status='failed', payment_id=COALESCE(?, payment_id), last_error=?, updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?")
     .bind(d.id || null, (cardDeclined ? '' : 'System problem, not the card: ') + why, now, c.mode, gameKey, p.uid, ts).run();
-  if (cardDeclined) await emailDeclined(env, sendEmail, p, game);
+  if (cardDeclined) {
+    await emailDeclined(env, sendEmail, p, game);
+    await notifyPlayer(env, c.mode, p.uid, 'declined', gameKey, 'Your card was declined', `We could not charge $${game.price} for ${game.title}. Please update your card on your player page.`);
+  }
   await notify(env, sendEmail, c.mode, 'charge_failed', gameKey, `Charge failed: ${p.name || p.email}`,
     `${p.name || ''} (${p.email}) could not be charged $${game.price} for ${game.title}, session ${fmtUtc(ts)}.\nReason: ${why}\n${cardDeclined ? 'The player was emailed to update their card. It will retry automatically.' : 'This looks like a system problem, not the card. The player was NOT emailed.'}`);
 }
@@ -717,6 +724,7 @@ async function reconcile(env, c, row, sendEmail, p, game) {
       if (kind === 'failed') {
         await env.DB.prepare("UPDATE charges SET status='failed', last_error=?, updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?").bind(String(d.failure_message || 'failed').slice(0, 300), iso(now), c.mode, row.game, row.uid, row.session_ts).run();
         await emailDeclined(env, sendEmail, p, game);
+        await notifyPlayer(env, c.mode, p.uid, 'declined', row.game, 'Your card was declined', `We could not charge $${game.price} for ${game.title}. Please update your card on your player page.`);
         await notify(env, sendEmail, c.mode, 'charge_failed', row.game, `Charge failed: ${p.name || p.email}`,
           `${p.name || ''} (${p.email}) was declined for ${game.title}, session ${fmtUtc(row.session_ts)}.\nReason: ${String(d.failure_message || 'declined').slice(0, 200)}\nThe player was emailed to update their card. It will retry automatically.`);
         return;
@@ -741,6 +749,13 @@ const KIND_ICON = { joined: 'New player', left: 'Player left', charge_failed: 'C
 
 // Adds an entry to the notifications list in the admin page and, for real-money
 // events, emails Ash at ADMIN_NOTIFY_EMAIL (a Worker secret, never in the site).
+export async function notifyPlayer(env, mode, uid, kind, gameKey, title, body) {
+  try {
+    await env.DB.prepare('INSERT INTO notifications (created_at, mode, kind, game, title, body, read, uid) VALUES (?,?,?,?,?,?,0,?)')
+      .bind(new Date().toISOString(), mode, kind, gameKey || null, String(title).slice(0, 200), String(body || '').slice(0, 1500), uid).run();
+  } catch (err) { console.error('player notification not saved', err && err.message); }
+}
+
 export async function notify(env, sendEmail, mode, kind, gameKey, title, body) {
   try {
     await env.DB.prepare('INSERT INTO notifications (created_at, mode, kind, game, title, body, read) VALUES (?,?,?,?,?,?,0)')

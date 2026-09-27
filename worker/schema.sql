@@ -86,3 +86,6 @@ CREATE TABLE IF NOT EXISTS reminders (
   sent_at TEXT NOT NULL,
   PRIMARY KEY (mode, game, session_ts, uid)
 );
+
+ALTER TABLE notifications ADD COLUMN uid TEXT;
+CREATE INDEX IF NOT EXISTS notifications_uid ON notifications (uid, read);

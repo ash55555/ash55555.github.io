@@ -151,9 +151,7 @@ $('me-save').addEventListener('click', async () => {
 });
 
 function setPill() {
-  const pill = $('me-pill');
-  pill.textContent = profile.name || 'Player';
-  pill.hidden = false;
+  if (typeof AshNav !== 'undefined') AshNav.mount($('me-pill'), me);
 }
 
 /* ------------------------------------------------------- games they want */
@@ -441,7 +439,12 @@ async function start(user) {
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
     if (user) start(user);
-    else { started = false; $('me-login').hidden = false; $('me-app').hidden = true; $('me-pill').hidden = true; }
+    else {
+      started = false;
+      $('me-login').hidden = false;
+      $('me-app').hidden = true;
+      if (typeof AshNav !== 'undefined') AshNav.unmount($('me-pill'));
+    }
   });
   $('me-google').addEventListener('click', () => {
     firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => { $('me-login-status').textContent = e.message; });

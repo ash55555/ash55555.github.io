@@ -113,7 +113,6 @@ function renderProfile() {
 function renderHeader() {
   const name = profile.name.trim() || 'Player';
   $('pp-welcome-title').textContent = 'Welcome, ' + name + '!';
-  $('pp-nav-name').textContent = name;
   const holder = $('pp-welcome-token');
   const t = tokenById(profile.token);
   holder.style.setProperty('--tk', t.color);
@@ -455,6 +454,8 @@ $('pp-rejoin-btn').addEventListener('click', startJoin);
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
     me = user;
+    const navUserEl = $('nav-user');
+    if (navUserEl && typeof AshNav !== 'undefined') { user ? AshNav.mount(navUserEl, user) : AshNav.unmount(navUserEl); }
     if (user && realGame) {
       if (!store.get('pp-profile-set', false)) {
         profile.name = user.displayName || (user.email || 'Player').split('@')[0];

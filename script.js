@@ -434,19 +434,24 @@ function setupSignupModal() {
   // Reflects sign-in state both in the nav (so it's visible without opening
   // anything) and inside the modal itself (so opening it confirms clearly
   // they're already on the list, instead of showing the sign-up form again).
+  const navUserEl = document.getElementById('nav-user');
+
   function applyAuthState(user) {
     currentUser = user;
     if (user) {
-      signupTrigger.textContent = '✓ Member';
+      signupTrigger.hidden = true;
       if (loginTrigger) loginTrigger.hidden = true;
+      if (navUserEl && typeof AshNav !== 'undefined') AshNav.mount(navUserEl, user);
       guestView.hidden = true;
       memberView.hidden = false;
       memberEmail.textContent = user.email;
       title.textContent = "You're In!";
       sub.textContent = "You're all set to hear about new games.";
     } else {
+      signupTrigger.hidden = false;
       signupTrigger.textContent = 'Sign Up';
       if (loginTrigger) loginTrigger.hidden = false;
+      if (navUserEl && typeof AshNav !== 'undefined') AshNav.unmount(navUserEl);
       guestView.hidden = false;
       memberView.hidden = true;
       applyMode();

@@ -8,7 +8,7 @@
 // The admin page converts each player's week to the admin's own clock when it draws
 // the heat map. Saves made before this change were in UTC (slots_fmt not "local").
 
-import { verifyUser } from './pay.js';
+import { verifyUser, cfg } from './pay.js';
 
 const SLOT_COUNT = 336;
 const TOKEN_IDS = ['dragon', 'wizard', 'dagger', 'elf', 'bat', 'dice'];
@@ -82,6 +82,17 @@ export async function handleProfile(request, env, corsHeaders, origin, action, v
 
     if (action === 'save') return await saveProfile(env, user, body, corsHeaders, self);
     if (action === 'availability') return await saveAvailability(env, user, body, corsHeaders);
+
+    if (action === 'notifications') {
+      const mode = cfg(env).mode;
+      const items = (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? AND uid=? ORDER BY id DESC LIMIT 20').bind(mode, user.sub).all()).results;
+      const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND uid=? AND read=0').bind(mode, user.sub).first();
+      return json({ items, unread: unread ? unread.n : 0 }, 200, corsHeaders);
+    }
+    if (action === 'notifications/read') {
+      await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND uid=? AND read=0').bind(cfg(env).mode, user.sub).run();
+      return json({ ok: true }, 200, corsHeaders);
+    }
 
     if (action === 'admin/summary') {
       if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
