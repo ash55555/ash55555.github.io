@@ -434,6 +434,10 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
         <span>Players &amp; payments</span>
       </button>
+      <button type="button" class="me-rail-btn" data-tab="finance" aria-current="false" aria-label="Finance">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5v9M9.5 9.3c0-1.3 1.2-2.1 2.5-2.1s2.5.8 2.5 2c0 2.5-5 1.7-5 4.2 0 1.2 1.2 2.1 2.5 2.1s2.5-.8 2.5-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Finance</span>
+      </button>
       <button type="button" class="me-rail-btn" data-tab="demand" aria-current="false" aria-label="Demand and availability">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 19V10M11 19V5M17 19v-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Demand &amp; availability</span>
@@ -465,6 +469,23 @@
 
     <div class="me-panel" data-panel="players" hidden>
     <div id="pay-boxes"></div>
+    </div>
+
+    <div class="me-panel" data-panel="finance" hidden>
+      <div class="pay-box" style="margin-bottom:1.6em;">
+        <h2>💰 Balance</h2>
+        <p class="note">What Whop says is sitting in your account right now. Actually withdrawing still happens on Whop's own dashboard — this site never touches your money directly.</p>
+        <p class="slot-status" id="fin-balance-status"></p>
+        <div class="pay-badges" id="fin-balance-badges"></div>
+        <a class="btn btn-primary" href="https://whop.com/dashboard" target="_blank" rel="noopener" style="text-decoration:none;margin-top:.8em;">Open Whop → Profile → Balance ↗</a>
+      </div>
+
+      <div class="pay-box">
+        <h2>🎲 All charges</h2>
+        <p class="note">Every player, every campaign, every time they were charged. Click Refund on any paid charge.</p>
+        <p class="slot-status" id="fin-charges-status"></p>
+        <div class="pay-scroll"><table class="pay-table" id="fin-charges-table"></table></div>
+      </div>
     </div>
 
     <div class="plan-box me-panel" data-panel="demand" id="plan-box" hidden>
@@ -1280,6 +1301,130 @@
       p.textContent = err.message;
       holder.appendChild(p);
     });
+  });
+})();
+</script>
+<script>
+(function () {
+  var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function call(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + action, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {}))
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Something went wrong.'); return data; });
+    });
+  }
+  function money(n) { return n == null ? '—' : '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
+  function day(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function loadBalance() {
+    var status = document.getElementById('fin-balance-status');
+    status.textContent = 'Loading…';
+    status.className = 'slot-status';
+    return call('admin/balance').then(function (d) {
+      status.textContent = '';
+      var badges = document.getElementById('fin-balance-badges');
+      badges.innerHTML = '';
+      badges.appendChild(el('span', 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn'), d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)'));
+      badges.appendChild(el('span', 'pay-badge good', 'Available to withdraw: ' + money(d.withdrawable)));
+      badges.appendChild(el('span', 'pay-badge', 'Total balance: ' + money(d.balance)));
+      if (d.pending) badges.appendChild(el('span', 'pay-badge warn', 'Pending: ' + money(d.pending)));
+      if (d.reserve) badges.appendChild(el('span', 'pay-badge warn', 'Reserved: ' + money(d.reserve)));
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    });
+  }
+
+  function actionButton(label, fn) {
+    var b = el('button', 'pay-mini', label);
+    b.type = 'button';
+    b.addEventListener('click', function () {
+      b.disabled = true;
+      var status = document.getElementById('fin-charges-status');
+      status.textContent = 'Working...';
+      status.className = 'slot-status';
+      fn().then(function () { return loadCharges(); }).catch(function (err) {
+        status.textContent = err.message;
+        status.className = 'slot-status error';
+        b.disabled = false;
+      });
+    });
+    return b;
+  }
+
+  function renderCharges(charges) {
+    var table = document.getElementById('fin-charges-table');
+    table.innerHTML = '';
+    var head = el('tr');
+    ['Player', 'Campaign', 'Session', 'Status', ''].forEach(function (h) { head.appendChild(el('th', null, h)); });
+    table.appendChild(head);
+    if (!charges.length) {
+      var tr = el('tr'); var td = el('td', 'pay-muted', 'No charges yet.'); td.colSpan = 5; tr.appendChild(td); table.appendChild(tr);
+      return;
+    }
+    charges.forEach(function (c) {
+      var tr = el('tr');
+      var who = el('td');
+      who.appendChild(el('div', null, c.name));
+      who.appendChild(el('div', 'pay-muted', c.email));
+      tr.appendChild(who);
+      tr.appendChild(el('td', null, c.gameTitle));
+      tr.appendChild(el('td', null, day(c.ts)));
+
+      var statusTd = el('td');
+      var box = el('div', 'pay-cell');
+      var label = { paid: 'Paid ' + money(c.amount), refunded: 'Refunded', failed: 'Card declined', failed_final: 'Gave up', pending: 'Processing', unknown: 'Check Whop', 'new': 'Queued' }[c.status] || c.status;
+      if (c.status === 'paid' && c.refunded > 0) label += ' (' + money(c.refunded) + ' refunded)';
+      box.appendChild(el('span', 'pay-state ' + c.status, label));
+      if (c.error && (c.status === 'failed' || c.status === 'failed_final' || c.status === 'unknown')) box.appendChild(el('span', 'pay-muted', c.error));
+      statusTd.appendChild(box);
+      tr.appendChild(statusTd);
+
+      var actionsTd = el('td');
+      if (c.status === 'paid' && c.refunded < c.amount) {
+        actionsTd.appendChild(actionButton('Refund', function () {
+          if (!confirm('Refund ' + money(c.amount - c.refunded) + ' to ' + (c.name || c.email) + ' for ' + c.gameTitle + '?')) return Promise.reject(new Error('Cancelled.'));
+          return call('admin/refund', { game: c.game, uid: c.uid, ts: c.ts });
+        }));
+      }
+      tr.appendChild(actionsTd);
+      table.appendChild(tr);
+    });
+  }
+
+  function loadCharges() {
+    var status = document.getElementById('fin-charges-status');
+    status.textContent = 'Loading…';
+    status.className = 'slot-status';
+    return call('admin/charges').then(function (d) {
+      status.textContent = '';
+      renderCharges(d.charges);
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    });
+  }
+
+  var finStarted = false;
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user || finStarted) return;
+    finStarted = true;
+    loadBalance();
+    loadCharges();
   });
 })();
 </script>

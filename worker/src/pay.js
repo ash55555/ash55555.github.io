@@ -188,7 +188,7 @@ function cleanName(name, email) {
 
 // ------------------------------------------------------------------ routing
 
-export async function handlePay(request, env, corsHeaders, origin, action, sendEmail) {
+export async function handlePay(request, env, corsHeaders, origin, action, sendEmail, verify = verifyUser) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
   if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
 
@@ -197,7 +197,7 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   if (!body || !body.idToken) return json({ error: 'Please sign in again.' }, 401, corsHeaders);
 
   let user;
-  try { user = await verifyUser(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
+  try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
 
   const isAdminRoute = action.startsWith('admin/');
   if (isAdminRoute) {
@@ -207,6 +207,8 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   }
 
   if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders);
+  if (action === 'admin/balance') return await adminBalance(env, corsHeaders);
+  if (action === 'admin/charges') return await adminAllCharges(env, corsHeaders);
   if (action === 'admin/notifications') {
     const mode = cfg(env).mode;
     const items = (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? ORDER BY id DESC LIMIT 40').bind(mode).all()).results;
@@ -509,6 +511,59 @@ async function adminGames(env, mode, corsHeaders) {
       key: g.key, title: g.title, enabled: g.enabled, online: online[g.key] || 0, running: !!running[g.key],
     })),
   }, 200, corsHeaders);
+}
+
+// Read-only: what Whop says is sitting in the account right now. Nothing here
+// moves money — actually withdrawing still happens on Whop's own dashboard,
+// which already has that built (and already knows Ash's real payout details).
+async function adminBalance(env, corsHeaders) {
+  const c = cfg(env);
+  if (!c.company) return json({ error: 'No Whop company is configured for this mode.' }, 500, corsHeaders);
+  const r = await whop(env, `/ledger_accounts/${c.company}`);
+  if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || 'Could not read the Whop balance.' }, 502, corsHeaders);
+  const d = r.data || {};
+  const usd = (d.balances || []).find((b) => b.currency === 'usd') || (d.balances && d.balances[0]) || null;
+  const tb = d.treasury_balance || null;
+  return json({
+    mode: c.mode,
+    currency: (usd && usd.currency) || 'usd',
+    balance: usd ? usd.balance : null,
+    pending: usd ? usd.pending_balance : null,
+    reserve: usd ? usd.reserve_balance : null,
+    withdrawable: tb ? tb.total_withdrawable_balance : (usd ? usd.balance : null),
+  }, 200, corsHeaders);
+}
+
+// Every charge across every game in one list, for the admin Finance tab —
+// the per-game "Players & payments" tab already shows this one game at a time.
+async function adminAllCharges(env, corsHeaders) {
+  const mode = cfg(env).mode;
+  let games;
+  try { games = await loadGames(env); } catch (err) { return json({ error: err.message }, 502, corsHeaders); }
+  const rows = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? ORDER BY session_ts DESC LIMIT 300').bind(mode).all()).results;
+  const players = rows.length
+    ? (await env.DB.prepare('SELECT game, uid, name, email FROM players WHERE mode=?').bind(mode).all()).results
+    : [];
+  const byKey = {};
+  players.forEach((p) => { byKey[`${p.game}|${p.uid}`] = p; });
+  const charges = rows.map((c) => {
+    const p = byKey[`${c.game}|${c.uid}`];
+    const g = games[c.game];
+    return {
+      game: c.game,
+      gameTitle: g ? g.title : c.game,
+      uid: c.uid,
+      name: (p && p.name) || (p && p.email) || c.uid,
+      email: p ? p.email : '',
+      ts: c.session_ts,
+      status: c.status,
+      amount: c.amount,
+      refunded: c.refunded_amount,
+      paymentId: c.payment_id,
+      error: c.last_error,
+    };
+  });
+  return json({ mode, charges }, 200, corsHeaders);
 }
 
 // Who sits at a table: the DM (Ash's own profile) and every active player, with
