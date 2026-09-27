@@ -1,14 +1,15 @@
-// Reminder emails. About 36 hours before each session, every player who is playing
+// Reminder emails. About a day (25 hours) before each session, every player who is playing
 // it gets an email with the time in their own time zone, whether they will be
 // charged, and how long they have to skip. Ash gets one summary email per session.
 //
-// 36 hours (not 24) on purpose: players can only skip up to 24 hours before a
-// session, so a reminder at exactly 24 hours would arrive as the window closes.
+// 25 hours (not exactly 24) on purpose: players can only skip up to 24 hours before a
+// session, so a reminder at exactly 24 hours would arrive as the window closes. At 25
+// hours it still reads as "a day before" and leaves an hour to skip.
 
 import { loadGames, cfg, upcoming, iso, gameState, playingCount, escapeHtml, notify } from './pay.js';
 
 const HOUR_MS = 60 * 60 * 1000;
-const LEAD_MS = 36 * HOUR_MS;
+const LEAD_MS = 25 * HOUR_MS;
 const SKIP_CUTOFF_MS = 24 * HOUR_MS;
 const SITE = 'https://ashtabletop.com';
 
