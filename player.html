@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20260926b">
-<link rel="stylesheet" href="player.css?v=20260926d">
+<link rel="stylesheet" href="player.css?v=20260927c">
 </head>
 <body>
 
@@ -94,10 +94,14 @@
           <span class="pp-fact-value" id="pp-when"></span>
           <span class="pp-fact-sub" id="pp-when-sub"></span>
         </div>
-        <div class="pp-fact">
+        <div class="pp-fact" id="pp-seats-fact">
           <span class="pp-fact-label">Seats</span>
           <span class="pp-fact-value" id="pp-seats"></span>
-          <div class="pp-seatbar" aria-hidden="true"><span id="pp-seatbar-fill"></span></div>
+          <div class="pp-seatmeter" aria-hidden="true">
+            <div class="pp-seatbar"><span id="pp-seatbar-fill"></span></div>
+            <div class="pp-seat-min" id="pp-seat-min"><i></i><b id="pp-seat-min-label"></b></div>
+          </div>
+          <span class="pp-seat-status" id="pp-seat-status" role="status"></span>
         </div>
         <div class="pp-fact">
           <span class="pp-fact-label">Price</span>
@@ -271,6 +275,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-init.js?v=20260926b"></script>
 <script src="tz.js?v=20260927a"></script>
-<script src="player.js?v=20260927b"></script>
+<script src="player.js?v=20260927c"></script>
 </body>
 </html>

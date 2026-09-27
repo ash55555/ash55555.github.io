@@ -221,3 +221,18 @@ body.pp-embed .pp-grid { grid-template-columns: 1fr; }
 .pp-checkout-dialog.is-done .pp-cb-grid { display: none; }
 .pp-done { text-align: center; padding: 1.4em 0 .6em; }
 .pp-done p { margin: 0 0 1.2em; font-size: 1.05rem; line-height: 1.5; }
+
+/* Seat meter with the "players needed to start" line */
+.pp-seatmeter { position: relative; margin-top: 0.7em; padding-bottom: 1.5em; }
+.pp-seatmeter .pp-seatbar { margin-top: 0; }
+.pp-seat-min { position: absolute; top: -5px; bottom: 1.05em; width: 0; }
+.pp-seat-min i { position: absolute; left: -1px; top: 0; bottom: 0; width: 2px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); animation: pp-min-pulse 2.2s ease-in-out infinite; }
+.pp-seat-min i::before { content: ''; position: absolute; left: 50%; top: -5px; width: 9px; height: 9px; border-radius: 50%; background: inherit; transform: translateX(-50%); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35); }
+.pp-seat-min b { position: absolute; top: calc(100% - 0.05em); left: 0; transform: translateX(-50%); white-space: nowrap; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.03em; color: var(--gold); }
+.pp-seat-status { font-size: 0.85rem; font-weight: 700; color: var(--gold); }
+.pp-go .pp-seat-min i { background: #5bd68a; animation: pp-min-pop 0.5s ease-out 1; }
+.pp-go .pp-seat-min b, .pp-go .pp-seat-status { color: #5bd68a; }
+.pp-go .pp-seatbar span { background: linear-gradient(90deg, var(--purple), #5bd68a); }
+@keyframes pp-min-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@keyframes pp-min-pop { 0% { transform: scaleY(0.4); } 60% { transform: scaleY(1.25); } 100% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .pp-seat-min i { animation: none; } }

@@ -21,7 +21,7 @@ const TEST_GAME = {
   title: hasGame ? campaignName + (groupName ? " · " + groupName : "") : "The Test Table",
   eyebrow: hasGame ? "Campaign" : "Test Table",
   day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
-  seatsMax: num("max", 5), price: num("price", 10), // price here is only what is DISPLAYED; the Worker decides what is charged
+  seatsMax: num("max", 5), seatsMin: num("min", 3), price: num("price", 10), // price here is only what is DISPLAYED; the Worker decides what is charged
 };
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
 const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
@@ -169,13 +169,29 @@ function renderRoster() {
   }
   $('pp-seats').textContent = filled + ' of ' + seats.max + ' filled';
   $('pp-seatbar-fill').style.width = (filled / seats.max) * 100 + '%';
+  renderMinPlayers(filled, seats.max, seats.min);
+}
+
+// The line on the seat bar showing how many players it takes to start the game.
+function renderMinPlayers(filled, max, min) {
+  const fact = $('pp-seats-fact');
+  const marker = $('pp-seat-min');
+  const status = $('pp-seat-status');
+  const need = Math.max(0, min - filled);
+  const go = need === 0;
+  fact.classList.toggle('pp-go', go);
+  marker.style.left = Math.min(100, (min / max) * 100) + '%';
+  $('pp-seat-min-label').textContent = go ? '\u2713 ' + min + ' needed' : min + ' to start';
+  status.textContent = go
+    ? 'The game is a go. Enough players have joined!'
+    : need + ' more player' + (need === 1 ? '' : 's') + ' and the game starts.';
 }
 
 // Seat counts: the Worker's numbers for real games once we have them, sample numbers otherwise.
 function seatNumbers() {
-  if (realGame && serverState) return { filled: serverState.seats.filled, max: serverState.seats.max };
+  if (realGame && serverState) return { filled: serverState.seats.filled, max: serverState.seats.max, min: serverState.seats.min || TEST_GAME.seatsMin };
   const mine = view === 'joined' || view === 'skipped';
-  return { filled: SAMPLE_OTHERS.length + (mine ? 1 : 0), max: TEST_GAME.seatsMax };
+  return { filled: SAMPLE_OTHERS.length + (mine ? 1 : 0), max: TEST_GAME.seatsMax, min: TEST_GAME.seatsMin };
 }
 
 function billingHtml(next) {
