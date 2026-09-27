@@ -62,12 +62,12 @@
 }
 .me-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .me-avatar-edit {
-  position: absolute; left: 5px; right: 5px; bottom: 5px; height: 38%; border-radius: 0 0 999px 999px;
-  display: grid; place-items: center; font-size: 0.8rem; font-weight: 800; color: #fff;
-  background: linear-gradient(0deg, rgba(10, 5, 22, 0.85), transparent); opacity: 0; transform: translateY(8px);
-  transition: opacity 0.2s, transform 0.2s; padding-top: 1.2em;
+  position: absolute; inset: 5px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.85rem; font-weight: 800; color: #fff; text-align: center; padding: 0 1em;
+  background: rgba(10, 5, 22, 0.6); opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
 }
-.me-avatar-btn:hover .me-avatar-edit, .me-avatar-btn:focus-visible .me-avatar-edit { opacity: 1; transform: none; }
+.me-avatar-btn:hover .me-avatar-edit, .me-avatar-btn:focus-visible .me-avatar-edit { opacity: 1; }
 .me-remove { font-size: 0.85rem; }
 
 .me-actions { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; margin-top: 0.4em; }
