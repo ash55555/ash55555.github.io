@@ -434,11 +434,22 @@ async function start(user) {
   renderPicked();
   refreshTotal();
   setPill();
-  // Coming from "My schedule" in the nav dropdown: jump straight to the calendar.
-  if (window.location.hash === '#me-schedule') {
-    requestAnimationFrame(() => $('me-schedule').scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  }
+  if (window.location.hash === '#me-schedule') scrollToSchedule();
 }
+
+// Coming from "My schedule" in the nav dropdown: jump straight to the calendar.
+// Fonts and the calendar grid can still be settling into their final layout for a
+// moment after the page first paints, so this nudges the scroll a couple more
+// times rather than trusting a single scrollIntoView to land in the right spot.
+function scrollToSchedule() {
+  const target = $('me-schedule');
+  if (!target) return;
+  const jump = () => target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  jump();
+  setTimeout(jump, 300);
+  setTimeout(jump, 900);
+}
+window.addEventListener('hashchange', () => { if (window.location.hash === '#me-schedule') scrollToSchedule(); });
 
 if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
