@@ -65,3 +65,24 @@ CREATE TABLE IF NOT EXISTS profiles (
   updated_at TEXT
 );
 CREATE INDEX IF NOT EXISTS profiles_avatar ON profiles (avatar_id);
+
+ALTER TABLE profiles ADD COLUMN slots_fmt TEXT;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  game TEXT,
+  title TEXT NOT NULL,
+  body TEXT,
+  read INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS reminders (
+  mode TEXT NOT NULL,
+  game TEXT NOT NULL,
+  session_ts TEXT NOT NULL,
+  uid TEXT NOT NULL,
+  sent_at TEXT NOT NULL,
+  PRIMARY KEY (mode, game, session_ts, uid)
+);

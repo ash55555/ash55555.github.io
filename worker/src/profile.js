@@ -2,9 +2,11 @@
 // wants to play, and the weekly hours they can play. Any signed-in player can read
 // and change their OWN profile. Only the admin can read everyone's (to plan games).
 //
-// Availability is stored as 336 characters, one per half hour of a week, in UTC
-// (index 0 = Sunday 00:00 UTC). The browser converts to and from the player's own
-// time zone, so every player lines up in one shared timeline for the admin.
+// Availability is stored as 336 characters, one per half hour of the player's OWN
+// local week (index 0 = Sunday 00:00 local), together with their time zone name.
+// Storing local hours means a daylight saving change never moves what they marked.
+// The admin page converts each player's week to the admin's own clock when it draws
+// the heat map. Saves made before this change were in UTC (slots_fmt not "local").
 
 import { verifyUser } from './pay.js';
 
@@ -40,6 +42,7 @@ function view(row, origin) {
     other: row.other || '',
     slots: row.slots && row.slots.length === SLOT_COUNT ? row.slots : '0'.repeat(SLOT_COUNT),
     tz: row.tz || '',
+    fmt: row.slots_fmt === 'local' ? 'local' : 'utc',
   };
 }
 
@@ -82,7 +85,7 @@ export async function handleProfile(request, env, corsHeaders, origin, action, v
 
     if (action === 'admin/summary') {
       if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
-      const rows = (await env.DB.prepare('SELECT uid, email, name, pronouns, token, avatar_id, interests, other, slots, tz, updated_at FROM profiles').all()).results;
+      const rows = (await env.DB.prepare('SELECT uid, email, name, pronouns, token, avatar_id, interests, other, slots, tz, slots_fmt, updated_at FROM profiles').all()).results;
       return json({
         players: rows.map((r) => {
           let interests = [];
@@ -90,7 +93,7 @@ export async function handleProfile(request, env, corsHeaders, origin, action, v
           return {
             uid: r.uid, email: r.email, name: r.name || (r.email || '').split('@')[0], pronouns: r.pronouns || '',
             avatarUrl: avatarUrl(self, r), interests, other: r.other || '',
-            slots: r.slots && r.slots.length === SLOT_COUNT ? r.slots : null, tz: r.tz || '', updatedAt: r.updated_at,
+            slots: r.slots && r.slots.length === SLOT_COUNT ? r.slots : null, tz: r.tz || '', fmt: r.slots_fmt === 'local' ? 'local' : 'utc', updatedAt: r.updated_at,
           };
         }),
       }, 200, corsHeaders);
@@ -160,8 +163,8 @@ async function saveAvailability(env, user, body, corsHeaders) {
   const tz = clean(body.tz, 64);
   const now = new Date().toISOString();
   await env.DB.prepare(
-    `INSERT INTO profiles (uid, email, name, slots, tz, updated_at) VALUES (?,?,?,?,?,?)
-     ON CONFLICT(uid) DO UPDATE SET slots=excluded.slots, tz=excluded.tz, updated_at=excluded.updated_at`)
+    `INSERT INTO profiles (uid, email, name, slots, tz, slots_fmt, updated_at) VALUES (?,?,?,?,?,'local',?)
+     ON CONFLICT(uid) DO UPDATE SET slots=excluded.slots, tz=excluded.tz, slots_fmt='local', updated_at=excluded.updated_at`)
     .bind(user.sub, (user.email || '').toLowerCase(), clean(user.name || (user.email || '').split('@')[0], 30), slots, tz, now).run();
   return json({ ok: true }, 200, corsHeaders);
 }

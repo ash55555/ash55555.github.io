@@ -105,6 +105,20 @@
   .plan-best { display: flex; flex-wrap: wrap; gap: .4em; }
   .plan-best .pay-badge { cursor: pointer; }
   .plan-detail { margin-top: 1em; padding: .8em 1em; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border); font-size: .85rem; min-height: 3em; }
+  .note-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.3em 1.5em; margin-bottom: 2em; }
+  .note-box h2 { font-size: 1.2rem; display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
+  .note-new { font-family: 'Nunito', sans-serif; font-size: .78rem; font-weight: 800; background: var(--danger); color: #fff; border-radius: 999px; padding: .15em .7em; }
+  .note-list { list-style: none; margin: .8em 0 0; padding: 0; display: grid; gap: .5em; max-height: 340px; overflow: auto; }
+  .note-item { display: grid; grid-template-columns: 88px 1fr auto; gap: .8em; align-items: start; padding: .7em .9em; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border); font-size: .88rem; }
+  .note-item.unread { border-color: rgba(242,184,79,.55); }
+  .note-kind { font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-radius: 999px; padding: .25em .6em; text-align: center; background: rgba(155,109,255,.2); color: #cbb6ff; }
+  .note-kind.charge_failed, .note-kind.gave_up, .note-kind.unknown { background: rgba(224,85,111,.2); color: #ff9db0; }
+  .note-kind.joined { background: rgba(127,217,154,.18); color: #7fd99a; }
+  .note-kind.left { background: rgba(242,184,79,.18); color: var(--gold); }
+  .note-title { font-weight: 800; }
+  .note-body { color: var(--text-muted); font-size: .82rem; white-space: pre-line; margin-top: .2em; }
+  .note-time { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
+  @media (max-width: 640px) { .note-item { grid-template-columns: 1fr; } }
   .pay-short { color: var(--danger); font-size: .74rem; font-weight: 700; }
   .pay-ok { color: var(--success); font-size: .74rem; font-weight: 700; }
 
@@ -338,6 +352,13 @@
     <div class="top-bar">
       <h1><img src="medie/ash-token.png" alt="">Ash Tabletop Admin</h1>
       <button type="button" class="btn btn-ghost" id="logout-btn">Log Out</button>
+    </div>
+
+    <div class="note-box" id="note-box">
+      <h2>🔔 Notifications <span class="note-new" id="note-new" hidden></span></h2>
+      <p class="note" id="note-sub">New players, players who leave, failed charges and session reminders show up here.</p>
+      <button type="button" class="pay-mini" id="note-read">Mark all as read</button>
+      <ul class="note-list" id="note-list"></ul>
     </div>
 
     <div id="pay-boxes"></div>
@@ -1014,20 +1035,98 @@
 </script>
 <script>
 (function () {
+  var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
+  var LABELS = { joined: 'New player', left: 'Left', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
+  var listEl = document.getElementById('note-list');
+
+  function call(action) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load notifications.'); return data; });
+    });
+  }
+  function ago(iso) {
+    var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 90) return 'just now';
+    if (s < 3600) return Math.round(s / 60) + ' min ago';
+    if (s < 86400) return Math.round(s / 3600) + ' h ago';
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+  function render(data) {
+    var badge = document.getElementById('note-new');
+    badge.hidden = !data.unread;
+    badge.textContent = data.unread + ' new';
+    document.getElementById('note-sub').textContent = 'New players, players who leave, failed charges and session reminders show up here.' +
+      (data.emailOn ? ' Each one is also emailed to you.' : ' Email copies are not switched on yet.');
+    listEl.innerHTML = '';
+    if (!data.items.length) {
+      var li = document.createElement('li');
+      li.className = 'pay-muted';
+      li.textContent = 'Nothing yet. You will see it here the moment something happens.';
+      listEl.appendChild(li);
+      return;
+    }
+    data.items.forEach(function (n) {
+      var li = document.createElement('li');
+      li.className = 'note-item' + (n.read ? '' : ' unread');
+      var kind = document.createElement('span'); kind.className = 'note-kind ' + n.kind; kind.textContent = LABELS[n.kind] || n.kind;
+      var mid = document.createElement('div');
+      var t = document.createElement('div'); t.className = 'note-title'; t.textContent = n.title;
+      var b = document.createElement('div'); b.className = 'note-body'; b.textContent = n.body || '';
+      mid.append(t, b);
+      var time = document.createElement('span'); time.className = 'note-time'; time.textContent = ago(n.created_at);
+      li.append(kind, mid, time);
+      listEl.appendChild(li);
+    });
+  }
+  function load() { return call('admin/notifications').then(render).catch(function (err) { listEl.innerHTML = ''; var li = document.createElement('li'); li.className = 'pay-muted'; li.textContent = err.message; listEl.appendChild(li); }); }
+  document.getElementById('note-read').addEventListener('click', function () { call('admin/notifications/read').then(load); });
+  var go = false;
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user || go) return;
+    go = true;
+    load();
+    setInterval(load, 60000);
+  });
+})();
+</script>
+<script>
+(function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/profile/';
   var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   var players = [];
   var filter = '';      // '' = everyone, otherwise a game name
   var selected = null;  // {d, h}
-  var offsetMin = -new Date().getTimezoneOffset();
+  var adminTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   var statusEl = document.getElementById('plan-status');
 
   function jsDay(i) { return (i + 1) % 7; }
-  function slotIndex(dJS, hour, half) {
-    var m = dJS * 1440 + hour * 60 + half * 30 - offsetMin;
-    m = ((m % 10080) + 10080) % 10080;
-    return Math.floor(m / 30);
+  // Players save their own local week. To compare everyone on one grid, each week is
+  // shifted onto YOUR clock, using the clock offsets that apply next week.
+  function tzOffsetMin(tz, date) {
+    try {
+      var parts = {};
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+        .formatToParts(date).forEach(function (p) { parts[p.type] = p.value; });
+      var asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+      return Math.round((asUtc - Math.floor(date.getTime() / 1000) * 1000) / 60000);
+    } catch (e) { return 0; }
   }
+  function shiftSlots(str, minutes) {
+    var k = Math.round(minutes / 30);
+    if (!k) return str;
+    var out = new Array(336).fill('0');
+    for (var i = 0; i < 336; i++) out[(((i + k) % 336) + 336) % 336] = str.charAt(i);
+    return out.join('');
+  }
+  function toAdminWeek(p) {
+    var ref = new Date(Date.now() + 7 * 24 * 3600 * 1000);
+    var mine = tzOffsetMin(adminTz, ref);
+    if (p.fmt !== 'local') return shiftSlots(p.slots, mine);   // older saves were UTC
+    return shiftSlots(p.slots, mine - tzOffsetMin(p.tz || adminTz, ref));
+  }
+  function slotIndex(dJS, hour, half) { return dJS * 48 + hour * 2 + half; }
   function hourLabel(h) { return new Date(2026, 0, 4, h).toLocaleTimeString([], { hour: 'numeric' }); }
   function freeAt(p, d, h) {
     return !!p.slots && p.slots.charAt(slotIndex(jsDay(d), h, 0)) === '1' && p.slots.charAt(slotIndex(jsDay(d), h, 1)) === '1';
@@ -1156,6 +1255,7 @@
       return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load profiles.'); return data; });
     }).then(function (data) {
       players = data.players;
+      players.forEach(function (p) { if (p.slots) p.slots = toAdminWeek(p); });
       var withCal = players.filter(function (p) { return p.slots; }).length;
       var withGames = players.filter(function (p) { return p.interests.length; }).length;
       statusEl.textContent = players.length ? withCal + ' calendar' + (withCal === 1 ? '' : 's') + ' and ' + withGames + ' game list' + (withGames === 1 ? '' : 's') + ' so far.' : 'Nobody has filled in a profile yet.';

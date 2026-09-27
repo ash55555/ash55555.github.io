@@ -243,21 +243,47 @@ $('me-other').addEventListener('input', saveGames);
 // Display order Monday..Sunday. JS days: Sunday = 0.
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const jsDay = (i) => (i + 1) % 7;
-const offsetMin = -new Date().getTimezoneOffset(); // minutes ahead of UTC right now
 const on = DAY_NAMES.map(() => new Array(24).fill(false));
 const cells = DAY_NAMES.map(() => new Array(24));
+const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
 
-// 30-minute slot index in the shared UTC week (0 = Sunday 00:00 UTC).
-function slotIndex(dJS, hour, half) {
-  let m = dJS * 1440 + hour * 60 + half * 30 - offsetMin;
-  m = ((m % 10080) + 10080) % 10080;
-  return Math.floor(m / 30);
+// The calendar is saved as the player's own local week: 336 half hours, index 0 =
+// Sunday 00:00 local. Because it is local, daylight saving never moves what they marked.
+const localIndex = (dJS, hour, half) => dJS * 48 + hour * 2 + half;
+
+// How far ahead of UTC a time zone is on a given date, in minutes.
+function tzOffsetMin(tz, date) {
+  try {
+    const parts = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+      .formatToParts(date).forEach((p) => { parts[p.type] = p.value; });
+    const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
+    return Math.round((asUtc - Math.floor(date.getTime() / 1000) * 1000) / 60000);
+  } catch (err) { return -date.getTimezoneOffset(); }
+}
+
+// Moves a week of half-hour slots forward by some minutes (wrapping around the week).
+function shiftSlots(str, minutes) {
+  const k = Math.round(minutes / 30);
+  if (!k) return str;
+  const out = new Array(336).fill('0');
+  for (let i = 0; i < 336; i++) out[(((i + k) % 336) + 336) % 336] = str[i];
+  return out.join('');
+}
+
+// Turns whatever is saved into a local week in THIS browser's time zone.
+function toLocalWeek(p) {
+  const now = new Date();
+  const here = tzOffsetMin(browserTz || 'UTC', now);
+  if (p.fmt !== 'local') return shiftSlots(p.slots, here);                 // old saves were UTC
+  if (p.tz && browserTz && p.tz !== browserTz) return shiftSlots(p.slots, here - tzOffsetMin(p.tz, now)); // moved time zone
+  return p.slots;
 }
 
 function loadSlots(str) {
   for (let d = 0; d < 7; d++) {
     for (let h = 0; h < 24; h++) {
-      on[d][h] = str[slotIndex(jsDay(d), h, 0)] === '1' && str[slotIndex(jsDay(d), h, 1)] === '1';
+      on[d][h] = str[localIndex(jsDay(d), h, 0)] === '1' && str[localIndex(jsDay(d), h, 1)] === '1';
     }
   }
 }
@@ -266,7 +292,7 @@ function buildSlots() {
   const arr = new Array(336).fill('0');
   for (let d = 0; d < 7; d++) {
     for (let h = 0; h < 24; h++) {
-      if (on[d][h]) { arr[slotIndex(jsDay(d), h, 0)] = '1'; arr[slotIndex(jsDay(d), h, 1)] = '1'; }
+      if (on[d][h]) { arr[localIndex(jsDay(d), h, 0)] = '1'; arr[localIndex(jsDay(d), h, 1)] = '1'; }
     }
   }
   return arr.join('');
@@ -287,7 +313,7 @@ function saveCalendar() {
   later('cal', 800, async () => {
     flash('me-cal-status', 'Saving...', '');
     try {
-      await call('availability', { slots: buildSlots(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone || '' });
+      await call('availability', { slots: buildSlots(), tz: browserTz });
       flash('me-cal-status', 'Saved', 'ok');
     } catch (err) { flash('me-cal-status', err.message, 'err'); }
   });
@@ -393,7 +419,7 @@ async function start(user) {
     profile = await call('get');
   } catch (err) {
     flash('me-save-status', err.message, 'err');
-    profile = { name: '', pronouns: '', token: 'wizard', bio: '', avatarUrl: null, interests: [], other: '', slots: '0'.repeat(336) };
+    profile = { name: '', pronouns: '', token: 'wizard', bio: '', avatarUrl: null, interests: [], other: '', slots: '0'.repeat(336), fmt: 'local', tz: browserTz };
   }
   chosenToken = profile.token || 'wizard';
   $('me-name').value = profile.name || '';
@@ -402,7 +428,7 @@ async function start(user) {
   $('me-bio-count').textContent = $('me-bio').value.length + ' / 500';
   $('me-other').value = profile.other || '';
   (profile.interests || []).forEach((n) => picked.add(n));
-  loadSlots(profile.slots);
+  loadSlots(toLocalWeek(profile));
   for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) paintCell(d, h);
   renderTokens();
   renderAvatar();

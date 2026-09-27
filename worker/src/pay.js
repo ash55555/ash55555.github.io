@@ -84,7 +84,7 @@ function json(data, status, corsHeaders) {
   });
 }
 
-function cfg(env) {
+export function cfg(env) {
   const live = env.PAY_MODE === 'live';
   return {
     mode: live ? 'live' : 'sandbox',
@@ -131,7 +131,7 @@ function nextStart(game, after) {
   return null;
 }
 
-function upcoming(game, from, count) {
+export function upcoming(game, from, count) {
   const out = [];
   let d = nextStart(game, from);
   for (let i = 0; i < count && d; i++) {
@@ -152,7 +152,7 @@ function sessionsBetween(game, from, to) {
   return out;
 }
 
-const iso = (d) => d.toISOString();
+export const iso = (d) => d.toISOString();
 const chargeKey = (mode, game, uid, ts) => `${mode}|${game}|${uid}|${ts}`;
 
 async function activeCount(env, mode, gameKey) {
@@ -166,14 +166,14 @@ function seatInfo(game, online) {
 }
 
 // Billing for a game only begins when Ash clicks "Start game" in the admin page.
-async function gameState(env, mode, gameKey) {
+export async function gameState(env, mode, gameKey) {
   const row = await env.DB.prepare('SELECT running, started_at, stopped_at FROM games WHERE mode=? AND game=?').bind(mode, gameKey).first();
   return { running: !!(row && row.running), startedAt: row ? row.started_at : null, stoppedAt: row ? row.stopped_at : null };
 }
 
 // Players playing one session: everyone still on PayPal, plus online players who
 // had joined before it and have not skipped it.
-async function playingCount(env, mode, gameKey, game, ts) {
+export async function playingCount(env, mode, gameKey, game, ts) {
   const r = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM players p WHERE p.mode=? AND p.game=? AND p.status='active' AND p.joined_at < ?
      AND NOT EXISTS (SELECT 1 FROM skips s WHERE s.mode=p.mode AND s.game=p.game AND s.uid=p.uid AND s.session_ts=?)`)
@@ -207,6 +207,16 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   }
 
   if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders);
+  if (action === 'admin/notifications') {
+    const mode = cfg(env).mode;
+    const items = (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? ORDER BY id DESC LIMIT 40').bind(mode).all()).results;
+    const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND read=0').bind(mode).first();
+    return json({ items, unread: unread ? unread.n : 0, emailOn: !!env.ADMIN_NOTIFY_EMAIL }, 200, corsHeaders);
+  }
+  if (action === 'admin/notifications/read') {
+    await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND read=0').bind(cfg(env).mode).run();
+    return json({ ok: true }, 200, corsHeaders);
+  }
 
   const gameKey = body.game;
   let game;
@@ -325,6 +335,7 @@ async function doComplete(ctx) {
       .bind(ctx.mode, gameKey, user.sub, email, name, token, memberId, pm.id, card.brand || null, card.last4 || null, now, now).run();
     // A fresh join starts with a clean slate of skips.
     await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, gameKey, user.sub).run();
+    await notify(env, ctx.sendEmail, ctx.mode, 'joined', gameKey, `${name} joined ${game.title}`, `${email} booked a seat.\nCard on file: ${card.brand || 'card'} ${card.last4 || ''}.`);
   }
   return doStatus(ctx);
 }
@@ -393,6 +404,7 @@ async function doLeave(ctx) {
     return json({ error: 'It is less than 24 hours before the next session, so it is too late to leave before it. Please message Ash.' }, 409, corsHeaders);
   }
   await env.DB.prepare("UPDATE players SET status='left', left_at=? WHERE mode=? AND game=? AND uid=?").bind(iso(now), ctx.mode, gameKey, user.sub).run();
+  await notify(env, ctx.sendEmail, ctx.mode, 'left', gameKey, `${me.name || me.email} left ${game.title}`, `${me.email} left the game and will not be charged again.`);
   return json({ joined: false, left: true }, 200, corsHeaders);
 }
 
@@ -613,6 +625,7 @@ export async function runCharges(env, sendEmail) {
         if (row.status === 'failed') {
           if (row.attempts >= MAX_ATTEMPTS) {
             await env.DB.prepare("UPDATE charges SET status='failed_final', updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?").bind(iso(now), c.mode, gameKey, p.uid, ts).run();
+            await notify(env, sendEmail, c.mode, 'gave_up', gameKey, `Charge gave up: ${p.name || p.email}`, `${p.name || ''} (${p.email}) could not be charged for ${game.title}, session ${fmtUtc(ts)}, after ${MAX_ATTEMPTS} tries. Use "Try again" on your admin page once they fix their card.`);
             continue;
           }
           if (row.last_attempt_at && now.getTime() - new Date(row.last_attempt_at).getTime() < RETRY_GAP_MS) continue;
@@ -670,6 +683,8 @@ async function settle(env, c, sendEmail, p, game, gameKey, ts, r) {
   await env.DB.prepare("UPDATE charges SET status='failed', payment_id=COALESCE(?, payment_id), last_error=?, updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?")
     .bind(d.id || null, (cardDeclined ? '' : 'System problem, not the card: ') + why, now, c.mode, gameKey, p.uid, ts).run();
   if (cardDeclined) await emailDeclined(env, sendEmail, p, game);
+  await notify(env, sendEmail, c.mode, 'charge_failed', gameKey, `Charge failed: ${p.name || p.email}`,
+    `${p.name || ''} (${p.email}) could not be charged $${game.price} for ${game.title}, session ${fmtUtc(ts)}.\nReason: ${why}\n${cardDeclined ? 'The player was emailed to update their card. It will retry automatically.' : 'This looks like a system problem, not the card. The player was NOT emailed.'}`);
 }
 
 async function emailDeclined(env, sendEmail, p, game) {
@@ -698,6 +713,8 @@ async function reconcile(env, c, row, sendEmail, p, game) {
       if (kind === 'failed') {
         await env.DB.prepare("UPDATE charges SET status='failed', last_error=?, updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?").bind(String(d.failure_message || 'failed').slice(0, 300), iso(now), c.mode, row.game, row.uid, row.session_ts).run();
         await emailDeclined(env, sendEmail, p, game);
+        await notify(env, sendEmail, c.mode, 'charge_failed', row.game, `Charge failed: ${p.name || p.email}`,
+          `${p.name || ''} (${p.email}) was declined for ${game.title}, session ${fmtUtc(row.session_ts)}.\nReason: ${String(d.failure_message || 'declined').slice(0, 200)}\nThe player was emailed to update their card. It will retry automatically.`);
         return;
       }
     }
@@ -707,6 +724,7 @@ async function reconcile(env, c, row, sendEmail, p, game) {
   // Flag it for Ash rather than risk a double charge.
   await env.DB.prepare("UPDATE charges SET status='unknown', last_error='Charge started but the result was not recorded. Check Whop before retrying.', updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?")
     .bind(iso(now), c.mode, row.game, row.uid, row.session_ts).run();
+  await notify(env, sendEmail, c.mode, 'unknown', row.game, `Check Whop: ${p.name || p.email}`, `A charge for ${game.title}, session ${fmtUtc(row.session_ts)}, started but its result was not recorded. Check Whop before retrying, so nobody is charged twice.`);
 }
 
 function classify(d) {
@@ -715,6 +733,30 @@ function classify(d) {
   return 'pending';
 }
 
-function escapeHtml(s) {
+const KIND_ICON = { joined: 'New player', left: 'Player left', charge_failed: 'Charge failed', gave_up: 'Charge gave up', unknown: 'Check Whop', reminder: 'Reminder sent' };
+
+// Adds an entry to the notifications list in the admin page and, for real-money
+// events, emails Ash at ADMIN_NOTIFY_EMAIL (a Worker secret, never in the site).
+export async function notify(env, sendEmail, mode, kind, gameKey, title, body) {
+  try {
+    await env.DB.prepare('INSERT INTO notifications (created_at, mode, kind, game, title, body, read) VALUES (?,?,?,?,?,?,0)')
+      .bind(new Date().toISOString(), mode, kind, gameKey || null, String(title).slice(0, 200), String(body || '').slice(0, 1500)).run();
+  } catch (err) { console.error('notification not saved', err && err.message); }
+  const to = env.ADMIN_NOTIFY_EMAIL;
+  if (mode !== 'live' || !to || !sendEmail) return;
+  try {
+    await sendEmail(env, to, title,
+      `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#241a3d">
+        <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9b6dff;font-weight:700">${escapeHtml(KIND_ICON[kind] || kind)}</p>
+        <h2 style="margin:0 0 12px">${escapeHtml(title)}</h2>
+        <p style="line-height:1.55">${escapeHtml(body || '').replace(/\n/g, '<br>')}</p>
+        <p><a href="https://ashtabletop.com/admin.html" style="display:inline-block;background:#f2b84f;color:#241407;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700">Open your admin page</a></p>
+      </div>`);
+  } catch (err) { console.error('notification email failed', err && err.message); }
+}
+
+function fmtUtc(ts) { return new Date(ts).toUTCString().replace(' GMT', ' UTC'); }
+
+export function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }

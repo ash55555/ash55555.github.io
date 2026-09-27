@@ -12,6 +12,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
+import { runReminders } from './reminders.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -122,6 +123,9 @@ export default {
       runCharges(env, sendEmail)
         .then((r) => console.log('charge run', JSON.stringify(r)))
         .catch((err) => console.error('charge run failed', err && err.message))
+        .then(() => runReminders(env, sendEmail))
+        .then((r) => console.log('reminder run', JSON.stringify(r)))
+        .catch((err) => console.error('reminder run failed', err && err.message))
     );
   },
 };
