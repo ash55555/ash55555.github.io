@@ -39,3 +39,12 @@ CREATE TABLE IF NOT EXISTS charges (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (mode, game, uid, session_ts)
 );
+
+CREATE TABLE IF NOT EXISTS games (
+  mode TEXT NOT NULL,
+  game TEXT NOT NULL,
+  running INTEGER NOT NULL DEFAULT 0,
+  started_at TEXT,
+  stopped_at TEXT,
+  PRIMARY KEY (mode, game)
+);

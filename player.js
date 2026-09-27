@@ -197,6 +197,7 @@ function seatNumbers() {
 function billingHtml(next) {
   return '<strong>You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
     '<span>Then again every ' + weekdayName(next) + ' at ' + fmtTime(next) + ', when each session starts.</span>' +
+    '<span>Billing begins once Ash starts the game (it needs enough players). If it has not started by then, you are not charged.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
 }
 
@@ -250,9 +251,13 @@ function renderGame() {
   const nextCharged = rows.find((r) => !r.skipped);
   const chargeDate = real ? (nextCharged ? nextCharged.d : null) : (view === 'skipped' ? sessions[1] : next);
   const card = real && serverState.card && serverState.card.last4 ? ' Card on file: ' + (serverState.card.brand || 'card') + ' ending ' + serverState.card.last4 + '.' : '';
-  $('pp-billing-active').innerHTML = '<strong>' + (chargeDate
-    ? 'You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
-    : 'No charges are scheduled right now.') + '</strong>' +
+  const notStarted = real && serverState.running === false;
+  $('pp-billing-active').innerHTML = '<strong>' + (notStarted
+    ? "You won't be charged until Ash starts the game."
+    : chargeDate
+      ? 'You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
+      : 'No charges are scheduled right now.') + '</strong>' +
+    (notStarted && chargeDate ? '<span>After it starts: $' + TEST_GAME.price + ' at the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
     (card ? '<span>' + card.trim() + '</span>' : '');
   $('pp-update-card').hidden = !real;
 

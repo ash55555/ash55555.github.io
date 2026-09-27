@@ -33,6 +33,7 @@ export const PAY_GAMES = {
     day: 6, hour: 0, minute: 0, offset: 1,
     price: 10,
     max: 5,
+    min: 3, // a session is only charged when at least this many players are playing it
     legacyFilled: 3,
   },
   // One-dollar pilot table for testing real charges with Bianca. Only people on
@@ -42,6 +43,7 @@ export const PAY_GAMES = {
     day: 0, hour: 0, minute: 45, offset: 0, // PILOT-TIME
     price: 1,
     max: 3,
+    min: 1,
     legacyFilled: 0,
   },
 };
@@ -133,7 +135,23 @@ async function activeCount(env, mode, gameKey) {
 
 function seatInfo(game, online) {
   const filled = game.legacyFilled + online;
-  return { filled, max: game.max, open: Math.max(0, game.max - filled) };
+  return { filled, max: game.max, min: game.min, open: Math.max(0, game.max - filled) };
+}
+
+// Billing for a game only begins when Ash clicks "Start game" in the admin page.
+async function gameState(env, mode, gameKey) {
+  const row = await env.DB.prepare('SELECT running, started_at, stopped_at FROM games WHERE mode=? AND game=?').bind(mode, gameKey).first();
+  return { running: !!(row && row.running), startedAt: row ? row.started_at : null, stoppedAt: row ? row.stopped_at : null };
+}
+
+// Players playing one session: everyone still on PayPal, plus online players who
+// had joined before it and have not skipped it.
+async function playingCount(env, mode, gameKey, game, ts) {
+  const r = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM players p WHERE p.mode=? AND p.game=? AND p.status='active' AND p.joined_at < ?
+     AND NOT EXISTS (SELECT 1 FROM skips s WHERE s.mode=p.mode AND s.game=p.game AND s.uid=p.uid AND s.session_ts=?)`)
+    .bind(mode, gameKey, ts, ts).first();
+  return game.legacyFilled + (r ? r.n : 0);
 }
 
 function cleanName(name, email) {
@@ -179,6 +197,8 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
       case 'admin/refund': return await adminRefund(ctx);
       case 'admin/retry': return await adminRetry(ctx);
       case 'admin/remove': return await adminRemove(ctx);
+      case 'admin/start': return await adminGameRunning(ctx, true);
+      case 'admin/stop': return await adminGameRunning(ctx, false);
       default: return json({ error: 'Unknown action' }, 404, corsHeaders);
     }
   } catch (err) {
@@ -288,7 +308,8 @@ async function doStatus(ctx) {
   const roster = (await env.DB.prepare("SELECT name, token, uid FROM players WHERE mode=? AND game=? AND status='active' ORDER BY joined_at").bind(ctx.mode, gameKey).all()).results
     .map((p) => ({ name: p.name, token: p.token || '', you: p.uid === user.sub }));
   const me = await getPlayer(ctx);
-  const base = { seats, roster, price: game.price, mode: ctx.mode };
+  const gs = await gameState(env, ctx.mode, gameKey);
+  const base = { seats, roster, price: game.price, mode: ctx.mode, running: gs.running };
   if (!me || me.status !== 'active') return json({ ...base, joined: false, left: !!(me && me.status === 'left') }, 200, corsHeaders);
 
   const sessions = upcoming(game, now, SESSIONS_SHOWN);
@@ -355,10 +376,17 @@ async function adminRoster(ctx) {
   const charges = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? ORDER BY session_ts DESC LIMIT 200').bind(ctx.mode, gameKey).all()).results;
   const sessions = upcoming(game, now, SESSIONS_SHOWN).map(iso);
   const pastSessions = sessionsBetween(game, new Date(now.getTime() - 28 * DAY_MS), now).map(iso).reverse();
+  const gs = await gameState(env, ctx.mode, gameKey);
+  const playing = {};
+  for (const ts of sessions) playing[ts] = await playingCount(env, ctx.mode, gameKey, game, ts);
   return json({
     mode: ctx.mode,
+    running: gs.running,
+    startedAt: gs.startedAt,
+    stoppedAt: gs.stoppedAt,
+    playing,
     charging: env.CHARGING_MODE || 'off',
-    game: { key: gameKey, title: game.title, price: game.price, max: game.max, legacyFilled: game.legacyFilled },
+    game: { key: gameKey, title: game.title, price: game.price, max: game.max, min: game.min, legacyFilled: game.legacyFilled },
     seats: seatInfo(game, players.filter((p) => p.status === 'active').length),
     sessions,
     pastSessions,
@@ -421,6 +449,22 @@ async function adminRetry(ctx) {
   return json({ ok: true }, 200, corsHeaders);
 }
 
+async function adminGameRunning(ctx, running) {
+  const { env, gameKey, corsHeaders } = ctx;
+  const now = iso(new Date());
+  if (running) {
+    // Starting again while already running keeps the original start time.
+    await env.DB.prepare(
+      `INSERT INTO games (mode, game, running, started_at) VALUES (?,?,1,?)
+       ON CONFLICT(mode, game) DO UPDATE SET
+         started_at = CASE WHEN games.running = 1 THEN games.started_at ELSE excluded.started_at END,
+         running = 1, stopped_at = NULL`).bind(ctx.mode, gameKey, now).run();
+  } else {
+    await env.DB.prepare('UPDATE games SET running=0, stopped_at=? WHERE mode=? AND game=?').bind(now, ctx.mode, gameKey).run();
+  }
+  return json({ ok: true, ...(await gameState(env, ctx.mode, gameKey)) }, 200, corsHeaders);
+}
+
 async function adminRemove(ctx) {
   const { env, body, gameKey, corsHeaders } = ctx;
   const uid = String(body.uid || '');
@@ -435,11 +479,26 @@ export async function runCharges(env, sendEmail) {
   if (mode === 'off') return { skipped: 'charging is off' };
   const c = cfg(env);
   const now = new Date();
-  const report = { charged: 0, failed: 0, wouldCharge: 0, checked: 0 };
+  const report = { charged: 0, pending: 0, failed: 0, wouldCharge: 0, checked: 0 };
 
   for (const [gameKey, game] of Object.entries(PAY_GAMES)) {
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
     const sessions = sessionsBetween(game, new Date(now.getTime() - CATCH_UP_MS), now).map(iso);
+
+    // A NEW charge needs both: Ash has started the game (and the session is after
+    // that moment), and enough players are playing that session. Charges that
+    // already exist (retries, pending checks) carry on regardless.
+    const gs = await gameState(env, c.mode, gameKey);
+    const canStart = new Map();
+    for (const ts of sessions) {
+      let ok = gs.running && ts > gs.startedAt;
+      if (ok) {
+        const playing = await playingCount(env, c.mode, gameKey, game, ts);
+        ok = playing >= game.min;
+        if (!ok) console.log(`${gameKey} ${ts}: only ${playing} playing, needs ${game.min}, so nobody is charged`);
+      }
+      canStart.set(ts, ok);
+    }
 
     for (const p of players) {
       for (const ts of sessions) {
@@ -447,6 +506,8 @@ export async function runCharges(env, sendEmail) {
         if (ts <= p.joined_at) continue;
         const skipped = await env.DB.prepare('SELECT 1 AS x FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
         if (skipped) continue;
+        const existing = await env.DB.prepare('SELECT 1 AS x FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
+        if (!existing && !canStart.get(ts)) continue;
         report.checked++;
 
         if (mode === 'dry') { report.wouldCharge++; console.log(`[dry] would charge ${p.email} $${game.price} for ${gameKey} ${ts}`); continue; }
@@ -489,7 +550,8 @@ export async function runCharges(env, sendEmail) {
           }),
         });
         await settle(env, c, sendEmail, p, game, gameKey, ts, r);
-        if (r.ok && classify(r.data) === 'paid') report.charged++; else report.failed++;
+        const outcome = r.ok ? classify(r.data) : 'failed';
+        if (outcome === 'paid') report.charged++; else if (outcome === 'pending') report.pending++; else report.failed++;
       }
     }
   }
