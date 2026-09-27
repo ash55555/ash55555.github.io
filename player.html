@@ -194,10 +194,10 @@
         <section class="pp-cb-card">
           <h4>2. Payment</h4>
           <p class="pp-cb-muted" id="pp-checkout-sub">Add your card on Whop's secure form below. Your card details never touch this website.</p>
-          <div class="pp-when-charged"><strong>You are charged on game night.</strong><span id="cb-charge-line"></span></div>
+          <div class="pp-when-charged"><strong>You are charged when each session starts.</strong><span id="cb-charge-line"></span></div>
           <div class="pp-billing" id="pp-billing-modal"></div>
           <div id="pp-embed"></div>
-          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span class="js-price">10</span> on game night for each session you have not skipped, until you leave the game. Skip a session or leave any time up to 24 hours before it starts.</p>
+          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span class="js-price">10</span> at the start time of each session you have not skipped, until you leave the game. Skip a session or leave any time up to 24 hours before it starts.</p>
           <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
           <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
           <p class="pp-fineprint" id="pp-checkout-note" hidden></p>
@@ -237,8 +237,8 @@
         <section class="pp-cb-card">
           <h4>Payment details</h4>
           <ul class="pp-cb-list">
-            <li>Nothing is charged today. You're charged for your first session on game night.</li>
-            <li>After that, each session is charged weekly on game night.</li>
+            <li>Nothing is charged today. You're charged for your first session at its start time.</li>
+            <li>After that, each session is charged weekly at its start time.</li>
             <li>Skip a week and you're not charged for it.</li>
           </ul>
         </section>
@@ -271,6 +271,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-init.js?v=20260926b"></script>
 <script src="tz.js?v=20260927a"></script>
-<script src="player.js?v=20260927a"></script>
+<script src="player.js?v=20260927b"></script>
 </body>
 </html>

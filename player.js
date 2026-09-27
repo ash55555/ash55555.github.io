@@ -179,8 +179,8 @@ function seatNumbers() {
 }
 
 function billingHtml(next) {
-  return '<strong>You will be charged $' + TEST_GAME.price + ' on the day of each session.</strong>' +
-    '<span>Your first session is ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</span>' +
+  return '<strong>You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
+    '<span>Then again every ' + weekdayName(next) + ' at ' + fmtTime(next) + ', when each session starts.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
 }
 
@@ -234,7 +234,9 @@ function renderGame() {
   const nextCharged = rows.find((r) => !r.skipped);
   const chargeDate = real ? (nextCharged ? nextCharged.d : null) : (view === 'skipped' ? sessions[1] : next);
   const card = real && serverState.card && serverState.card.last4 ? ' Card on file: ' + (serverState.card.brand || 'card') + ' ending ' + serverState.card.last4 + '.' : '';
-  $('pp-billing-active').innerHTML = '<strong>You will be charged $' + TEST_GAME.price + ' on the day of each session.</strong>' +
+  $('pp-billing-active').innerHTML = '<strong>' + (chargeDate
+    ? 'You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
+    : 'No charges are scheduled right now.') + '</strong>' +
     (card ? '<span>' + card.trim() + '</span>' : '');
   $('pp-update-card').hidden = !real;
 
@@ -445,8 +447,8 @@ function fillBooking() {
   $("cb-price-line").textContent = "$" + TEST_GAME.price + ".00 x 1 player";
   $("cb-price-amount").textContent = "$" + TEST_GAME.price + ".00";
   $("cb-total").textContent = "$" + TEST_GAME.price + ".00 / session";
-  $("cb-charge-line").textContent = "Nothing today. $" + TEST_GAME.price + " on " + fmtDay(next) + ", then every game night after that.";
-  $("cb-first").textContent = "Nothing is charged today. Your first charge is on game night, " + fmtDay(next) + ".";
+  $("cb-charge-line").textContent = "Nothing today. $" + TEST_GAME.price + " on " + fmtDay(next) + " at " + fmtTime(next) + ", then every " + weekdayName(next) + " at " + fmtTime(next) + ".";
+  $("cb-first").textContent = "Nothing is charged today. Your first charge is on " + fmtDay(next) + " at " + fmtTime(next) + ", when the session starts.";
 }
 
 function markJoined() { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); }
