@@ -213,7 +213,8 @@
   .field input[type="text"],
   .field input[type="number"],
   .field input[type="time"],
-  .field select {
+  .field select,
+  .field textarea {
     width: 100%;
     background: var(--bg);
     border: 1px solid var(--border);
@@ -223,6 +224,7 @@
     font-size: 0.88rem;
     font-family: 'Nunito', sans-serif;
   }
+  .field textarea { resize: vertical; line-height: 1.5; }
   .field-checkbox {
     display: flex;
     align-items: center;
@@ -367,6 +369,39 @@
     .me-rail-btn span:not(.me-rail-dot) { display: none; }
     .me-rail-dot { position: absolute; top: 6px; right: 10px; margin-left: 0; }
   }
+
+  /* ---------- Campaigns tab ---------- */
+  .cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1em; }
+  .cc-card {
+    display: block; width: 100%; text-align: left; padding: 0; cursor: pointer;
+    background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden;
+    font-family: 'Nunito', sans-serif; color: var(--text); transition: border-color .15s, transform .15s;
+  }
+  .cc-card:hover { border-color: var(--purple); transform: translateY(-2px); }
+  .cc-card-img { width: 100%; height: 110px; object-fit: cover; display: block; background: var(--bg-panel-2); }
+  .cc-card-body { padding: .8em 1em 1em; }
+  .cc-card-title { font-weight: 800; font-size: .95rem; }
+  .cc-card-sub { font-size: .75rem; color: var(--text-muted); margin-top: .25em; }
+  .cc-new-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .3em;
+    min-height: 176px; border: 1px dashed var(--border); color: var(--text-muted); font-weight: 700; background: transparent;
+  }
+  .cc-new-card:hover { border-color: var(--gold); color: var(--gold); background: transparent; }
+  .cc-editor { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 1.4em 1.6em; margin-top: 1.2em; }
+  .cc-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin-bottom: 1.2em; }
+  .cc-banner-btn {
+    position: relative; display: block; width: 100%; max-width: 480px; padding: 0; margin-bottom: .5em;
+    border-radius: 14px; overflow: hidden; border: 1px dashed var(--border); background: var(--bg-panel-2); cursor: pointer;
+  }
+  .cc-banner-btn img { width: 100%; height: 190px; object-fit: cover; display: block; }
+  .cc-banner-empty { height: 190px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .85rem; text-align: center; padding: 0 1em; }
+  .cc-banner-overlay {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0); color: #fff; font-weight: 700; font-size: .85rem; opacity: 0; transition: opacity .15s, background .15s;
+  }
+  .cc-banner-btn:hover .cc-banner-overlay { opacity: 1; background: rgba(0,0,0,.45); }
+  .cc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1em; }
+  .cc-count { font-size: .7rem; color: var(--text-muted); text-align: right; margin-top: .25em; }
 </style>
 </head>
 <body>
@@ -410,6 +445,10 @@
       <button type="button" class="me-rail-btn" data-tab="sessions" aria-current="false" aria-label="Session settings">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h6M17 7h3M4 12h9M16 12h4M4 17h11M18 17h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
         <span>Session settings</span>
+      </button>
+      <button type="button" class="me-rail-btn" data-tab="campaigns" aria-current="false" aria-label="Campaigns">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H18a1 1 0 0 1 1 1v15.5a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 18V5.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Campaigns</span>
       </button>
      </nav>
 
@@ -483,6 +522,83 @@
     </div>
 
     <div id="campaigns-container"></div>
+    </div>
+
+    <div class="me-panel" data-panel="campaigns" hidden>
+      <div class="note-box" style="margin-bottom:1.2em;">
+        <h2>📖 Campaigns</h2>
+        <p class="note">Edit each campaign's page here: title, hook, story, banner picture and session time. Saving updates the live page right away.</p>
+      </div>
+
+      <p class="slot-status" id="cc-list-status"></p>
+      <div class="cc-grid" id="cc-grid"></div>
+
+      <div class="cc-editor" id="cc-editor" hidden>
+        <div class="cc-editor-head">
+          <button type="button" class="pay-mini" id="cc-back">← All campaigns</button>
+          <a class="pay-mini" id="cc-view-link" href="#" target="_blank" rel="noopener" style="text-decoration:none;">View live page ↗</a>
+        </div>
+
+        <button type="button" class="cc-banner-btn" id="cc-banner-btn">
+          <img id="cc-edit-banner-img" hidden alt="Campaign banner">
+          <div class="cc-banner-empty" id="cc-edit-banner-empty">Click to upload a banner picture</div>
+          <div class="cc-banner-overlay">Click to change picture</div>
+        </button>
+        <input type="file" id="cc-file" accept="image/*" hidden>
+        <p class="slot-status" id="cc-banner-status"></p>
+
+        <div class="cc-fields" style="margin-top:1em;">
+          <div class="field"><label>Title</label><input type="text" id="cc-f-title" maxlength="80" placeholder="e.g. The Prophecy of the Flying City"></div>
+          <div class="field"><label>Eyebrow (short tag above the title)</label><input type="text" id="cc-f-eyebrow" maxlength="70" placeholder="e.g. Political Intrigue · Buried City"></div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>Hook (one or two sentences under the title)</label>
+          <textarea id="cc-f-hook" rows="2" maxlength="220" placeholder="The one line that makes someone want to click in."></textarea>
+          <div class="cc-count" id="cc-count-hook">0 / 220</div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>Introduction (blank line between paragraphs)</label>
+          <textarea id="cc-f-intro" rows="5" maxlength="2500" placeholder="Set the scene. What's happening as the game starts?"></textarea>
+          <div class="cc-count" id="cc-count-intro">0 / 2500</div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>The World</label>
+          <textarea id="cc-f-world" rows="5" maxlength="2500" placeholder="What does this world feel like? What's it built on?"></textarea>
+          <div class="cc-count" id="cc-count-world">0 / 2500</div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>What's at Stake</label>
+          <textarea id="cc-f-stakes" rows="5" maxlength="2500" placeholder="What's the conflict? What happens if the party fails?"></textarea>
+          <div class="cc-count" id="cc-count-stakes">0 / 2500</div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>Why This Table (who this game is for)</label>
+          <textarea id="cc-f-audience" rows="5" maxlength="2500" placeholder="What kind of players will love this one?"></textarea>
+          <div class="cc-count" id="cc-count-audience">0 / 2500</div>
+        </div>
+
+        <div id="cc-time-single" class="slot-row" style="margin-top:1.2em;">
+          <div class="slot-fields">
+            <div class="field"><label>Session day (GMT+1)</label><select id="cc-f-day"></select></div>
+            <div class="field"><label>Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
+          </div>
+        </div>
+        <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so its times live in Session settings. <button type="button" class="pay-mini" id="cc-time-goto">Edit session times</button></p>
+
+        <div class="field-checkbox" style="margin-top:1.2em;">
+          <input type="checkbox" id="cc-f-published"> <label for="cc-f-published" style="text-transform:none;font-size:0.9rem;">Published (visible on the live page)</label>
+        </div>
+
+        <div class="slot-actions" style="justify-content:flex-start;margin-top:1.2em;">
+          <button type="button" class="btn btn-primary" id="cc-save">Save campaign</button>
+          <p class="slot-status" id="cc-save-status"></p>
+        </div>
+      </div>
     </div>
 
      </div>
@@ -1407,6 +1523,326 @@
       statusEl.textContent = err.message;
       statusEl.className = 'slot-status error';
     });
+  });
+})();
+</script>
+<script>
+(function () {
+  var CONTENT_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/';
+  var RESERVED_SLUGS = { 'flying-city': 1, 'curse-of-strahd': 1, 'ravenloft-undead-survival': 1, 'crooked-moon': 1, 'witchlight': 1 };
+  var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var campaigns = [];
+  var current = null;        // slug being edited, or null for a brand-new campaign
+  var pendingBanner = null;  // data URL waiting to be saved
+  var slotState = null;      // { mode: 'single'|'multi', slotId, slot }
+  var editSeq = 0;           // guards against a slow response from a previous campaign
+                              // landing after a newer one was already opened
+
+  function pad(n) { return n < 10 ? '0' + n : String(n); }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function call(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(CONTENT_URL + action, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {}))
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Something went wrong.'); return data; });
+    });
+  }
+
+  function viewUrl(slug) {
+    return RESERVED_SLUGS[slug] ? 'blog/' + slug + '.html' : 'blog/campaign.html?slug=' + encodeURIComponent(slug);
+  }
+
+  function renderGrid() {
+    var grid = document.getElementById('cc-grid');
+    grid.innerHTML = '';
+    var addCard = el('button', 'cc-card cc-new-card');
+    addCard.type = 'button';
+    addCard.innerHTML = '<span style="font-size:1.6rem;">+</span><span>New campaign</span>';
+    addCard.addEventListener('click', function () { openEditor(null); });
+    grid.appendChild(addCard);
+
+    campaigns.forEach(function (c) {
+      var card = el('button', 'cc-card');
+      card.type = 'button';
+      var img = document.createElement('img');
+      img.className = 'cc-card-img';
+      img.src = c.bannerUrl || 'medie/ash-token.png';
+      img.alt = '';
+      card.appendChild(img);
+      var body = el('div', 'cc-card-body');
+      body.appendChild(el('div', 'cc-card-title', c.title || '(untitled)'));
+      body.appendChild(el('div', 'cc-card-sub', c.eyebrow || (c.published ? 'Live' : 'Draft')));
+      card.appendChild(body);
+      card.addEventListener('click', function () { openEditor(c.slug); });
+      grid.appendChild(card);
+    });
+  }
+
+  function loadList() {
+    var status = document.getElementById('cc-list-status');
+    status.textContent = 'Loading…';
+    status.className = 'slot-status';
+    return call('list').then(function (data) {
+      campaigns = data.campaigns;
+      status.textContent = '';
+      renderGrid();
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    });
+  }
+
+  ['hook', 'intro', 'world', 'stakes', 'audience'].forEach(function (f) {
+    var ta = document.getElementById('cc-f-' + f);
+    var out = document.getElementById('cc-count-' + f);
+    var max = f === 'hook' ? 220 : 2500;
+    ta.addEventListener('input', function () { out.textContent = ta.value.length + ' / ' + max; });
+  });
+
+  function refreshCounts() {
+    ['hook', 'intro', 'world', 'stakes', 'audience'].forEach(function (f) {
+      document.getElementById('cc-f-' + f).dispatchEvent(new Event('input'));
+    });
+  }
+
+  // Shrinks and compresses any photo into a landscape banner small enough for
+  // the worker to accept (same idea as the player avatar uploader in profile.js,
+  // but keeping the original aspect ratio instead of a square crop).
+  function fileToBanner(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose an image file.')); return; }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var maxW = 1600;
+        var scale = Math.min(1, maxW / img.width);
+        var w = Math.max(1, Math.round(img.width * scale));
+        var h = Math.max(1, Math.round(img.height * scale));
+        var quality = 0.85;
+        var out = '';
+        for (var i = 0; i < 7; i++) {
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          out = canvas.toDataURL('image/jpeg', quality);
+          if (out.length <= 240000) break;
+          quality -= 0.1;
+          if (quality < 0.5) { w = Math.round(w * 0.85); h = Math.round(h * 0.85); quality = 0.8; }
+        }
+        URL.revokeObjectURL(url);
+        out.length <= 260000 ? resolve(out) : reject(new Error('That picture is too detailed. Try a different one.'));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a picture.')); };
+      img.src = url;
+    });
+  }
+
+  function renderBannerPreview(url) {
+    var img = document.getElementById('cc-edit-banner-img');
+    var empty = document.getElementById('cc-edit-banner-empty');
+    if (url) { img.src = url; img.hidden = false; empty.hidden = true; }
+    else { img.hidden = true; empty.hidden = false; }
+  }
+
+  var daySel = document.getElementById('cc-f-day');
+  DAY_NAMES.forEach(function (name, i) {
+    var opt = document.createElement('option');
+    opt.value = i; opt.textContent = name;
+    daySel.appendChild(opt);
+  });
+
+  // A campaign with 0 or 1 weekly session groups can have its time edited right
+  // here. One with more than one (like Curse of Strahd's two groups) points to
+  // the Session settings tab instead, so editing here can never collide with
+  // whichever group she meant.
+  function loadSlotState(slug) {
+    var single = document.getElementById('cc-time-single');
+    var multi = document.getElementById('cc-time-multi');
+    if (!slug) {
+      slotState = { mode: 'single', slotId: 'default', slot: {} };
+      single.hidden = false; multi.hidden = true;
+      document.getElementById('cc-f-day').value = 6;
+      document.getElementById('cc-f-time').value = '18:00';
+      return Promise.resolve();
+    }
+    return firebase.database().ref('campaigns/' + slug + '/slots').once('value').then(function (snap) {
+      var slots = snap.val();
+      var keys = slots ? Object.keys(slots) : [];
+      if (keys.length <= 1) {
+        var slotId = keys[0] || 'default';
+        var slot = keys[0] ? slots[keys[0]] : {};
+        slotState = { mode: 'single', slotId: slotId, slot: slot };
+        single.hidden = false; multi.hidden = true;
+        document.getElementById('cc-f-day').value = slot.day != null ? slot.day : 6;
+        document.getElementById('cc-f-time').value = pad(slot.hour != null ? slot.hour : 18) + ':' + pad(slot.minute || 0);
+      } else {
+        slotState = { mode: 'multi' };
+        single.hidden = true; multi.hidden = false;
+      }
+    }).catch(function () {
+      slotState = { mode: 'single', slotId: 'default', slot: {} };
+      single.hidden = false; multi.hidden = true;
+    });
+  }
+
+  document.getElementById('cc-time-goto').addEventListener('click', function () {
+    var btn = document.querySelector('.me-rail-btn[data-tab="sessions"]');
+    if (btn) btn.click();
+  });
+
+  function openEditor(slug) {
+    current = slug;
+    pendingBanner = null;
+    slotState = null;
+    var seq = ++editSeq;
+    document.getElementById('cc-grid').hidden = true;
+    document.getElementById('cc-editor').hidden = false;
+    document.getElementById('cc-save-status').textContent = '';
+    document.getElementById('cc-banner-status').textContent = '';
+
+    if (!slug) {
+      document.getElementById('cc-f-title').value = '';
+      document.getElementById('cc-f-eyebrow').value = '';
+      document.getElementById('cc-f-hook').value = '';
+      document.getElementById('cc-f-intro').value = '';
+      document.getElementById('cc-f-world').value = '';
+      document.getElementById('cc-f-stakes').value = '';
+      document.getElementById('cc-f-audience').value = '';
+      document.getElementById('cc-f-published').checked = false;
+      document.getElementById('cc-view-link').style.display = 'none';
+      renderBannerPreview(null);
+      refreshCounts();
+      loadSlotState(null);
+      return;
+    }
+
+    document.getElementById('cc-view-link').style.display = '';
+    document.getElementById('cc-view-link').href = viewUrl(slug);
+    call('get', { slug: slug }).then(function (d) {
+      if (seq !== editSeq) return; // a newer campaign was opened while this was loading
+      document.getElementById('cc-f-title').value = d.title || '';
+      document.getElementById('cc-f-eyebrow').value = d.eyebrow || '';
+      document.getElementById('cc-f-hook').value = d.hook || '';
+      document.getElementById('cc-f-intro').value = d.intro || '';
+      document.getElementById('cc-f-world').value = d.world || '';
+      document.getElementById('cc-f-stakes').value = d.stakes || '';
+      document.getElementById('cc-f-audience').value = d.audience || '';
+      document.getElementById('cc-f-published').checked = !!d.published;
+      renderBannerPreview(d.bannerUrl);
+      refreshCounts();
+      return loadSlotState(slug).then(function () {
+        if (seq !== editSeq) slotState = null; // stale by the time it landed; don't let it write
+      });
+    }).catch(function (err) {
+      if (seq !== editSeq) return;
+      document.getElementById('cc-save-status').textContent = err.message;
+      document.getElementById('cc-save-status').className = 'slot-status error';
+    });
+  }
+
+  document.getElementById('cc-back').addEventListener('click', function () {
+    document.getElementById('cc-editor').hidden = true;
+    document.getElementById('cc-grid').hidden = false;
+    loadList();
+  });
+
+  document.getElementById('cc-banner-btn').addEventListener('click', function () { document.getElementById('cc-file').click(); });
+  document.getElementById('cc-file').addEventListener('change', function () {
+    var file = document.getElementById('cc-file').files[0];
+    document.getElementById('cc-file').value = '';
+    if (!file) return;
+    var status = document.getElementById('cc-banner-status');
+    status.textContent = 'Preparing picture…';
+    status.className = 'slot-status';
+    fileToBanner(file).then(function (dataUrl) {
+      pendingBanner = dataUrl;
+      renderBannerPreview(dataUrl);
+      status.textContent = 'New picture ready. Click Save campaign.';
+      status.className = 'slot-status success';
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    });
+  });
+
+  document.getElementById('cc-save').addEventListener('click', function () {
+    var status = document.getElementById('cc-save-status');
+    var btn = document.getElementById('cc-save');
+    var title = document.getElementById('cc-f-title').value.trim();
+    if (!current && !title) {
+      status.textContent = 'Give the campaign a title first.';
+      status.className = 'slot-status error';
+      return;
+    }
+    var body = {
+      title: title,
+      eyebrow: document.getElementById('cc-f-eyebrow').value,
+      hook: document.getElementById('cc-f-hook').value,
+      intro: document.getElementById('cc-f-intro').value,
+      world: document.getElementById('cc-f-world').value,
+      stakes: document.getElementById('cc-f-stakes').value,
+      audience: document.getElementById('cc-f-audience').value,
+      published: document.getElementById('cc-f-published').checked
+    };
+    if (current) body.slug = current;
+    if (pendingBanner) body.banner = pendingBanner;
+
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+    status.className = 'slot-status';
+    call('save', body).then(function (d) {
+      current = d.slug;
+      pendingBanner = null;
+      document.getElementById('cc-view-link').style.display = '';
+      document.getElementById('cc-view-link').href = viewUrl(d.slug);
+      renderBannerPreview(d.bannerUrl);
+
+      // Best-effort: also save the session time, when this campaign has a single group.
+      var timeSaved = Promise.resolve();
+      if (slotState && slotState.mode === 'single') {
+        var day = parseInt(document.getElementById('cc-f-day').value, 10);
+        var parts = document.getElementById('cc-f-time').value.split(':');
+        var hour = parseInt(parts[0], 10), minute = parseInt(parts[1], 10);
+        var offsetHours = 1;
+        var ampmHour = ((hour % 12) || 12);
+        var ampm = hour < 12 ? 'AM' : 'PM';
+        var sourceLabel = ampmHour + ':' + pad(minute) + ' ' + ampm + ' GMT+' + offsetHours;
+        var updated = Object.assign({}, slotState.slot, {
+          day: day, hour: hour, minute: minute, offset: offsetHours, source: sourceLabel,
+          group: (slotState.slot && slotState.slot.group) || '',
+          filled: (slotState.slot && slotState.slot.filled) || 0,
+          max: (slotState.slot && slotState.slot.max) || 5,
+          enabled: !(slotState.slot && slotState.slot.enabled === false) ,
+          planId: (slotState.slot && slotState.slot.planId) || null
+        });
+        timeSaved = firebase.database().ref('campaigns/' + d.slug + '/slots/' + slotState.slotId).set(updated);
+      }
+      return timeSaved.then(function () {
+        status.textContent = 'Saved. Live now.';
+        status.className = 'slot-status success';
+      });
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    }).finally(function () {
+      btn.disabled = false;
+    });
+  });
+
+  var ccStarted = false;
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user || ccStarted) return;
+    ccStarted = true;
+    loadList();
   });
 })();
 </script>

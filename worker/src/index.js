@@ -13,6 +13,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { runReminders } from './reminders.js';
+import { handleContentAdmin, handleContentPublic, handleContentBanner } from './content.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -45,6 +46,15 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length));
+    }
+    if (url.pathname.startsWith('/content/banner/') && request.method === 'GET') {
+      return handleContentBanner(request, env, corsHeaders, url.pathname.slice('/content/banner/'.length));
+    }
+    if (url.pathname === '/content/public' && request.method === 'GET') {
+      return handleContentPublic(request, env, corsHeaders);
+    }
+    if (url.pathname.startsWith('/content/admin/')) {
+      return handleContentAdmin(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/content/admin/'.length));
     }
     if (url.pathname === '/pay/roster' && request.method === 'GET') {
       return handleRoster(request, env, corsHeaders);

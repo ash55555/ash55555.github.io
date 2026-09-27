@@ -25,7 +25,7 @@
 <link rel="stylesheet" href="../style.css?v=20260926a">
 <link rel="stylesheet" href="../blog.css">
 </head>
-<body class="theme-ravenloft">
+<body class="theme-ravenloft" data-campaign-slug="ravenloft-undead-survival">
 
 <svg style="display:none">
   <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
@@ -67,28 +67,36 @@
 <main>
   <section class="article-hero">
     <div class="article-hero-frame">
-      <img class="article-hero-img" src="../medie/37528c55-aa34-4bfa-9f9c-2f9152faf651.webp" alt="Ravenloft banner art">
+      <img class="article-hero-img" id="cc-banner" src="../medie/37528c55-aa34-4bfa-9f9c-2f9152faf651.webp" alt="Ravenloft banner art">
     </div>
     <div class="article-hero-text">
-      <p class="eyebrow">Survival Horror · Domains of Dread</p>
-      <h1>Ravenloft: Undead Survival</h1>
-      <p class="article-hook">The dead don't rest in the Domains of Dread. Out here, they don't even stay down.</p>
+      <p class="eyebrow" id="cc-eyebrow">Survival Horror · Domains of Dread</p>
+      <h1 id="cc-title">Ravenloft: Undead Survival</h1>
+      <p class="article-hook" id="cc-hook">The dead don't rest in the Domains of Dread. Out here, they don't even stay down.</p>
     </div>
   </section>
 
   <article class="article-body">
-    <p class="lede">Somewhere past the borders of the world you know, the Mists have claimed another village, and this one is drowning in its own graveyard. The dead have stopped staying buried, supplies are running low, and the unspoken rules are simple: don't get bitten, don't get caught outside after dark, and don't trust anyone who's been gone too long.</p>
-    <p>Nobody asks to end up here. The Mists don't send invitations, they send outcomes.</p>
+    <div id="cc-intro">
+      <p class="lede">Somewhere past the borders of the world you know, the Mists have claimed another village, and this one is drowning in its own graveyard. The dead have stopped staying buried, supplies are running low, and the unspoken rules are simple: don't get bitten, don't get caught outside after dark, and don't trust anyone who's been gone too long.</p>
+      <p>Nobody asks to end up here. The Mists don't send invitations, they send outcomes.</p>
+    </div>
 
     <h2><span class="article-section-icon"><svg class="icon"><use href="#icon-axe"/></svg> The World</span></h2>
-    <p>Every barricade you build buys a little time. Every supply run costs something. The horde outside isn't the kind you fight in one big battle, it's the kind your party survives together, day by day, leaning on each other to keep the walls (and the food) holding out.</p>
+    <div id="cc-world">
+      <p>Every barricade you build buys a little time. Every supply run costs something. The horde outside isn't the kind you fight in one big battle, it's the kind your party survives together, day by day, leaning on each other to keep the walls (and the food) holding out.</p>
+    </div>
 
     <h2>What's at Stake</h2>
-    <p>Somewhere behind the horde's endless hunger is the will of a Darklord, one of the countless rulers cursed to preside over their own personal nightmare forever. Understanding that curse, or breaking it, is the real path through this story, and your choices are what shape how that story goes.</p>
+    <div id="cc-stakes">
+      <p>Somewhere behind the horde's endless hunger is the will of a Darklord, one of the countless rulers cursed to preside over their own personal nightmare forever. Understanding that curse, or breaking it, is the real path through this story, and your choices are what shape how that story goes.</p>
+    </div>
 
     <h2>🪓 Why This Table</h2>
-    <p>This is gritty, resource-scarce survival horror, and it's built for teamwork. Every bullet, bandage, and barricade matters more when you're solving it together. The rule of cool still applies here, so a clever plan deserves to work, and I prep every session so the pressure always feels earned, never arbitrary or unfair. If Curse of Strahd is a slow gothic tragedy, this is its faster, more collaborative cousin.</p>
-    <p><em>Ration your supplies, watch each other's backs, and take the horde one barricade at a time.</em></p>
+    <div id="cc-audience">
+      <p>This is gritty, resource-scarce survival horror, and it's built for teamwork. Every bullet, bandage, and barricade matters more when you're solving it together. The rule of cool still applies here, so a clever plan deserves to work, and I prep every session so the pressure always feels earned, never arbitrary or unfair. If Curse of Strahd is a slow gothic tragedy, this is its faster, more collaborative cousin.</p>
+      <p><em>Ration your supplies, watch each other's backs, and take the horde one barricade at a time.</em></p>
+    </div>
   </article>
 
   <section class="article-schedule">
@@ -165,6 +173,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="../firebase-init.js"></script>
 <script src="../campaigns-data.js?v=20260927a"></script>
+<script src="../campaign-content.js?v=20260927a"></script>
 
 </body>
 </html>

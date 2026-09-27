@@ -89,3 +89,20 @@ CREATE TABLE IF NOT EXISTS reminders (
 
 ALTER TABLE notifications ADD COLUMN uid TEXT;
 CREATE INDEX IF NOT EXISTS notifications_uid ON notifications (uid, read);
+
+CREATE TABLE IF NOT EXISTS campaign_content (
+  slug TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  eyebrow TEXT NOT NULL DEFAULT '',
+  hook TEXT NOT NULL DEFAULT '',
+  intro TEXT NOT NULL DEFAULT '',
+  world TEXT NOT NULL DEFAULT '',
+  stakes TEXT NOT NULL DEFAULT '',
+  audience TEXT NOT NULL DEFAULT '',
+  banner_id TEXT,
+  banner_data TEXT,
+  published INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS campaign_content_banner ON campaign_content (banner_id);

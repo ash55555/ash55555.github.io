@@ -28,6 +28,13 @@ document.addEventListener('DOMContentLoaded', function () {
     return chip.dataset.campaign + '::' + (chip.dataset.slot || 'default');
   }
 
+  // Players booked online through the new card system. The admin page's "filled"
+  // number counts only players who are NOT booked online (the PayPal ones), so the
+  // two are added together for the seat count visitors see.
+  var WORKER_SEATS_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/seats';
+  var onlineSeats = {};
+  var lastData = null;
+
   var chipsByKey = {};
   chips.forEach(function (chip) {
     chipsByKey[chipKey(chip)] = chip;
@@ -76,7 +83,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (typeof slot.max === 'number') {
-      var filled = slot.filled || 0;
+      var seatKey = chip.dataset.campaign + (chip.dataset.slot ? '::' + chip.dataset.slot : '');
+      var filled = (slot.filled || 0) + (onlineSeats[seatKey] || 0);
       var remaining = slot.max - filled;
       if (seatsEl) {
         seatsEl.textContent = remaining > 0
@@ -129,11 +137,17 @@ document.addEventListener('DOMContentLoaded', function () {
 
   try {
     firebase.database().ref('campaigns').on('value', function (snapshot) {
-      applyData(snapshot.val());
+      lastData = snapshot.val();
+      applyData(lastData);
     }, function (err) {
       console.error('Could not load live campaign data:', err);
     });
   } catch (e) {
     console.error('Firebase not configured yet:', e);
   }
+
+  fetch(WORKER_SEATS_URL).then(function (r) { return r.json(); }).then(function (d) {
+    onlineSeats = (d && d.seats) || {};
+    if (lastData) applyData(lastData);
+  }).catch(function () { /* the site still shows the manual seat counts */ });
 });

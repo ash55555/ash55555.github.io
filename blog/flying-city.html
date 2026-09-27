@@ -25,7 +25,7 @@
 <link rel="stylesheet" href="../style.css?v=20260926a">
 <link rel="stylesheet" href="../blog.css">
 </head>
-<body class="theme-flying-city">
+<body class="theme-flying-city" data-campaign-slug="flying-city">
 
 <svg style="display:none">
   <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
@@ -67,32 +67,40 @@
 <main>
   <section class="article-hero">
     <div class="article-hero-frame">
-      <img class="article-hero-img" src="../medie/2139d310-c69b-4c0e-b8a0-2eded9ce8094%20%281%29.webp" alt="The Prophecy of the Flying City banner art">
+      <img class="article-hero-img" id="cc-banner" src="../medie/2139d310-c69b-4c0e-b8a0-2eded9ce8094%20%281%29.webp" alt="The Prophecy of the Flying City banner art">
     </div>
     <div class="article-hero-text">
-      <p class="eyebrow">Political Intrigue · Buried City</p>
-      <h1>The Prophecy of the Flying City</h1>
-      <p class="article-hook">The grand city was supposed to soar into the heavens. Instead, it's buried beneath your feet, and its political factions are still fighting over the wreckage.</p>
+      <p class="eyebrow" id="cc-eyebrow">Political Intrigue · Buried City</p>
+      <h1 id="cc-title">The Prophecy of the Flying City</h1>
+      <p class="article-hook" id="cc-hook">The grand city was supposed to soar into the heavens. Instead, it's buried beneath your feet, and its political factions are still fighting over the wreckage.</p>
     </div>
   </section>
 
   <article class="article-body">
-    <p class="lede">A hundred years ago, the greatest minds of an empire poured every ounce of their arcane genius into a single, impossible dream: a city that would leave the earth behind and rise into the sky forever. They called the ritual <strong>the Uplift</strong>.</p>
-    <p>It failed.</p>
-    <p>Instead of ascending, the city fell inward and downward, sealed beneath layers of stone and collapsed ambition. There was no second sunrise, only the dark, the dust, and the silence of a dream that suffocated everyone inside it.</p>
-    <p>You weren't born into glory. You were born into what's left of it.</p>
+    <div id="cc-intro">
+      <p class="lede">A hundred years ago, the greatest minds of an empire poured every ounce of their arcane genius into a single, impossible dream: a city that would leave the earth behind and rise into the sky forever. They called the ritual the Uplift.</p>
+      <p>It failed.</p>
+      <p>Instead of ascending, the city fell inward and downward, sealed beneath layers of stone and collapsed ambition. There was no second sunrise, only the dark, the dust, and the silence of a dream that suffocated everyone inside it.</p>
+      <p>You weren't born into glory. You were born into what's left of it.</p>
+    </div>
 
-    <h2><span class="article-section-icon"><svg class="icon"><use href="#icon-dagger"/></svg> The World Below</span></h2>
-    <p>Generations later, the buried city still stands: a labyrinth of collapsed spires, flooded plazas, and forgotten districts held together by stubbornness and magic older than anyone currently in charge. Sunlight is a rumor. Political power is not.</p>
-    <p>With no sky to answer to, the city's great houses, guilds, and cults have turned on each other, each one convinced they alone hold the key to finishing what the Uplift started, or to making sure no one else ever tries again.</p>
+    <h2><span class="article-section-icon"><svg class="icon"><use href="#icon-dagger"/></svg> The World</span></h2>
+    <div id="cc-world">
+      <p>Generations later, the buried city still stands: a labyrinth of collapsed spires, flooded plazas, and forgotten districts held together by stubbornness and magic older than anyone currently in charge. Sunlight is a rumor. Political power is not.</p>
+      <p>With no sky to answer to, the city's great houses, guilds, and cults have turned on each other, each one convinced they alone hold the key to finishing what the Uplift started, or to making sure no one else ever tries again.</p>
+    </div>
 
     <h2>What's at Stake</h2>
-    <p>Somewhere in the buried archives, someone is quietly reassembling the ritual that doomed this city the first time. Whether that's a promise or a threat depends entirely on who gets there first, and what they're willing to risk to be the one holding the prophecy when it comes true again.</p>
-    <p>Every faction has a plan. Every plan needs people willing to get involved. That's where your party comes in.</p>
+    <div id="cc-stakes">
+      <p>Somewhere in the buried archives, someone is quietly reassembling the ritual that doomed this city the first time. Whether that's a promise or a threat depends entirely on who gets there first, and what they're willing to risk to be the one holding the prophecy when it comes true again.</p>
+      <p>Every faction has a plan. Every plan needs people willing to get involved. That's where your party comes in.</p>
+    </div>
 
     <h2>🗝️ Why This Table</h2>
-    <p>This is a campaign built for players who love clever talk as much as clever tactics, though you'll get chances for both. Expect layered NPCs, shifting alliances, and a world that actually remembers your choices. Every idea your party brings to the table gets taken seriously, prep goes into every session, and the rule of cool always has a seat here too. If you like mysteries with teeth and factions with agendas, this is your city.</p>
-    <p><em>The city is waiting for someone to finally shape its future. Will your party be the ones who do?</em></p>
+    <div id="cc-audience">
+      <p>This is a campaign built for players who love clever talk as much as clever tactics, though you'll get chances for both. Expect layered NPCs, shifting alliances, and a world that actually remembers your choices. Every idea your party brings to the table gets taken seriously, prep goes into every session, and the rule of cool always has a seat here too. If you like mysteries with teeth and factions with agendas, this is your city.</p>
+      <p><em>The city is waiting for someone to finally shape its future. Will your party be the ones who do?</em></p>
+    </div>
   </article>
 
   <section class="article-schedule">
@@ -169,6 +177,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="../firebase-init.js"></script>
 <script src="../campaigns-data.js?v=20260927a"></script>
+<script src="../campaign-content.js?v=20260927a"></script>
 
 </body>
 </html>
