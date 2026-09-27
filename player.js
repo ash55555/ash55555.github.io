@@ -8,7 +8,6 @@ const CAMPAIGN_NAMES = {
   "ravenloft-undead-survival": "Ravenloft: Undead Survival",
   "crooked-moon": "The Crooked Moon",
   "witchlight": "The Wild Beyond the Witchlight",
-  "pilot": "Pilot Test Table",
 };
 const query = new URLSearchParams(window.location.search);
 const hasGame = query.has("campaign");
@@ -25,7 +24,7 @@ const TEST_GAME = {
 };
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
 const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
-const REAL_GAMES = new Set(["crooked-moon::B", "pilot::test"]);
+const REAL_GAMES = new Set(["crooked-moon::B"]);
 const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
 const realGame = hasGame && REAL_GAMES.has(gameKey);
 const planLink = null;
