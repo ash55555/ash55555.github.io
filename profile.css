@@ -3,6 +3,10 @@
 /* Anything marked hidden must stay hidden, even when a class gives it a display style. */
 [hidden] { display: none !important; }
 
+/* This page's own top bar is widened to line up with the sidebar below it (the
+   shared site-wide header everyone else uses stays narrower, unaffected). */
+.site-header .nav { max-width: 1800px; padding-left: 2em; padding-right: 2em; }
+
 .me { max-width: 1800px; margin: 0 auto; padding: 2.4em 2em 4.5em; }
 .me-muted { color: var(--text-muted); margin: 0.3em 0 0; }
 
