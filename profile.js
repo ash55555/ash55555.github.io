@@ -308,6 +308,7 @@ function refreshTotal() {
 }
 function saveCalendar() {
   refreshTotal();
+  refreshPresetButtons();
   later('cal', 800, async () => {
     flash('me-cal-status', 'Saving...', '');
     try {
@@ -386,17 +387,55 @@ function buildCalendar() {
   window.addEventListener('pointercancel', stop);
 }
 
-const PRESETS = {
-  evenings: () => { for (let d = 0; d < 5; d++) for (let h = 18; h < 23; h++) on[d][h] = true; },
-  weekends: () => { for (let d = 5; d < 7; d++) for (let h = 12; h < 23; h++) on[d][h] = true; },
-  late: () => { for (let d = 0; d < 7; d++) for (const h of [22, 23, 0, 1]) on[d][h] = true; },
-  clear: () => { on.forEach((day) => day.fill(false)); },
+// Each quick-pick button covers a fixed set of day+hour cells. The button shows
+// that range in plain words, lights up purple whenever every one of its cells is
+// already marked (however that happened — the button or a manual drag), and a
+// click toggles: fills them in if any are still off, clears them if all are on.
+const PRESET_DEF = {
+  evenings: { days: [0, 1, 2, 3, 4], hours: [18, 19, 20, 21, 22], dayLabel: 'Mon–Fri' },
+  weekends: { days: [5, 6], hours: [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], dayLabel: 'Sat–Sun' },
+  late: { days: [0, 1, 2, 3, 4, 5, 6], hours: [22, 23, 0, 1], dayLabel: 'every night' },
 };
-document.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
-  PRESETS[b.dataset.preset]();
-  for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) paintCell(d, h);
-  saveCalendar();
-}));
+function presetCells(key) {
+  const { days, hours } = PRESET_DEF[key];
+  const cells = [];
+  days.forEach((d) => hours.forEach((h) => cells.push([d, h])));
+  return cells;
+}
+function presetLabel(key) {
+  const { hours, dayLabel } = PRESET_DEF[key];
+  const start = hours[0];
+  const end = (hours[hours.length - 1] + 1) % 24;
+  return hourLabel(start) + '–' + hourLabel(end) + ' · ' + dayLabel;
+}
+function isPresetActive(key) {
+  return presetCells(key).every(([d, h]) => on[d][h]);
+}
+function refreshPresetButtons() {
+  document.querySelectorAll('[data-preset]').forEach((b) => {
+    const key = b.dataset.preset;
+    if (!PRESET_DEF[key]) return; // "Clear all" has no on/off state of its own
+    const active = isPresetActive(key);
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-pressed', String(active));
+  });
+}
+document.querySelectorAll('[data-preset]').forEach((b) => {
+  const def = PRESET_DEF[b.dataset.preset];
+  if (def) { const r = b.querySelector('.mp-range'); if (r) r.textContent = presetLabel(b.dataset.preset); }
+  b.addEventListener('click', () => {
+    const key = b.dataset.preset;
+    if (key === 'clear') {
+      on.forEach((day) => day.fill(false));
+    } else {
+      const cells = presetCells(key);
+      const turnOff = cells.every(([d, h]) => on[d][h]);
+      cells.forEach(([d, h]) => { on[d][h] = !turnOff; });
+    }
+    for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) paintCell(d, h);
+    saveCalendar();
+  });
+});
 
 /* ------------------------------------------------------------ start up */
 
@@ -433,6 +472,7 @@ async function start(user) {
   renderModules();
   renderPicked();
   refreshTotal();
+  refreshPresetButtons();
   setPill();
   if (window.location.hash === '#me-schedule') scrollToSchedule();
 }

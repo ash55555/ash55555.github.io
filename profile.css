@@ -106,13 +106,23 @@
 .me-other { margin: 1.2em 0 0; }
 
 /* ---------- calendar ---------- */
-.me-presets { display: flex; flex-wrap: wrap; gap: 0.5em; margin-bottom: 1.1em; }
+.me-presets { display: flex; flex-wrap: wrap; gap: 0.6em; margin-bottom: 1.1em; }
+.me-chip-btn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.15em; border-radius: 14px; padding: 0.55em 1.1em;
+}
+.me-chip-btn .mp-label { font-weight: 700; }
+.me-chip-btn .mp-range { font-size: 0.74rem; font-weight: 600; color: var(--text-muted); }
+.me-chip-btn.active {
+  background: linear-gradient(135deg, var(--purple), var(--purple-deep)); border-color: transparent; color: #fff;
+  box-shadow: 0 4px 14px rgba(107, 70, 193, 0.5);
+}
+.me-chip-btn.active .mp-range { color: rgba(255, 255, 255, 0.8); }
 .me-chip-clear { border-style: dashed; }
-.me-cal-wrap { max-height: 72vh; overflow: auto; border-radius: 14px; border: 1px solid var(--border); background: rgba(10, 5, 22, 0.4); padding: 0 0.6em 0.6em; }
+.me-cal-wrap { overflow-x: auto; border-radius: 14px; border: 1px solid var(--border); background: rgba(10, 5, 22, 0.4); padding: 0.6em; }
 .me-cal { display: grid; grid-template-columns: 58px repeat(7, minmax(46px, 1fr)); gap: 3px; min-width: 470px; touch-action: none; user-select: none; -webkit-user-select: none; }
 .me-day {
-  position: sticky; top: 0; z-index: 2; font: inherit; font-weight: 800; font-size: 0.85rem; color: var(--gold); cursor: pointer;
-  background: #1c1230; border: 0; padding: 0.7em 0 0.5em; border-bottom: 1px solid var(--border);
+  font: inherit; font-weight: 800; font-size: 0.85rem; color: var(--gold); cursor: pointer;
+  background: none; border: 0; padding: 0.7em 0 0.5em; border-bottom: 1px solid var(--border);
 }
 .me-day:hover { color: #fff; }
 .me-hour { font: inherit; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-align: right; padding: 0 0.6em 0 0; background: none; border: 0; cursor: pointer; height: 27px; }
