@@ -79,6 +79,32 @@
   .pay-details > summary::before { content: '▸  '; color: var(--gold); }
   .pay-details[open] > summary::before { content: '▾  '; }
   .pay-details > .pay-box { border: 0; margin: 0; padding-top: .2em; background: transparent; }
+  .plan-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
+  .plan-box h2 { font-size: 1.2rem; }
+  .plan-controls { display: flex; flex-wrap: wrap; gap: .8em; align-items: center; margin: 1em 0; }
+  .plan-controls select { font: inherit; color: var(--text); background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 10px; padding: .5em .8em; max-width: 100%; }
+  .plan-controls label { font-size: .85rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: .4em; cursor: pointer; }
+  .plan-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 1.6em; align-items: start; }
+  @media (max-width: 860px) { .plan-layout { grid-template-columns: 1fr; } }
+  .heat { display: grid; grid-template-columns: 50px repeat(7, minmax(34px, 1fr)); gap: 3px; font-size: .74rem; }
+  .heat .hd { color: var(--gold); font-weight: 800; text-align: center; padding: .3em 0; }
+  .heat .hl { color: var(--text-muted); text-align: right; padding-right: .5em; line-height: 26px; }
+  .heat .hc { height: 26px; border-radius: 6px; text-align: center; line-height: 25px; font-weight: 800; cursor: pointer; border: 1px solid rgba(255,255,255,.06); background: var(--bg-panel-2); color: var(--text-muted); transition: transform .1s; }
+  .heat .hc:hover { transform: scale(1.12); border-color: var(--gold); z-index: 1; }
+  .heat .hc.sel { outline: 2px solid var(--gold); }
+  .heat-legend { display: flex; align-items: center; gap: .4em; margin: .8em 0 0; font-size: .75rem; color: var(--text-muted); }
+  .heat-legend i { display: inline-block; width: 18px; height: 12px; border-radius: 3px; border: 1px solid var(--border); }
+  .plan-side h3 { font-size: 1rem; margin: 0 0 .5em; }
+  .plan-side + .plan-side { margin-top: 1.4em; }
+  .want-row { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: .5em; align-items: center; margin: 0 0 .4em; cursor: pointer; }
+  .want-row .want-name { font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .want-row .want-bar { grid-column: 1 / -1; height: 7px; border-radius: 4px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .want-row .want-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--purple), var(--gold)); }
+  .want-row .want-n { text-align: right; font-weight: 800; color: var(--gold); font-size: .85rem; grid-row: 1; grid-column: 2; }
+  .want-row:hover .want-name { color: #fff; }
+  .plan-best { display: flex; flex-wrap: wrap; gap: .4em; }
+  .plan-best .pay-badge { cursor: pointer; }
+  .plan-detail { margin-top: 1em; padding: .8em 1em; border-radius: 12px; background: var(--bg-panel-2); border: 1px solid var(--border); font-size: .85rem; min-height: 3em; }
   .pay-short { color: var(--danger); font-size: .74rem; font-weight: 700; }
   .pay-ok { color: var(--success); font-size: .74rem; font-weight: 700; }
 
@@ -315,6 +341,27 @@
     </div>
 
     <div id="pay-boxes"></div>
+
+    <div class="plan-box" id="plan-box">
+      <h2>🎯 What players want and when they're free</h2>
+      <p class="note">Built from the profile pages players fill in. Greener squares mean more players are free at that hour, in your own time zone. Pick a game to see only the players who want to play it.</p>
+      <p class="slot-status" id="plan-status"></p>
+      <div class="plan-controls">
+        <select id="plan-filter" aria-label="Show players interested in"></select>
+        <label><input type="checkbox" id="plan-allhours"> Show all 24 hours</label>
+      </div>
+      <div class="plan-layout">
+        <div>
+          <div class="heat" id="plan-heat"></div>
+          <div class="heat-legend"><span>Nobody</span><i style="background:var(--bg-panel-2)"></i><i style="background:rgba(29,158,117,.25)"></i><i style="background:rgba(29,158,117,.5)"></i><i style="background:rgba(29,158,117,.75)"></i><i style="background:#1D9E75"></i><span>Everyone</span></div>
+          <div class="plan-detail" id="plan-detail">Click a square to see who is free.</div>
+        </div>
+        <div>
+          <div class="plan-side"><h3>Best times right now</h3><div class="plan-best" id="plan-best"></div></div>
+          <div class="plan-side"><h3>Most wanted games</h3><div id="plan-wants"></div></div>
+        </div>
+      </div>
+    </div>
 
     <div class="announce-box">
       <h2>📣 Send an Announcement</h2>
@@ -961,6 +1008,163 @@
       p.className = 'slot-status error';
       p.textContent = err.message;
       holder.appendChild(p);
+    });
+  });
+})();
+</script>
+<script>
+(function () {
+  var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/profile/';
+  var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var players = [];
+  var filter = '';      // '' = everyone, otherwise a game name
+  var selected = null;  // {d, h}
+  var offsetMin = -new Date().getTimezoneOffset();
+  var statusEl = document.getElementById('plan-status');
+
+  function jsDay(i) { return (i + 1) % 7; }
+  function slotIndex(dJS, hour, half) {
+    var m = dJS * 1440 + hour * 60 + half * 30 - offsetMin;
+    m = ((m % 10080) + 10080) % 10080;
+    return Math.floor(m / 30);
+  }
+  function hourLabel(h) { return new Date(2026, 0, 4, h).toLocaleTimeString([], { hour: 'numeric' }); }
+  function freeAt(p, d, h) {
+    return !!p.slots && p.slots.charAt(slotIndex(jsDay(d), h, 0)) === '1' && p.slots.charAt(slotIndex(jsDay(d), h, 1)) === '1';
+  }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function pool() {
+    return players.filter(function (p) { return !filter || p.interests.indexOf(filter) !== -1 || (p.other && p.other.toLowerCase().indexOf(filter.toLowerCase()) !== -1); });
+  }
+  function shade(n, total) {
+    if (!n) return ['var(--bg-panel-2)', 'var(--text-muted)'];
+    var a = 0.2 + 0.8 * (n / Math.max(total, 1));
+    return ['rgba(29,158,117,' + a.toFixed(2) + ')', a > 0.55 ? '#fff' : 'var(--text)'];
+  }
+
+  function renderFilter() {
+    var sel = document.getElementById('plan-filter');
+    var counts = {};
+    players.forEach(function (p) { p.interests.forEach(function (g) { counts[g] = (counts[g] || 0) + 1; }); });
+    var names = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
+    sel.innerHTML = '';
+    var all = el('option', null, 'Everyone (' + players.filter(function (p) { return p.slots; }).length + ' with a calendar)');
+    all.value = '';
+    sel.appendChild(all);
+    names.forEach(function (g) {
+      var o = el('option', null, 'Wants: ' + g + ' (' + counts[g] + ')');
+      o.value = g;
+      sel.appendChild(o);
+    });
+    sel.value = filter;
+  }
+
+  function renderWants() {
+    var box = document.getElementById('plan-wants');
+    box.innerHTML = '';
+    var counts = {};
+    players.forEach(function (p) { p.interests.forEach(function (g) { counts[g] = (counts[g] || 0) + 1; }); });
+    var names = Object.keys(counts).sort(function (a, b) { return counts[b] - counts[a] || a.localeCompare(b); });
+    if (!names.length) { box.appendChild(el('p', 'pay-muted', 'Nobody has picked a game yet.')); return; }
+    var top = counts[names[0]];
+    names.slice(0, 12).forEach(function (g) {
+      var row = el('div', 'want-row');
+      row.title = 'Show only players who want ' + g;
+      row.appendChild(el('span', 'want-name', g));
+      var bar = el('div', 'want-bar');
+      var fill = el('span');
+      fill.style.width = (counts[g] / top * 100) + '%';
+      bar.appendChild(fill);
+      row.appendChild(el('span', 'want-n', String(counts[g])));
+      row.appendChild(bar);
+      row.addEventListener('click', function () { filter = g; document.getElementById('plan-filter').value = g; render(); });
+      box.appendChild(row);
+    });
+    var others = players.filter(function (p) { return p.other; });
+    if (others.length) {
+      box.appendChild(el('p', 'pay-muted', others.length + ' player' + (others.length === 1 ? '' : 's') + ' also wrote their own idea: ' + others.slice(0, 4).map(function (p) { return '"' + p.other + '"'; }).join(', ') + (others.length > 4 ? ', ...' : '')));
+    }
+  }
+
+  function render() {
+    var group = pool().filter(function (p) { return p.slots; });
+    var allHours = document.getElementById('plan-allhours').checked;
+    var from = allHours ? 0 : 8;
+    var heat = document.getElementById('plan-heat');
+    heat.innerHTML = '';
+    heat.appendChild(el('div'));
+    DAYS.forEach(function (d) { heat.appendChild(el('div', 'hd', d)); });
+
+    var best = [];
+    for (var h = from; h < 24; h++) {
+      heat.appendChild(el('div', 'hl', hourLabel(h)));
+      for (var d = 0; d < 7; d++) {
+        var n = 0;
+        for (var i = 0; i < group.length; i++) if (freeAt(group[i], d, h)) n++;
+        var s = shade(n, group.length);
+        var c = el('div', 'hc' + (selected && selected.d === d && selected.h === h ? ' sel' : ''), n ? String(n) : '');
+        c.style.background = s[0];
+        c.style.color = s[1];
+        c.title = DAYS[d] + ' ' + hourLabel(h) + ': ' + n + ' of ' + group.length + ' free';
+        (function (dd, hh) { c.addEventListener('click', function () { selected = { d: dd, h: hh }; render(); }); })(d, h);
+        heat.appendChild(c);
+        if (n) best.push({ d: d, h: h, n: n });
+      }
+    }
+
+    var bestBox = document.getElementById('plan-best');
+    bestBox.innerHTML = '';
+    best.sort(function (a, b) { return b.n - a.n || a.d - b.d || a.h - b.h; });
+    if (!best.length) bestBox.appendChild(el('span', 'pay-muted', 'No calendars filled in yet.'));
+    best.slice(0, 6).forEach(function (b) {
+      var chip = el('span', 'pay-badge good', DAYS[b.d] + ' ' + hourLabel(b.h) + ': ' + b.n + ' free');
+      chip.addEventListener('click', function () { selected = { d: b.d, h: b.h }; render(); });
+      bestBox.appendChild(chip);
+    });
+
+    var detail = document.getElementById('plan-detail');
+    detail.innerHTML = '';
+    if (!selected) {
+      detail.textContent = 'Click a square to see who is free.' + (filter ? ' Showing only players who want ' + filter + '.' : '');
+    } else {
+      var free = group.filter(function (p) { return freeAt(p, selected.d, selected.h); });
+      var busy = group.filter(function (p) { return !freeAt(p, selected.d, selected.h); });
+      detail.appendChild(el('strong', null, DAYS[selected.d] + ' ' + hourLabel(selected.h) + ': ' + free.length + ' of ' + group.length + ' free'));
+      detail.appendChild(el('div', null, free.length ? 'Free: ' + free.map(function (p) { return p.name; }).join(', ') : 'Nobody is free then.'));
+      if (busy.length) detail.appendChild(el('div', 'pay-muted', 'Not free: ' + busy.map(function (p) { return p.name; }).join(', ')));
+    }
+  }
+
+  document.getElementById('plan-filter').addEventListener('change', function (e) { filter = e.target.value; render(); });
+  document.getElementById('plan-allhours').addEventListener('change', render);
+
+  var started = false;
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user || started) return;
+    started = true;
+    statusEl.textContent = 'Loading...';
+    user.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + 'admin/summary', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken })
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load profiles.'); return data; });
+    }).then(function (data) {
+      players = data.players;
+      var withCal = players.filter(function (p) { return p.slots; }).length;
+      var withGames = players.filter(function (p) { return p.interests.length; }).length;
+      statusEl.textContent = players.length ? withCal + ' calendar' + (withCal === 1 ? '' : 's') + ' and ' + withGames + ' game list' + (withGames === 1 ? '' : 's') + ' so far.' : 'Nobody has filled in a profile yet.';
+      renderFilter();
+      renderWants();
+      render();
+    }).catch(function (err) {
+      statusEl.textContent = err.message;
+      statusEl.className = 'slot-status error';
     });
   });
 })();

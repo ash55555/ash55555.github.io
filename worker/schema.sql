@@ -48,3 +48,20 @@ CREATE TABLE IF NOT EXISTS games (
   stopped_at TEXT,
   PRIMARY KEY (mode, game)
 );
+
+CREATE TABLE IF NOT EXISTS profiles (
+  uid TEXT PRIMARY KEY,
+  email TEXT,
+  name TEXT,
+  pronouns TEXT,
+  token TEXT,
+  bio TEXT,
+  avatar_id TEXT,
+  avatar_data TEXT,
+  interests TEXT NOT NULL DEFAULT '[]',
+  other TEXT NOT NULL DEFAULT '',
+  slots TEXT,
+  tz TEXT,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS profiles_avatar ON profiles (avatar_id);

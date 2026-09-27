@@ -239,3 +239,6 @@ body.pp-embed .pp-grid { grid-template-columns: 1fr; }
 
 /* Game page without the profile box: the game card uses the full width */
 .pp-grid.pp-solo { grid-template-columns: 1fr; }
+
+.pp-token img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.pp-pronouns { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }

@@ -10,6 +10,7 @@ const CAMPAIGN_NAMES = {
   "witchlight": "The Wild Beyond the Witchlight",
 };
 const query = new URLSearchParams(window.location.search);
+if (!query.has("campaign") && !["localhost", "127.0.0.1"].includes(window.location.hostname)) window.location.replace("profile.html");
 const hasGame = query.has("campaign");
 // Preview = this computer only. On the live site the pretend parts (fake checkout, fake skip/leave) stay hidden.
 const preview = ["localhost", "127.0.0.1"].includes(window.location.hostname) && query.get("live") !== "1";
@@ -128,12 +129,28 @@ function renderHeader() {
 function renderRoster() {
   const list = $('pp-roster');
   list.innerHTML = '';
-  const add = (name, tokenId, role) => {
+  const add = (name, tokenId, role, avatar, pronouns) => {
     const li = document.createElement('li');
-    li.appendChild(tokenEl(tokenId, 'pp-token-sm'));
+    if (avatar) {
+      const holder = document.createElement('div');
+      holder.className = 'pp-token pp-token-sm';
+      const img = document.createElement('img');
+      img.src = avatar;
+      img.alt = '';
+      holder.appendChild(img);
+      li.appendChild(holder);
+    } else {
+      li.appendChild(tokenEl(tokenId, 'pp-token-sm'));
+    }
     const span = document.createElement('span');
     span.textContent = name;
     li.appendChild(span);
+    if (pronouns) {
+      const pr = document.createElement('span');
+      pr.className = 'pp-pronouns';
+      pr.textContent = pronouns;
+      li.appendChild(pr);
+    }
     if (role) {
       const r = document.createElement('span');
       r.className = 'pp-role';
@@ -147,7 +164,7 @@ function renderRoster() {
   if (realGame && serverState) {
     const anonymous = Math.max(0, seats.filled - serverState.roster.length);
     for (let i = 0; i < anonymous; i++) add('Player', OTHER_TOKENS[i % OTHER_TOKENS.length]);
-    serverState.roster.forEach((p) => add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice'));
+    serverState.roster.forEach((p) => add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice', null, p.avatar, p.pronouns));
   } else {
     SAMPLE_OTHERS.forEach((p) => add(p.name, p.token));
     if (view === 'joined' || view === 'skipped') add((profile.name.trim() || 'Player') + ' (you)', profile.token);

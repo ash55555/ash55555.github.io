@@ -104,7 +104,7 @@ async function whop(env, path, init = {}) {
   return { ok: res.ok, status: res.status, data };
 }
 
-async function verifyUser(env, idToken) {
+export async function verifyUser(env, idToken) {
   const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
   const { payload } = await jwtVerify(idToken, jwks, {
     issuer: `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`,
@@ -213,7 +213,7 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   try { game = (await loadGames(env))[gameKey]; } catch (err) { return json({ error: err.message }, 502, corsHeaders); }
   if (!game) return json({ error: 'Unknown game' }, 400, corsHeaders);
 
-  const ctx = { env, user, body, gameKey, game, origin, mode: cfg(env).mode, corsHeaders, sendEmail };
+  const ctx = { env, user, body, gameKey, game, origin, mode: cfg(env).mode, corsHeaders, sendEmail, request };
   try {
     switch (action) {
       case 'setup': return await doSetup(ctx);
@@ -336,8 +336,15 @@ async function doStatus(ctx) {
   const now = new Date();
   const online = await activeCount(env, ctx.mode, gameKey);
   const seats = seatInfo(game, online);
-  const roster = (await env.DB.prepare("SELECT name, token, uid FROM players WHERE mode=? AND game=? AND status='active' ORDER BY joined_at").bind(ctx.mode, gameKey).all()).results
-    .map((p) => ({ name: p.name, token: p.token || '', you: p.uid === user.sub }));
+  const selfOrigin = new URL(ctx.request.url).origin;
+  const roster = (await env.DB.prepare(
+    `SELECT p.name AS pname, p.token AS ptoken, p.uid, pr.name AS name, pr.token AS token, pr.avatar_id, pr.pronouns
+     FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid
+     WHERE p.mode=? AND p.game=? AND p.status='active' ORDER BY p.joined_at`).bind(ctx.mode, gameKey).all()).results
+    .map((p) => ({
+      name: p.name || p.pname, token: p.token || p.ptoken || '', you: p.uid === user.sub,
+      pronouns: p.pronouns || '', avatar: p.avatar_id ? `${selfOrigin}/profile/avatar/${p.avatar_id}` : null,
+    }));
   const me = await getPlayer(ctx);
   const gs = await gameState(env, ctx.mode, gameKey);
   const base = { seats, roster, price: game.price, mode: ctx.mode, running: gs.running };

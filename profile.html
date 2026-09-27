@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>My Profile | Ash Tabletop</title>
+<link rel="icon" href="medie/ash-token.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20260927g">
+<link rel="stylesheet" href="profile.css?v=20260927a">
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="Ash's character token" width="44" height="44">
+      <span class="brand-name">Ash Tabletop</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#campaigns">Campaigns</a>
+      <span class="me-pill" id="me-pill" hidden></span>
+    </div>
+  </nav>
+</header>
+
+<main class="me">
+
+  <!-- Not signed in -->
+  <section class="me-card me-login" id="me-login" hidden>
+    <h1>Your player profile</h1>
+    <p class="me-muted">Log in to set your picture, tell Ash what you'd like to play, and mark when you're free.</p>
+    <button type="button" class="btn btn-google" id="me-google">Continue with Google</button>
+    <div class="modal-divider"><span>or</span></div>
+    <form id="me-login-form">
+      <input id="me-login-email" type="email" required placeholder="Email" autocomplete="username">
+      <input id="me-login-pass" type="password" required placeholder="Password" autocomplete="current-password">
+      <button type="submit" class="btn btn-primary">Log in</button>
+      <button type="button" class="link-button" id="me-forgot">Forgot your password?</button>
+      <p class="modal-status" id="me-login-status" role="status" aria-live="polite"></p>
+    </form>
+    <p class="me-muted">New here? <a href="index.html">Sign up on the home page first</a>.</p>
+  </section>
+
+  <div id="me-app" hidden>
+
+    <!-- ============ WHO YOU ARE ============ -->
+    <section class="me-card me-hero">
+      <div class="me-avatar-col">
+        <button type="button" class="me-avatar-btn" id="me-avatar-btn" aria-label="Change your picture">
+          <span class="me-avatar" id="me-avatar" aria-hidden="true"></span>
+          <span class="me-avatar-edit">Change picture</span>
+        </button>
+        <input type="file" id="me-file" accept="image/*" hidden>
+        <button type="button" class="link-button me-remove" id="me-avatar-remove" hidden>Remove picture</button>
+      </div>
+
+      <div class="me-fields">
+        <p class="eyebrow">Your player profile</p>
+        <div class="me-row">
+          <label class="me-field">
+            <span>Display name</span>
+            <input id="me-name" type="text" maxlength="30" placeholder="What should the table call you?">
+          </label>
+          <label class="me-field me-field-small">
+            <span>Pronouns</span>
+            <input id="me-pronouns" type="text" maxlength="30" list="me-pronoun-list" placeholder="she/her, he/him, they/them">
+            <datalist id="me-pronoun-list">
+              <option value="she/her"><option value="he/him"><option value="they/them"><option value="she/they"><option value="he/they"><option value="any pronouns">
+            </datalist>
+          </label>
+        </div>
+
+        <label class="me-field">
+          <span>About you <em id="me-bio-count">0 / 500</em></span>
+          <textarea id="me-bio" rows="4" maxlength="500" placeholder="A few lines about you: how you like to play, what you love about D&D, anything you'd like the table to know."></textarea>
+        </label>
+
+        <div class="me-field">
+          <span>Or pick a token <em>(used when you have no picture)</em></span>
+          <div class="me-tokens" id="me-tokens" role="radiogroup" aria-label="Choose your token"></div>
+        </div>
+
+        <div class="me-actions">
+          <button type="button" class="btn btn-primary" id="me-save">Save profile</button>
+          <span class="me-status" id="me-save-status" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WHAT YOU WANT TO PLAY ============ -->
+    <section class="me-card">
+      <div class="me-card-head">
+        <div>
+          <h2>What do you want to play?</h2>
+          <p class="me-muted">Pick as many as you like. Ash uses this to decide which tables to open next.</p>
+        </div>
+        <span class="me-status" id="me-games-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <div class="me-search">
+        <input id="me-search" type="search" placeholder="Search adventures..." aria-label="Search adventures">
+      </div>
+      <div class="me-picked" id="me-picked" aria-live="polite"></div>
+      <div id="me-modules"></div>
+
+      <label class="me-field me-other">
+        <span>Something else you'd love to play?</span>
+        <input id="me-other" type="text" maxlength="120" placeholder="Type any game, setting or idea">
+      </label>
+    </section>
+
+    <!-- ============ WHEN YOU CAN PLAY ============ -->
+    <section class="me-card">
+      <div class="me-card-head">
+        <div>
+          <h2>When can you play?</h2>
+          <p class="me-muted">Click or drag over the hours you're free to play D&amp;D on a normal week. Times are in <strong id="me-tz">your time</strong>.</p>
+        </div>
+        <span class="me-status" id="me-cal-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <div class="me-presets">
+        <button type="button" class="me-chip-btn" data-preset="evenings">Weeknight evenings</button>
+        <button type="button" class="me-chip-btn" data-preset="weekends">Weekend afternoons and evenings</button>
+        <button type="button" class="me-chip-btn" data-preset="late">Late nights</button>
+        <button type="button" class="me-chip-btn me-chip-clear" data-preset="clear">Clear all</button>
+      </div>
+
+      <div class="me-cal-wrap">
+        <div class="me-cal" id="me-cal" role="grid" aria-label="Weekly availability"></div>
+      </div>
+      <p class="me-cal-total" id="me-cal-total"></p>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32">
+  <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-init.js?v=20260926b"></script>
+<script src="tz.js?v=20260927a"></script>
+<script src="modules.js?v=20260927a"></script>
+<script src="profile.js?v=20260927a"></script>
+</body>
+</html>
