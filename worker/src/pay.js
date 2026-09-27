@@ -24,19 +24,56 @@ const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const SESSIONS_SHOWN = 8;
 
-// Schedule, price and seat limit live HERE, never in the browser.
-// legacyFilled = players who are already in this group through the old
-// PayPal system (not in this database), so seats are not oversold.
-export const PAY_GAMES = {
-  'crooked-moon::B': {
-    title: 'The Crooked Moon, Group B',
-    day: 6, hour: 0, minute: 0, offset: 1,
-    price: 10,
-    max: 5,
-    min: 3, // a session is only charged when at least this many players are playing it
-    legacyFilled: 3,
-  },
+// Every game slot on the site is a bookable game. The schedule, seat limit and
+// paused/running state come from the same Firebase list the admin page edits, so
+// a time changed in the admin page changes the charge time too, and a new slot
+// becomes bookable with no code change.
+//
+// The PRICE and the MINIMUM players are deliberately NOT read from Firebase.
+// They are fixed here, so nothing in that database can change what anyone pays.
+const FIREBASE_DB = 'https://ash-ttrpg-default-rtdb.firebaseio.com';
+const SESSION_PRICE = 10;
+const MIN_PLAYERS = 3; // a session is only charged when at least this many players are playing it
+const CAMPAIGN_TITLES = {
+  'flying-city': 'The Prophecy of the Flying City',
+  'curse-of-strahd': 'Curse of Strahd',
+  'ravenloft-undead-survival': 'Ravenloft: Undead Survival',
+  'crooked-moon': 'The Crooked Moon',
+  'witchlight': 'The Wild Beyond the Witchlight',
 };
+
+// "legacyFilled" = seats taken by players who are NOT booked through this system
+// (the ones still on PayPal). It is the "filled" number in the admin page.
+let gamesCache = { at: 0, games: null };
+
+export async function loadGames(env, fresh = false) {
+  if (!fresh && gamesCache.games && Date.now() - gamesCache.at < 60 * 1000) return gamesCache.games;
+  const res = await fetch(`${FIREBASE_DB}/campaigns.json`);
+  if (!res.ok) throw new Error('Could not load the game schedule.');
+  const data = await res.json();
+  const games = {};
+  for (const [slug, campaign] of Object.entries(data || {})) {
+    for (const [slotId, s] of Object.entries((campaign && campaign.slots) || {})) {
+      if (!s || !Number.isInteger(s.day) || !Number.isInteger(s.hour) || s.day < 0 || s.day > 6 || s.hour < 0 || s.hour > 23) continue;
+      const key = slotId === 'default' ? slug : `${slug}::${slotId}`;
+      games[key] = {
+        key,
+        title: (CAMPAIGN_TITLES[slug] || slug) + (s.group ? `, ${s.group}` : ''),
+        day: s.day,
+        hour: s.hour,
+        minute: Number.isInteger(s.minute) ? s.minute : 0,
+        offset: typeof s.offset === 'number' ? s.offset : 1,
+        price: SESSION_PRICE,
+        max: Number.isInteger(s.max) && s.max > 0 ? s.max : 5,
+        min: MIN_PLAYERS,
+        legacyFilled: Number.isInteger(s.filled) && s.filled > 0 ? s.filled : 0,
+        enabled: s.enabled !== false,
+      };
+    }
+  }
+  gamesCache = { at: Date.now(), games };
+  return games;
+}
 
 // ---------------------------------------------------------------- utilities
 
@@ -169,8 +206,11 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     return json({ error: 'Joining online is not open to everyone yet. Please message Ash.' }, 403, corsHeaders);
   }
 
+  if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders);
+
   const gameKey = body.game;
-  const game = PAY_GAMES[gameKey];
+  let game;
+  try { game = (await loadGames(env))[gameKey]; } catch (err) { return json({ error: err.message }, 502, corsHeaders); }
   if (!game) return json({ error: 'Unknown game' }, 400, corsHeaders);
 
   const ctx = { env, user, body, gameKey, game, origin, mode: cfg(env).mode, corsHeaders, sendEmail };
@@ -206,6 +246,7 @@ async function doSetup(ctx) {
   const { env, user, gameKey, game, corsHeaders } = ctx;
   const existing = await getPlayer(ctx);
   const updating = !!(existing && existing.status === 'active');
+  if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
   if (!updating) {
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
     if (seats.open <= 0) return json({ error: 'This game is full right now. Talk to Ash about a spot.' }, 409, corsHeaders);
@@ -439,6 +480,30 @@ async function adminRetry(ctx) {
   return json({ ok: true }, 200, corsHeaders);
 }
 
+async function adminGames(env, mode, corsHeaders) {
+  const games = await loadGames(env, true);
+  const players = (await env.DB.prepare("SELECT game, COUNT(*) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
+  const online = Object.fromEntries(players.map((r) => [r.game, r.n]));
+  const states = (await env.DB.prepare('SELECT game, running FROM games WHERE mode=?').bind(mode).all()).results;
+  const running = Object.fromEntries(states.map((r) => [r.game, !!r.running]));
+  return json({
+    games: Object.values(games).map((g) => ({
+      key: g.key, title: g.title, enabled: g.enabled, online: online[g.key] || 0, running: !!running[g.key],
+    })),
+  }, 200, corsHeaders);
+}
+
+// Public: how many players are booked online per game, so the site's seat counts
+// can add them to the manual "filled" number. Contains no names or emails.
+export async function handleSeats(request, env, corsHeaders) {
+  const mode = cfg(env).mode;
+  const rows = (await env.DB.prepare("SELECT game, COUNT(*) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
+  return new Response(JSON.stringify({ seats: Object.fromEntries(rows.map((r) => [r.game, r.n])) }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=20', ...corsHeaders },
+  });
+}
+
 async function adminGameRunning(ctx, running) {
   const { env, gameKey, corsHeaders } = ctx;
   const now = iso(new Date());
@@ -471,7 +536,11 @@ export async function runCharges(env, sendEmail) {
   const now = new Date();
   const report = { charged: 0, pending: 0, failed: 0, wouldCharge: 0, checked: 0 };
 
-  for (const [gameKey, game] of Object.entries(PAY_GAMES)) {
+  // If the schedule cannot be read, do nothing this round rather than guess.
+  let allGames;
+  try { allGames = await loadGames(env, true); } catch (err) { return { skipped: 'could not read the schedule: ' + err.message }; }
+
+  for (const [gameKey, game] of Object.entries(allGames)) {
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
     const sessions = sessionsBetween(game, new Date(now.getTime() - CATCH_UP_MS), now).map(iso);
 

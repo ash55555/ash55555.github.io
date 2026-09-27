@@ -10,7 +10,7 @@
 // anything, then hands each email to the email API.
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { handlePay, runCharges } from './pay.js';
+import { handlePay, handleSeats, runCharges } from './pay.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -37,6 +37,9 @@ export default {
     }
     if (url.pathname === '/welcome-email') {
       return handleWelcomeEmail(request, env, corsHeaders);
+    }
+    if (url.pathname === '/pay/seats' && request.method === 'GET') {
+      return handleSeats(request, env, corsHeaders);
     }
     if (url.pathname.startsWith('/pay/')) {
       return handlePay(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice(5), sendEmail);

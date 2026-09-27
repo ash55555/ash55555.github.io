@@ -73,6 +73,12 @@
   .pay-gamebar.running { border-color: rgba(127,217,154,.5); }
   .pay-go { font: inherit; font-weight: 800; padding: .5em 1.1em; border-radius: 10px; border: 0; cursor: pointer; background: var(--gold); color: #1c1230; }
   .pay-go.stop { background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); }
+  .pay-details { margin: 0 0 1em; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-panel); }
+  .pay-details > summary { cursor: pointer; padding: 1em 1.3em; font-family: 'Cinzel', Georgia, serif; font-size: 1.05rem; list-style: none; }
+  .pay-details > summary::-webkit-details-marker { display: none; }
+  .pay-details > summary::before { content: '▸  '; color: var(--gold); }
+  .pay-details[open] > summary::before { content: '▾  '; }
+  .pay-details > .pay-box { border: 0; margin: 0; padding-top: .2em; background: transparent; }
   .pay-short { color: var(--danger); font-size: .74rem; font-weight: 700; }
   .pay-ok { color: var(--success); font-size: .74rem; font-weight: 700; }
 
@@ -425,7 +431,7 @@
     var groupField = field('Group label (optional)', '<input type="text" class="f-group" value="' + (slot.group || '') + '" placeholder="e.g. Group A">');
     fields.appendChild(groupField);
 
-    var filledField = field('Players joined', '<input type="number" class="f-filled" min="0" value="' + (slot.filled != null ? slot.filled : 0) + '">');
+    var filledField = field('Players NOT booked online (PayPal)', '<input type="number" class="f-filled" min="0" value="' + (slot.filled != null ? slot.filled : 0) + '">');
     fields.appendChild(filledField);
 
     var maxField = field('Max players', '<input type="number" class="f-max" min="1" value="' + (slot.max != null ? slot.max : 5) + '">');
@@ -738,7 +744,6 @@
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var GAME_KEYS = ['crooked-moon::B'];
   var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<h3 class='pay-sub'>Upcoming sessions</h3>\n<div class='pay-scroll'><table class='pay-table pay-upcoming'></table></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
 
   function setup(GAME, root) {
@@ -926,12 +931,36 @@
     if (!user || started) return;
     started = true;
     var holder = document.getElementById('pay-boxes');
-    GAME_KEYS.forEach(function (key) {
-      var root = document.createElement('div');
-      root.className = 'pay-box';
-      root.innerHTML = BOX;
-      holder.appendChild(root);
-      setup(key, root)();
+    firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + 'admin/games', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: idToken })
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok) throw new Error(data.error || 'Could not load your games.');
+        return data;
+      });
+    }).then(function (data) {
+      data.games.forEach(function (g) {
+        var det = document.createElement('details');
+        det.className = 'pay-details';
+        if (g.online > 0 || g.running) det.open = true;
+        var sum = document.createElement('summary');
+        sum.textContent = g.title + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
+        var root = document.createElement('div');
+        root.className = 'pay-box';
+        root.innerHTML = BOX;
+        det.append(sum, root);
+        holder.appendChild(det);
+        setup(g.key, root)();
+      });
+    }).catch(function (err) {
+      var p = document.createElement('p');
+      p.className = 'slot-status error';
+      p.textContent = err.message;
+      holder.appendChild(p);
     });
   });
 })();

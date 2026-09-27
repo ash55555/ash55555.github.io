@@ -24,12 +24,12 @@ const TEST_GAME = {
 };
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
 const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
-const REAL_GAMES = new Set(["crooked-moon::B"]);
 const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
-const realGame = hasGame && REAL_GAMES.has(gameKey);
+const realGame = hasGame; // every game booking goes through the Worker
 const planLink = null;
 let me = null;
 let serverState = null; // what the Worker says about this player and this game
+let bookingClosed = false; // true when the Worker says online booking is not open to this person yet
 if (query.get("embed") === "1") document.body.classList.add("pp-embed");
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
 const SAMPLE_OTHERS = Array.from({ length: hasGame ? num("filled", 0) : 0 }, (_, i) => ({ name: "Player", token: OTHER_TOKENS[i % OTHER_TOKENS.length] }));
@@ -208,7 +208,7 @@ function renderGame() {
   $("pp-left-title").textContent = "You left " + TEST_GAME.title + ".";
   const openSeats = seatNumbers().max - seatNumbers().filled;
   $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to Ash about a spot.";
-  const joinClosed = !preview && !realGame;
+  const joinClosed = (!preview && !realGame) || bookingClosed;
   if (joinClosed && openSeats > 0) $("pp-open-seats").textContent = openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left.";
   const full = openSeats <= 0 && view !== "joined" && view !== "skipped";
   ["pp-join-btn", "pp-rejoin-btn"].forEach((id) => { $(id).disabled = full; });
@@ -305,7 +305,11 @@ async function api(action, extra) {
     body: JSON.stringify({ ...(extra || {}), idToken, game: gameKey }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok && res.status !== 202) throw new Error(data.error || 'Something went wrong. Please try again.');
+  if (!res.ok && res.status !== 202) {
+    const err = new Error(data.error || 'Something went wrong. Please try again.');
+    err.status = res.status;
+    throw err;
+  }
   data._status = res.status;
   return data;
 }
@@ -325,7 +329,10 @@ function applyStatus(s) {
 
 async function loadStatus() {
   if (!realControls()) return;
-  try { applyStatus(await api('status')); } catch (err) { /* keep what is on screen */ }
+  try { applyStatus(await api('status')); } catch (err) {
+    // 403 = online booking is not open to this account yet: show the "opening soon" note instead of a Join button.
+    if (err.status === 403) { bookingClosed = true; renderAll(); }
+  }
 }
 
 function syncView() {
@@ -524,6 +531,7 @@ async function mountCardForm(run) {
     element.mount($('pp-embed'));
     note.hidden = true;
   } catch (err) {
+    if (err.status === 403) { bookingClosed = true; closeModals(); renderAll(); return; }
     note.textContent = err.message;
   }
 }
