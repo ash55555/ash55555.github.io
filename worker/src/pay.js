@@ -213,6 +213,10 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND read=0').bind(mode).first();
     return json({ items, unread: unread ? unread.n : 0, emailOn: !!env.ADMIN_NOTIFY_EMAIL }, 200, corsHeaders);
   }
+  if (action === 'admin/notifications/test') {
+    await notify(env, sendEmail, 'live', 'reminder', null, 'Test notification', 'If you can read this in your inbox and in your admin page, notifications are working. Nothing is wrong.');
+    return json({ ok: true }, 200, corsHeaders);
+  }
   if (action === 'admin/notifications/read') {
     await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND read=0').bind(cfg(env).mode).run();
     return json({ ok: true }, 200, corsHeaders);

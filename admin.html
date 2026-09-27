@@ -358,6 +358,8 @@
       <h2>🔔 Notifications <span class="note-new" id="note-new" hidden></span></h2>
       <p class="note" id="note-sub">New players, players who leave, failed charges and session reminders show up here.</p>
       <button type="button" class="pay-mini" id="note-read">Mark all as read</button>
+      <button type="button" class="pay-mini" id="note-test">Send a test notification</button>
+      <span class="pay-muted" id="note-test-status"></span>
       <ul class="note-list" id="note-list"></ul>
     </div>
 
@@ -1082,6 +1084,11 @@
   }
   function load() { return call('admin/notifications').then(render).catch(function (err) { listEl.innerHTML = ''; var li = document.createElement('li'); li.className = 'pay-muted'; li.textContent = err.message; listEl.appendChild(li); }); }
   document.getElementById('note-read').addEventListener('click', function () { call('admin/notifications/read').then(load); });
+  document.getElementById('note-test').addEventListener('click', function () {
+    var st = document.getElementById('note-test-status');
+    st.textContent = 'Sending...';
+    call('admin/notifications/test').then(function () { st.textContent = 'Sent. Check your inbox (and Spam) in a moment.'; return load(); }).catch(function (e) { st.textContent = e.message; });
+  });
   var go = false;
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || go) return;
