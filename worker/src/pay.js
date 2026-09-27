@@ -336,18 +336,10 @@ async function doStatus(ctx) {
   const now = new Date();
   const online = await activeCount(env, ctx.mode, gameKey);
   const seats = seatInfo(game, online);
-  const selfOrigin = new URL(ctx.request.url).origin;
-  const roster = (await env.DB.prepare(
-    `SELECT p.name AS pname, p.token AS ptoken, p.uid, pr.name AS name, pr.token AS token, pr.avatar_id, pr.pronouns
-     FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid
-     WHERE p.mode=? AND p.game=? AND p.status='active' ORDER BY p.joined_at`).bind(ctx.mode, gameKey).all()).results
-    .map((p) => ({
-      name: p.name || p.pname, token: p.token || p.ptoken || '', you: p.uid === user.sub,
-      pronouns: p.pronouns || '', avatar: p.avatar_id ? `${selfOrigin}/profile/avatar/${p.avatar_id}` : null,
-    }));
+  const { roster, dm } = await tableFor(env, ctx.mode, gameKey, new URL(ctx.request.url).origin, user.sub);
   const me = await getPlayer(ctx);
   const gs = await gameState(env, ctx.mode, gameKey);
-  const base = { seats, roster, price: game.price, mode: ctx.mode, running: gs.running };
+  const base = { seats, roster, dm, price: game.price, mode: ctx.mode, running: gs.running };
   if (!me || me.status !== 'active') return json({ ...base, joined: false, left: !!(me && me.status === 'left') }, 200, corsHeaders);
 
   const sessions = upcoming(game, now, SESSIONS_SHOWN);
@@ -498,6 +490,40 @@ async function adminGames(env, mode, corsHeaders) {
       key: g.key, title: g.title, enabled: g.enabled, online: online[g.key] || 0, running: !!running[g.key],
     })),
   }, 200, corsHeaders);
+}
+
+// Who sits at a table: the DM (Ash's own profile) and every active player, with
+// the name, picture and pronouns each person chose on their profile page.
+async function tableFor(env, mode, gameKey, selfOrigin, viewerUid) {
+  const pic = (id) => (id ? `${selfOrigin}/profile/avatar/${id}` : null);
+  const roster = (await env.DB.prepare(
+    `SELECT p.name AS pname, p.token AS ptoken, p.uid, pr.name AS name, pr.token AS token, pr.avatar_id, pr.pronouns
+     FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid
+     WHERE p.mode=? AND p.game=? AND p.status='active' ORDER BY p.joined_at`).bind(mode, gameKey).all()).results
+    .map((p) => ({
+      name: p.name || p.pname, token: p.token || p.ptoken || '', you: !!viewerUid && p.uid === viewerUid,
+      pronouns: p.pronouns || '', avatar: pic(p.avatar_id),
+    }));
+  const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
+  const dm = { name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon', avatar: pic(d && d.avatar_id), pronouns: (d && d.pronouns) || '' };
+  return { roster, dm };
+}
+
+// Public (no sign-in): the table for one game, so anyone thinking of joining can
+// see who is already there. Shows display names, pictures and pronouns only.
+export async function handleRoster(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const gameKey = url.searchParams.get('game') || '';
+  let game;
+  try { game = (await loadGames(env))[gameKey]; } catch { return new Response(JSON.stringify({ error: 'Schedule unavailable' }), { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } }); }
+  if (!game) return new Response(JSON.stringify({ error: 'Unknown game' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
+  const mode = cfg(env).mode;
+  const { roster, dm } = await tableFor(env, mode, gameKey, url.origin, null);
+  const seats = seatInfo(game, await activeCount(env, mode, gameKey));
+  return new Response(JSON.stringify({ seats, roster, dm }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=20', ...corsHeaders },
+  });
 }
 
 // Public: how many players are booked online per game, so the site's seat counts

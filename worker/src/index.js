@@ -10,7 +10,7 @@
 // anything, then hands each email to the email API.
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { handlePay, handleSeats, runCharges } from './pay.js';
+import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 
 const FIREBASE_JWKS_URL =
@@ -44,6 +44,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length));
+    }
+    if (url.pathname === '/pay/roster' && request.method === 'GET') {
+      return handleRoster(request, env, corsHeaders);
     }
     if (url.pathname === '/pay/seats' && request.method === 'GET') {
       return handleSeats(request, env, corsHeaders);

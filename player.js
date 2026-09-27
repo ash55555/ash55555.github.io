@@ -30,6 +30,7 @@ const realGame = hasGame; // every game booking goes through the Worker
 const planLink = null;
 let me = null;
 let serverState = null; // what the Worker says about this player and this game
+let publicState = null; // the table as any visitor sees it (no sign-in needed)
 let bookingClosed = false; // true when the Worker says online booking is not open to this person yet
 if (query.get("embed") === "1") document.body.classList.add("pp-embed");
 const OTHER_TOKENS = ["dagger", "elf", "bat", "dice", "wizard"];
@@ -159,12 +160,14 @@ function renderRoster() {
     }
     list.appendChild(li);
   };
-  add('Ash', 'dragon', 'DM');
+  const table = realGame ? (serverState || publicState) : null;
+  const dm = table && table.dm;
+  add(dm ? dm.name : 'Ash', dm ? dm.token : 'dragon', 'DM', dm && dm.avatar, dm && dm.pronouns);
   const seats = seatNumbers();
-  if (realGame && serverState) {
-    const anonymous = Math.max(0, seats.filled - serverState.roster.length);
+  if (table) {
+    const anonymous = Math.max(0, seats.filled - table.roster.length);
     for (let i = 0; i < anonymous; i++) add('Player', OTHER_TOKENS[i % OTHER_TOKENS.length]);
-    serverState.roster.forEach((p) => add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice', null, p.avatar, p.pronouns));
+    table.roster.forEach((p) => add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice', null, p.avatar, p.pronouns));
   } else {
     SAMPLE_OTHERS.forEach((p) => add(p.name, p.token));
     if (view === 'joined' || view === 'skipped') add((profile.name.trim() || 'Player') + ' (you)', profile.token);
@@ -205,7 +208,8 @@ function renderMinPlayers(filled, max, min) {
 
 // Seat counts: the Worker's numbers for real games once we have them, sample numbers otherwise.
 function seatNumbers() {
-  if (realGame && serverState) return { filled: serverState.seats.filled, max: serverState.seats.max, min: serverState.seats.min || TEST_GAME.seatsMin };
+  const known = realGame ? (serverState || publicState) : null;
+  if (known) return { filled: known.seats.filled, max: known.seats.max, min: known.seats.min || TEST_GAME.seatsMin };
   const mine = view === 'joined' || view === 'skipped';
   return { filled: SAMPLE_OTHERS.length + (mine ? 1 : 0), max: TEST_GAME.seatsMax, min: TEST_GAME.seatsMin };
 }
@@ -342,6 +346,15 @@ function applyStatus(s) {
     skippedIdx = new Set();
   }
   renderAll();
+}
+
+// Anyone can see who is at the table, signed in or not.
+async function loadPublicTable() {
+  if (!realGame) return;
+  try {
+    const res = await fetch(WORKER_URL + '/pay/roster?game=' + encodeURIComponent(gameKey));
+    if (res.ok) { publicState = await res.json(); renderAll(); }
+  } catch (err) { /* the sample table stays on screen */ }
 }
 
 async function loadStatus() {
@@ -623,6 +636,7 @@ if (hasGame) {
 }
 renderProfile();
 renderAll();
+loadPublicTable();
 
 // Coming back from Whop after saving a card: finish booking the seat.
 (async function returnFromWhop() {
