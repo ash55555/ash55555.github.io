@@ -235,6 +235,12 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND read=0').bind(cfg(env).mode).run();
     return json({ ok: true }, 200, corsHeaders);
   }
+  if (action === 'admin/notifications/read-one') {
+    const id = parseInt(body.id, 10);
+    if (!id) return json({ error: 'Missing notification id.' }, 400, corsHeaders);
+    await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND id=?').bind(cfg(env).mode, id).run();
+    return json({ ok: true }, 200, corsHeaders);
+  }
 
   const gameKey = body.game;
   let game;
