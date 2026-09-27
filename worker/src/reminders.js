@@ -1,17 +1,11 @@
-// Reminder emails. About a day (25 hours) before each session, every player who is playing
-// it gets an email with the time in their own time zone, whether they will be
-// charged, and how long they have to skip. Ash gets one summary email per session.
-//
-// 25 hours (not exactly 24) on purpose: players can only skip up to 24 hours before a
-// session, so a reminder at exactly 24 hours would arrive as the window closes. At 25
-// hours it still reads as "a day before" and leaves an hour to skip.
+// Reminder emails. 24 hours before each session, every player who is playing it gets
+// a short, friendly reminder with the game and the time in their own time zone.
+// Ash gets one summary email per session (who is playing, who skipped, billing).
 
 import { loadGames, cfg, upcoming, iso, gameState, playingCount, escapeHtml, notify } from './pay.js';
 
 const HOUR_MS = 60 * 60 * 1000;
-const LEAD_MS = 25 * HOUR_MS;
-const SKIP_CUTOFF_MS = 24 * HOUR_MS;
-const SITE = 'https://ashtabletop.com';
+const LEAD_MS = 24 * HOUR_MS;
 
 // Time zone abbreviation people recognize (AEST, EDT...) or "" when there is none.
 function abbreviation(date, tz) {
@@ -41,13 +35,6 @@ function when(ts, tz) {
   }
 }
 
-function gameLink(key, game) {
-  const [slug, slot] = key.includes('::') ? key.split('::') : [key, ''];
-  const group = game.title.includes(', ') ? game.title.split(', ').slice(-1)[0] : '';
-  const q = new URLSearchParams({ campaign: slug, slot, group, day: game.day, hour: game.hour, minute: game.minute, offset: game.offset, max: game.max });
-  return `${SITE}/player.html?${q.toString()}`;
-}
-
 function untilText(ms) {
   const h = Math.max(0, Math.round(ms / HOUR_MS));
   if (h < 24) return `${h} hour${h === 1 ? '' : 's'}`;
@@ -56,35 +43,26 @@ function untilText(ms) {
   return `${d} day${d === 1 ? '' : 's'}${r ? ` ${r} hour${r === 1 ? '' : 's'}` : ''}`;
 }
 
-function playerEmail({ name, game, key, ts, tz, msLeft, chargeLine, canSkip, deadline }) {
+function playerEmail({ name, game, ts, tz, msLeft }) {
   const w = when(ts, tz);
-  const dl = deadline ? when(deadline, tz) : null;
-  const link = gameLink(key, game);
-  const skipLine = canSkip
-    ? `Can't make it? You can skip this session until <strong>${escapeHtml(dl.day)} at ${escapeHtml(dl.time)}</strong>, and you won't be charged for it.`
-    : `The skip window for this session has closed. If something has come up, message Ash on Discord.`;
+  const hours = Math.max(1, Math.round(msLeft / HOUR_MS) >= 23 ? 24 : Math.round(msLeft / HOUR_MS));
+  const inText = hours === 24 ? 'in 24 hours' : `in ${hours} hour${hours === 1 ? '' : 's'}`;
   return `<!doctype html><html><body style="margin:0;background:#120b1c;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#1c1230;border-radius:20px;overflow:hidden;border:1px solid #3a2a5c">
-    <tr><td style="padding:28px 32px 8px;background:linear-gradient(135deg,#3b2a6d,#1c1230)">
+    <tr><td style="padding:28px 32px 10px;background:linear-gradient(135deg,#3b2a6d,#1c1230)">
       <p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f2b84f;font-weight:700">Ash Tabletop</p>
-      <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2;color:#ffffff">Your game is coming up</h1>
+      <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2;color:#ffffff">Game reminder</h1>
     </td></tr>
-    <tr><td style="padding:20px 32px 0;color:#d9cdf2;font-size:16px;line-height:1.55">
-      <p style="margin:0 0 16px">Hi ${escapeHtml(name || 'there')}, a quick heads-up about your next session.</p>
+    <tr><td style="padding:20px 32px 30px;color:#d9cdf2;font-size:16px;line-height:1.55">
+      <p style="margin:0 0 16px">Hi ${escapeHtml(name || 'there')}, your game is ${escapeHtml(inText)}.</p>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2a1d47;border-radius:14px;border:1px solid #4a3877"><tr><td style="padding:18px 20px">
         <p style="margin:0;font-size:13px;color:#b9a9d9;text-transform:uppercase;letter-spacing:.08em;font-weight:700">${escapeHtml(game.title)}</p>
         <p style="margin:6px 0 2px;font-size:22px;color:#ffffff;font-weight:700">${escapeHtml(w.day)}</p>
         <p style="margin:0;font-size:20px;color:#f2b84f;font-weight:700">${escapeHtml(w.time)}</p>
-        <p style="margin:8px 0 0;font-size:14px;color:#b9a9d9">Starts in about ${escapeHtml(untilText(msLeft))}</p>
       </td></tr></table>
-      ${w.known ? '' : '<p style="margin:10px 0 0;font-size:13px;color:#b9a9d9">Your player page shows this in your own time zone.</p>'}
-      <p style="margin:18px 0 8px">${escapeHtml(chargeLine)}</p>
-      <p style="margin:0 0 20px">${skipLine}</p>
-      <p style="margin:0 0 28px"><a href="${escapeHtml(link)}" style="display:inline-block;background:#f2b84f;color:#241407;padding:13px 24px;border-radius:12px;text-decoration:none;font-weight:700;font-size:16px">${canSkip ? 'Open my table (skip here)' : 'Open my table'}</a></p>
-    </td></tr>
-    <tr><td style="padding:16px 32px 24px;border-top:1px solid #3a2a5c;color:#8f7fb3;font-size:12px;line-height:1.5">
-      You're getting this because you're booked into this game at ashtabletop.com. Roll well!
+      ${w.known ? '' : '<p style="margin:10px 0 0;font-size:13px;color:#b9a9d9">Times are in UTC. Your player page shows the game in your own time zone.</p>'}
+      <p style="margin:22px 0 0">See you at the table. Roll well!</p>
     </td></tr>
    </table>
   </td></tr></table></body></html>`;
@@ -119,14 +97,6 @@ export async function runReminders(env, sendEmail) {
     const playing = await playingCount(env, mode, key, game, ts);
     const billed = gs.running && gs.startedAt && ts > gs.startedAt;
     const enough = playing >= game.min;
-    const chargeLine = !billed
-      ? "Billing hasn't started for this game yet, so you won't be charged for this session."
-      : enough
-        ? `You will be charged $${game.price} when the session starts, as long as you have not skipped it.`
-        : `Not enough players are booked for this session yet, so nobody will be charged for it unless more join.`;
-    const canSkip = msLeft >= SKIP_CUTOFF_MS;
-    const deadline = canSkip ? new Date(next.getTime() - SKIP_CUTOFF_MS).toISOString() : null;
-
     const playingNames = [];
     const skippedNames = [];
     for (const p of players) {
@@ -137,8 +107,8 @@ export async function runReminders(env, sendEmail) {
       const claim = await env.DB.prepare('INSERT OR IGNORE INTO reminders (mode, game, session_ts, uid, sent_at) VALUES (?,?,?,?,?)').bind(mode, key, ts, p.uid, iso(now)).run();
       if (!claim.meta || claim.meta.changes !== 1) continue;
       try {
-        await sendEmail(env, p.email, `Coming up: ${game.title}, ${when(ts, p.tz).day}`,
-          playerEmail({ name: p.name || p.pname, game, key, ts, tz: p.tz, msLeft, chargeLine, canSkip, deadline }));
+        await sendEmail(env, p.email, `Reminder: ${game.title} is in 24 hours`,
+          playerEmail({ name: p.name || p.pname, game, ts, tz: p.tz, msLeft }));
         report.players++;
       } catch (err) { console.error('reminder email failed', p.email, err && err.message); }
     }
