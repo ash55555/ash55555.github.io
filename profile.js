@@ -92,25 +92,6 @@ function fileToAvatar(file) {
   });
 }
 
-/* ------------------------------------------------------------- tokens etc. */
-
-function renderTokens() {
-  const grid = $('me-tokens');
-  grid.innerHTML = '';
-  TOKENS.forEach((t) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'me-token';
-    b.style.setProperty('--tk', t.color);
-    b.textContent = t.emoji;
-    b.setAttribute('role', 'radio');
-    b.setAttribute('aria-label', t.id + ' token');
-    b.setAttribute('aria-checked', String(chosenToken === t.id));
-    b.addEventListener('click', () => { chosenToken = t.id; renderTokens(); renderAvatar(); });
-    grid.appendChild(b);
-  });
-}
-
 $('me-bio').addEventListener('input', () => { $('me-bio-count').textContent = $('me-bio').value.length + ' / 500'; });
 $('me-avatar-btn').addEventListener('click', () => $('me-file').click());
 $('me-file').addEventListener('change', async () => {
@@ -448,7 +429,6 @@ async function start(user) {
   $('me-app').hidden = false;
   $('me-tz').textContent = (typeof friendlyTimeZone === 'function' ? friendlyTimeZone(new Date()) : '') || 'your time';
   buildCalendar();
-  renderTokens();
   renderModules();
   renderPicked();
   refreshTotal();
@@ -467,7 +447,6 @@ async function start(user) {
   (profile.interests || []).forEach((n) => picked.add(n));
   loadSlots(toLocalWeek(profile));
   for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) paintCell(d, h);
-  renderTokens();
   renderAvatar();
   renderModules();
   renderPicked();

@@ -70,13 +70,6 @@
 .me-avatar-btn:hover .me-avatar-edit, .me-avatar-btn:focus-visible .me-avatar-edit { opacity: 1; transform: none; }
 .me-remove { font-size: 0.85rem; }
 
-.me-tokens { display: flex; flex-wrap: wrap; gap: 0.6em; }
-.me-token {
-  width: 46px; height: 46px; border-radius: 50%; border: 2px solid transparent; background: var(--tk); font-size: 1.4rem;
-  cursor: pointer; display: grid; place-items: center; transition: transform 0.15s, border-color 0.15s;
-}
-.me-token:hover { transform: translateY(-2px); }
-.me-token[aria-checked="true"] { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242, 184, 79, 0.25); }
 .me-actions { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; margin-top: 0.4em; }
 
 /* ---------- games list ---------- */
