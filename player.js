@@ -598,6 +598,12 @@ if (hasGame && query.get("back")) {
 }
 document.querySelector(".pp-previewbar").hidden = !preview;
 if (!preview && !hasGame) { $("pp-game-card").hidden = true; $("pp-nogames").hidden = false; }
+// On a game page the profile box is not shown: players build their character after Session Zero,
+// and the profile lives under Member > My profile (this same page opened without a game).
+if (hasGame) {
+  $('pp-profile-card').hidden = true;
+  document.querySelector('.pp-grid').classList.add('pp-solo');
+}
 renderProfile();
 renderAll();
 

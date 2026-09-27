@@ -236,3 +236,6 @@ body.pp-embed .pp-grid { grid-template-columns: 1fr; }
 @keyframes pp-min-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 @keyframes pp-min-pop { 0% { transform: scaleY(0.4); } 60% { transform: scaleY(1.25); } 100% { transform: scaleY(1); } }
 @media (prefers-reduced-motion: reduce) { .pp-seat-min i { animation: none; } }
+
+/* Game page without the profile box: the game card uses the full width */
+.pp-grid.pp-solo { grid-template-columns: 1fr; }
