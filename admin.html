@@ -474,10 +474,13 @@
     <div class="me-panel" data-panel="finance" hidden>
       <div class="pay-box" style="margin-bottom:1.6em;">
         <h2>💰 Balance</h2>
-        <p class="note">What Whop says is sitting in your account right now. Actually withdrawing still happens on Whop's own dashboard — this site never touches your money directly.</p>
+        <p class="note">What Whop says is sitting in your account right now. Actually withdrawing still happens on Whop's own dashboard — this site never touches your money directly. Whop pays out to a bank account, PayPal, or a crypto wallet (never a card) — add one under Whop's Balances → Payout methods if you haven't yet.</p>
         <p class="slot-status" id="fin-balance-status"></p>
         <div class="pay-badges" id="fin-balance-badges"></div>
-        <a class="btn btn-primary" href="https://whop.com/dashboard" target="_blank" rel="noopener" style="text-decoration:none;margin-top:.8em;">Open Whop → Profile → Balance ↗</a>
+        <div style="display:flex;gap:.8em;flex-wrap:wrap;margin-top:.8em;">
+          <a class="btn btn-primary" href="https://whop.com/dashboard" target="_blank" rel="noopener" style="text-decoration:none;">See my balance on Whop ↗</a>
+          <a class="btn btn-ghost" href="https://whop.com/dashboard" target="_blank" rel="noopener" style="text-decoration:none;">Withdraw money ↗</a>
+        </div>
       </div>
 
       <div class="pay-box">
