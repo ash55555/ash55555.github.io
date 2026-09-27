@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20260926b">
-<link rel="stylesheet" href="player.css?v=20260926b">
+<link rel="stylesheet" href="player.css?v=20260926d">
 </head>
 <body>
 
@@ -101,7 +101,7 @@
         </div>
         <div class="pp-fact">
           <span class="pp-fact-label">Price</span>
-          <span class="pp-fact-value">$10 per session</span>
+          <span class="pp-fact-value">$<span class="js-price">10</span> per session</span>
           <span class="pp-fact-sub">Billed weekly, only for weeks you play</span>
         </div>
       </div>
@@ -197,7 +197,7 @@
           <div class="pp-when-charged"><strong>You are charged on game night.</strong><span id="cb-charge-line"></span></div>
           <div class="pp-billing" id="pp-billing-modal"></div>
           <div id="pp-embed"></div>
-          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $10 on game night for each session you have not skipped, until you leave the game. Skip a session or leave any time up to 24 hours before it starts.</p>
+          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span class="js-price">10</span> on game night for each session you have not skipped, until you leave the game. Skip a session or leave any time up to 24 hours before it starts.</p>
           <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
           <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
           <p class="pp-fineprint" id="pp-checkout-note" hidden></p>
@@ -270,6 +270,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-init.js?v=20260926b"></script>
-<script src="player.js?v=20260926b"></script>
+<script src="player.js?v=20260926d"></script>
 </body>
 </html>

@@ -8,6 +8,7 @@ const CAMPAIGN_NAMES = {
   "ravenloft-undead-survival": "Ravenloft: Undead Survival",
   "crooked-moon": "The Crooked Moon",
   "witchlight": "The Wild Beyond the Witchlight",
+  "pilot": "Pilot Test Table",
 };
 const query = new URLSearchParams(window.location.search);
 const hasGame = query.has("campaign");
@@ -20,11 +21,11 @@ const TEST_GAME = {
   title: hasGame ? campaignName + (groupName ? " · " + groupName : "") : "The Test Table",
   eyebrow: hasGame ? "Campaign" : "Test Table",
   day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
-  seatsMax: num("max", 5), price: 10,
+  seatsMax: num("max", 5), price: num("price", 10), // price here is only what is DISPLAYED; the Worker decides what is charged
 };
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
 const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
-const REAL_GAMES = new Set(["crooked-moon::B"]);
+const REAL_GAMES = new Set(["crooked-moon::B", "pilot::test"]);
 const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
 const realGame = hasGame && REAL_GAMES.has(gameKey);
 const planLink = null;
@@ -188,6 +189,7 @@ function billingHtml(next) {
 }
 
 function renderGame() {
+  document.querySelectorAll('.js-price').forEach((el) => { el.textContent = TEST_GAME.price; });
   $("pp-game-title").textContent = TEST_GAME.title;
   $("pp-game-eyebrow").textContent = TEST_GAME.eyebrow;
   document.title = TEST_GAME.title + " | Ash Tabletop";

@@ -35,6 +35,15 @@ export const PAY_GAMES = {
     max: 5,
     legacyFilled: 3,
   },
+  // One-dollar pilot table for testing real charges with Bianca. Only people on
+  // TEST_PLAYER_EMAILS can join. The time is set right before each test.
+  'pilot::test': {
+    title: 'Pilot Test Table',
+    day: 0, hour: 0, minute: 45, offset: 0, // PILOT-TIME
+    price: 1,
+    max: 3,
+    legacyFilled: 0,
+  },
 };
 
 // ---------------------------------------------------------------- utilities
