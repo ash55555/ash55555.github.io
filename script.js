@@ -288,9 +288,20 @@ function openJoinPopup(src) {
   document.body.classList.add("modal-open");
 }
 
+// Below this width, joining opens player.html as its own real page instead
+// of inside the iframe-in-an-iframe popup (this page's join modal, wrapping
+// Whop's own embedded card element). That double nesting is what desktop
+// browsers tolerate but phones often don't: Google Sign-In refuses to run
+// inside a nested iframe at all, and mobile Safari/Chrome partition an
+// iframe-within-an-iframe's storage aggressively enough that the login or
+// the card form can silently fail to work. A normal top-level page sidesteps
+// both, at the small cost of leaving the campaign page to do it.
+const MOBILE_JOIN_BREAKPOINT = 720;
+
 function setupSessionButtons() {
   document.querySelectorAll(".session-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
+      const isMobile = window.innerWidth <= MOBILE_JOIN_BREAKPOINT;
       const params = new URLSearchParams({
         campaign: chip.dataset.campaign || "",
         slot: chip.dataset.slot || "",
@@ -299,8 +310,8 @@ function setupSessionButtons() {
         hour: chip.dataset.hour || "0",
         minute: chip.dataset.minute || "0",
         offset: chip.dataset.offset || "1",
-        embed: "1",
       });
+      if (!isMobile) params.set("embed", "1");
       if (new URLSearchParams(window.location.search).get("demo") === "1") params.set("demo", "1");
       const seatsText = (chip.querySelector(".session-seats") || {}).textContent || "";
       const seatsMatch = seatsText.match(/\((\d+)\/(\d+)\)/);
@@ -309,7 +320,9 @@ function setupSessionButtons() {
         params.set("max", seatsMatch[2]);
       }
       const base = window.location.pathname.includes("/blog/") ? "../player.html" : "player.html";
-      openJoinPopup(base + "?" + params.toString());
+      const url = base + "?" + params.toString();
+      if (isMobile) window.location.href = url;
+      else openJoinPopup(url);
     });
   });
 }

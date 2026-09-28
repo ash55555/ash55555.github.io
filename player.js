@@ -466,9 +466,19 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
     loadStatus();
     if (realGame && !$('pp-checkout').hidden) syncCheckoutAuth();
   });
+  // Popup-based Google sign-in is unreliable on phones (mobile browsers block
+  // or silently swallow the popup far more than desktop does), so mobile uses
+  // Firebase's own recommended alternative, a full-page redirect to Google and
+  // back, instead. getRedirectResult() below catches that return trip.
   $('pp-auth-google').addEventListener('click', () => {
-    firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch((e) => { $('pp-auth-status').textContent = e.message; });
+    const provider = new firebase.auth.GoogleAuthProvider();
+    if (window.innerWidth <= 720) {
+      firebase.auth().signInWithRedirect(provider);
+    } else {
+      firebase.auth().signInWithPopup(provider).catch((e) => { $('pp-auth-status').textContent = e.message; });
+    }
   });
+  firebase.auth().getRedirectResult().catch((e) => { $('pp-auth-status').textContent = e.message; });
   $('pp-auth-forgot').addEventListener('click', async () => {
     const email = $('pp-auth-email').value.trim();
     if (!email) { $('pp-auth-status').textContent = 'Type your email above first, then tap "Forgot your password?" again.'; return; }
