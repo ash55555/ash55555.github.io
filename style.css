@@ -1019,6 +1019,19 @@ body.modal-open { overflow: hidden; }
   .nav-links.open { display: flex; }
   .nav-cta { align-self: flex-start; }
   .nav-auth { align-self: flex-start; }
+
+  /* .nu-panel normally hangs off the right edge of the bell/avatar (right: 0,
+     extending leftward) because on desktop that pair sits at the far right of
+     the header. In the mobile menu they sit at the LEFT edge of a full-width
+     column instead, so the same right-anchored panel extended leftward runs
+     straight off the screen. Anchoring from the left here instead keeps it
+     on-screen, and the width cap keeps it from also overrunning the right
+     edge on the narrowest phones. */
+  .nu-panel {
+    right: auto;
+    left: 0;
+    max-width: calc(100vw - 3em);
+  }
 }
 
 /* Join popup (campaign pages) */
