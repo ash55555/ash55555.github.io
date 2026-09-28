@@ -74,6 +74,7 @@
   .pay-go { font: inherit; font-weight: 800; padding: .5em 1.1em; border-radius: 10px; border: 0; cursor: pointer; background: var(--gold); color: #1c1230; }
   .pay-go.stop { background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); }
   .pay-details { margin: 0 0 1em; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-panel); }
+  .pay-details.pay-highlight { outline: 3px solid var(--gold); outline-offset: 2px; transition: outline-color .3s; }
   .pay-details > summary { cursor: pointer; padding: 1em 1.3em; font-family: 'Cinzel', Georgia, serif; font-size: 1.05rem; list-style: none; }
   .pay-details > summary::-webkit-details-marker { display: none; }
   .pay-details > summary::before { content: '▸  '; color: var(--gold); }
@@ -120,6 +121,8 @@
   .note-list { list-style: none; margin: .8em 0 0; padding: 0; display: grid; gap: .5em; max-height: 340px; overflow: auto; }
   .note-item { display: grid; grid-template-columns: 88px 1fr auto; gap: .8em; align-items: start; padding: .7em .9em; border-radius: 10px; background: var(--bg-panel-2); border: 1px solid var(--border); font-size: .88rem; }
   .note-item.unread { border-color: rgba(242,184,79,.55); cursor: pointer; }
+  .note-item.has-game { cursor: pointer; }
+  .note-item.has-game:hover { border-color: rgba(242,184,79,.35); }
   .note-kind { font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-radius: 999px; padding: .25em .6em; text-align: center; background: rgba(155,109,255,.2); color: #cbb6ff; }
   .note-kind.charge_failed, .note-kind.gave_up, .note-kind.unknown { background: rgba(224,85,111,.2); color: #ff9db0; }
   .note-kind.joined { background: rgba(127,217,154,.18); color: #7fd99a; }
@@ -1054,6 +1057,27 @@
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
   var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<h3 class='pay-sub'>Upcoming sessions</h3>\n<div class='pay-scroll'><table class='pay-table pay-upcoming'></table></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
+
+  // Lets a clicked notification ("Mark joined the-vampiric-dynasty") jump straight
+  // to that game's box here, even if the games list is still loading when it's called.
+  var gameEls = {};
+  var gamesLoaded = false;
+  var pendingOpenKey = null;
+  function openGame(key) {
+    var rec = gameEls[key];
+    if (!rec) return;
+    rec.camp.open = true;
+    if (rec.group) rec.group.open = true;
+    var target = rec.group || rec.camp;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('pay-highlight');
+    setTimeout(function () { target.classList.remove('pay-highlight'); }, 2200);
+  }
+  window.AshAdminOpenGame = function (key) {
+    if (!key) return;
+    if (!gamesLoaded) { pendingOpenKey = key; return; }
+    openGame(key);
+  };
   // Same banner art already used on the public site's campaign cards (index.html),
   // so the admin list is recognizable at a glance instead of reading slugs.
   var CAMPAIGN_META = {
@@ -1344,6 +1368,7 @@
             det.append(gsum, groot);
             wrap.appendChild(det);
             setup(g.key, groot)();
+            gameEls[g.key] = { camp: camp, group: det };
           });
           camp.appendChild(wrap);
         } else {
@@ -1351,10 +1376,13 @@
           single.innerHTML = BOX;
           camp.appendChild(single);
           setup(groups[0].key, single)();
+          gameEls[groups[0].key] = { camp: camp, group: null };
         }
 
         holder.appendChild(camp);
       });
+      gamesLoaded = true;
+      if (pendingOpenKey) { openGame(pendingOpenKey); pendingOpenKey = null; }
     }).catch(function (err) {
       var p = document.createElement('p');
       p.className = 'slot-status error';
@@ -1554,8 +1582,8 @@
     }
     data.items.forEach(function (n) {
       var li = document.createElement('li');
-      li.className = 'note-item' + (n.read ? '' : ' unread');
-      li.title = n.read ? '' : 'Click to mark as read';
+      li.className = 'note-item' + (n.read ? '' : ' unread') + (n.game ? ' has-game' : '');
+      li.title = n.game ? 'Click to see this game in Players & payments' : (n.read ? '' : 'Click to mark as read');
       var kind = document.createElement('span'); kind.className = 'note-kind ' + n.kind; kind.textContent = LABELS[n.kind] || n.kind;
       var mid = document.createElement('div');
       var t = document.createElement('div'); t.className = 'note-title'; t.textContent = n.title;
@@ -1563,17 +1591,23 @@
       mid.append(t, b);
       var time = document.createElement('span'); time.className = 'note-time'; time.textContent = ago(n.created_at);
       li.append(kind, mid, time);
-      if (!n.read) {
+      if (!n.read || n.game) {
         li.addEventListener('click', function () {
-          li.classList.remove('unread'); // clears the gold highlight right away
-          li.title = '';
-          var unreadLeft = listEl.querySelectorAll('.note-item.unread').length;
-          var badge = document.getElementById('note-new');
-          badge.hidden = !unreadLeft;
-          badge.textContent = unreadLeft + ' new';
-          var railDot = document.getElementById('admin-rail-dot');
-          if (railDot) railDot.hidden = !unreadLeft;
-          call('admin/notifications/read-one', { id: n.id }).catch(function () { /* the click already cleared it visually; a failed save here just means it may show gold again next reload */ });
+          if (!n.read) {
+            li.classList.remove('unread'); // clears the gold highlight right away
+            li.title = n.game ? 'Click to see this game in Players & payments' : '';
+            var unreadLeft = listEl.querySelectorAll('.note-item.unread').length;
+            var badge = document.getElementById('note-new');
+            badge.hidden = !unreadLeft;
+            badge.textContent = unreadLeft + ' new';
+            var railDot = document.getElementById('admin-rail-dot');
+            if (railDot) railDot.hidden = !unreadLeft;
+            call('admin/notifications/read-one', { id: n.id }).catch(function () { /* the click already cleared it visually; a failed save here just means it may show gold again next reload */ });
+          }
+          if (n.game && window.AshAdminShowTab) {
+            window.AshAdminShowTab('players');
+            if (window.AshAdminOpenGame) window.AshAdminOpenGame(n.game);
+          }
         });
       }
       listEl.appendChild(li);
@@ -2119,6 +2153,7 @@
   document.querySelectorAll('.me-rail-btn').forEach(function (b) {
     b.addEventListener('click', function () { showTab(b.dataset.tab); });
   });
+  window.AshAdminShowTab = showTab;
 
   // Reopen on whatever tab she was last on, instead of always resetting to Notifications.
   var saved = null;
