@@ -1391,7 +1391,8 @@
   }
 
   var MIN_WITHDRAW = 10; // Whop's own minimum withdrawal amount
-  var lastBalance = null;
+  var lastTotal = null;
+  var lastWithdrawable = null;
 
   function loadBalance() {
     var status = document.getElementById('fin-balance-status');
@@ -1404,12 +1405,13 @@
     warn.hidden = true;
     return call('admin/balance').then(function (d) {
       status.textContent = '';
-      lastBalance = d.balance;
+      lastTotal = d.total;
+      lastWithdrawable = d.withdrawable;
       box.hidden = false;
       document.getElementById('fin-mode-badge').className = 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn');
       document.getElementById('fin-mode-badge').textContent = d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)';
-      document.getElementById('fin-balance-amount').textContent = money(d.balance);
-      btn.classList.toggle('fin-btn-disabled', !((d.balance || 0) >= MIN_WITHDRAW));
+      document.getElementById('fin-balance-amount').textContent = money(d.total);
+      btn.classList.toggle('fin-btn-disabled', !((d.withdrawable || 0) >= MIN_WITHDRAW));
     }).catch(function (err) {
       status.textContent = err.message;
       status.className = 'slot-status error';
@@ -1418,13 +1420,17 @@
 
   // A greyed-out look, not a native disabled button — clicking it while under
   // the minimum still needs to fire, so it can explain why instead of doing
-  // nothing. Only once there's enough balance does it actually send her to
-  // Whop, where withdrawing for real happens.
+  // nothing. Only once there's enough withdrawable balance does it actually
+  // send her to Whop, where withdrawing for real happens.
   document.getElementById('fin-withdraw-btn').addEventListener('click', function () {
     var warn = document.getElementById('fin-withdraw-warn');
-    if (!((lastBalance || 0) >= MIN_WITHDRAW)) {
+    if (!((lastWithdrawable || 0) >= MIN_WITHDRAW)) {
       warn.hidden = false;
-      warn.textContent = 'You can\'t withdraw yet. The minimum withdrawal is ' + money(MIN_WITHDRAW) + ', and you currently have ' + money(lastBalance) + '.';
+      if ((lastTotal || 0) > (lastWithdrawable || 0)) {
+        warn.textContent = 'You can\'t withdraw yet. The minimum withdrawal is ' + money(MIN_WITHDRAW) + '. ' + money(lastTotal) + ' total, but ' + money((lastTotal || 0) - (lastWithdrawable || 0)) + ' of that is still clearing and isn\'t available to withdraw yet.';
+      } else {
+        warn.textContent = 'You can\'t withdraw yet. The minimum withdrawal is ' + money(MIN_WITHDRAW) + ', and you currently have ' + money(lastWithdrawable) + '.';
+      }
       return;
     }
     warn.hidden = true;

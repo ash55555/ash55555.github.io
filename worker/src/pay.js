@@ -582,13 +582,18 @@ async function adminBalance(env, corsHeaders) {
   const d = r.data || {};
   const usd = (d.balances || []).find((b) => b.currency === 'usd') || (d.balances && d.balances[0]) || null;
   const tb = d.treasury_balance || null;
+  const balance = usd ? (usd.balance || 0) : 0;
+  const pending = usd ? (usd.pending_balance || 0) : 0;
+  const reserve = usd ? (usd.reserve_balance || 0) : 0;
+  const withdrawable = tb ? (tb.total_withdrawable_balance || 0) : balance;
+  // "Total" is every dollar Whop currently credits her for, whether it has
+  // finished clearing or not — balance alone hid money sitting as pending
+  // or in reserve right after a charge, which is what she actually wants to see.
   return json({
     mode: c.mode,
     currency: (usd && usd.currency) || 'usd',
-    balance: usd ? usd.balance : null,
-    pending: usd ? usd.pending_balance : null,
-    reserve: usd ? usd.reserve_balance : null,
-    withdrawable: tb ? tb.total_withdrawable_balance : (usd ? usd.balance : null),
+    balance, pending, reserve, withdrawable,
+    total: balance + pending + reserve,
   }, 200, corsHeaders);
 }
 
