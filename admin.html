@@ -1069,7 +1069,11 @@
     rec.camp.open = true;
     if (rec.group) rec.group.open = true;
     var target = rec.group || rec.camp;
-    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // A fresh details.open needs a beat to lay out before scrollIntoView measures
+    // it correctly — and "smooth" here was landing back at scrollY 0 in testing.
+    setTimeout(function () {
+      target.scrollIntoView({ behavior: 'instant', block: 'center' });
+    }, 50);
     target.classList.add('pay-highlight');
     setTimeout(function () { target.classList.remove('pay-highlight'); }, 2200);
   }
