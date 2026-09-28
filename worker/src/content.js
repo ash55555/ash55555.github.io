@@ -62,6 +62,20 @@ export async function handleContentPublic(request, env, corsHeaders) {
   return json(view(row, url.origin), 200, { 'Cache-Control': 'public, max-age=30', ...corsHeaders });
 }
 
+// Public: every published campaign, for the homepage's campaign grid and
+// anywhere else on the live site that needs to list them all. No sign-in
+// needed, and never includes a draft (published=0) campaign.
+export async function handleContentPublicList(request, env, corsHeaders) {
+  const url = new URL(request.url);
+  const rows = (await env.DB.prepare(
+    'SELECT slug, title, eyebrow, hook, banner_id FROM campaign_content WHERE published=1 ORDER BY created_at ASC').all()).results;
+  const campaigns = rows.map((r) => ({
+    slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook,
+    bannerUrl: r.banner_id ? `${url.origin}/content/banner/${r.banner_id}` : null,
+  }));
+  return json({ campaigns }, 200, { 'Cache-Control': 'public, max-age=30', ...corsHeaders });
+}
+
 export async function handleContentAdmin(request, env, corsHeaders, origin, action, verify = verifyUser) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
   if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);

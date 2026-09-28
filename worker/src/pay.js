@@ -534,10 +534,22 @@ async function adminGames(env, mode, corsHeaders) {
 // Read-only: what Whop says is sitting in the account right now. Nothing here
 // moves money — actually withdrawing still happens on Whop's own dashboard,
 // which already has that built (and already knows Ash's real payout details).
+//
+// Uses its own dedicated API key (WHOP_BALANCE_API_KEY, "Read company balance"
+// permission only) instead of the shared charging/refund key, so a mistake here
+// can never touch the key that actually moves real money. Always reads the
+// live company's real balance, regardless of PAY_MODE — a "sandbox balance"
+// isn't a real number Ash would ever need to see.
 async function adminBalance(env, corsHeaders) {
-  const c = cfg(env);
-  if (!c.company) return json({ error: 'No Whop company is configured for this mode.' }, 500, corsHeaders);
-  const r = await whop(env, `/ledger_accounts/${c.company}`);
+  const company = env.WHOP_COMPANY_ID;
+  const key = env.WHOP_BALANCE_API_KEY;
+  if (!company || !key) return json({ error: 'Balance reading is not set up yet (missing WHOP_BALANCE_API_KEY).' }, 500, corsHeaders);
+  const res = await fetch(`https://api.whop.com/api/v1/ledger_accounts/${company}`, {
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+  });
+  const data = await res.json().catch(() => ({}));
+  const r = { ok: res.ok, data };
+  const c = { mode: 'live' };
   if (!r.ok) return json({ error: whopErrorText(r.data) || 'Could not read the Whop balance.' }, 502, corsHeaders);
   const d = r.data || {};
   const usd = (d.balances || []).find((b) => b.currency === 'usd') || (d.balances && d.balances[0]) || null;

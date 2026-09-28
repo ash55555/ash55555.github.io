@@ -874,11 +874,40 @@
     });
   }
 
+  var lastFirebaseCampaigns = null;
+
+  // Campaigns made through the admin Campaigns tab don't start out in the
+  // CAMPAIGNS list above (that list predates that tab and still names the
+  // site's 5 original pages). This adds any the content database knows
+  // about but this list doesn't, so a brand-new campaign gets a slot-time
+  // editor here too, without needing a code change every time.
+  function mergeContentCampaigns() {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/list', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }),
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load campaigns.'); return data; });
+    }).then(function (data) {
+      var known = {};
+      CAMPAIGNS.forEach(function (c) { known[c.slug] = true; });
+      (data.campaigns || []).forEach(function (c) {
+        if (known[c.slug]) return;
+        CAMPAIGNS.push({ slug: c.slug, name: c.title || c.slug });
+        known[c.slug] = true;
+      });
+    }).catch(function () { /* Session settings just shows the campaigns it already knew about */ });
+  }
+
   function showDashboard() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
+    mergeContentCampaigns().then(function () {
+      if (lastFirebaseCampaigns) renderDashboard(lastFirebaseCampaigns);
+    });
     firebase.database().ref('campaigns').on('value', function (snapshot) {
-      renderDashboard(snapshot.val());
+      lastFirebaseCampaigns = snapshot.val();
+      renderDashboard(lastFirebaseCampaigns);
     });
   }
 
@@ -1221,12 +1250,30 @@
     return load;
   }
 
+  // Fills in any campaign CAMPAIGN_META doesn't already know about (anything
+  // made through the admin Campaigns tab), using its real title and banner
+  // picture, so a brand-new campaign shows up here looking like the rest
+  // instead of a bare slug with no image.
+  function mergeCampaignMeta(idToken) {
+    return fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/list', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }),
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load campaigns.'); return data; });
+    }).then(function (data) {
+      (data.campaigns || []).forEach(function (c) {
+        if (!CAMPAIGN_META[c.slug]) CAMPAIGN_META[c.slug] = { title: c.title || c.slug, img: c.bannerUrl || '' };
+      });
+    }).catch(function () { /* the roster just falls back to raw slugs, same as before */ });
+  }
+
   var started = false;
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || started) return;
     started = true;
     var holder = document.getElementById('pay-boxes');
     firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return mergeCampaignMeta(idToken).then(function () { return idToken; });
+    }).then(function (idToken) {
       return fetch(URL_BASE + 'admin/games', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
