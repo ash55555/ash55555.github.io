@@ -77,6 +77,7 @@ export async function handleProfile(request, env, corsHeaders, origin, action, v
       const row = await env.DB.prepare('SELECT * FROM profiles WHERE uid=?').bind(user.sub).first();
       const v = view(row, self);
       if (!v.name) v.name = clean(user.name || (user.email || '').split('@')[0], 30);
+      v.isAdmin = user.sub === env.ADMIN_UID;
       return json(v, 200, corsHeaders);
     }
 

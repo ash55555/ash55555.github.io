@@ -18,6 +18,7 @@ var AshNav = (function () {
     profile: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 19.5c1.5-3.6 4.3-5.4 7.5-5.4s6 1.8 7.5 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     schedule: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h2.4M8 16.3h2.4M13.6 13H16M13.6 16.3H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     logout: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 4.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 19.5h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 12h9m0 0-3-3m3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    admin: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3.5l7 3v5.5c0 4.5-3 7.5-7 8.5-4-1-7-4-7-8.5V6.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12l2.2 2.2L15.5 9.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     check: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4.5 12.5l5 5 10-10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
 
@@ -94,6 +95,20 @@ var AshNav = (function () {
       });
       container.querySelector('.nu-menu-name').textContent = profile.name || (user.email || '').split('@')[0] || 'Player';
       container.querySelector('.nu-menu-email').textContent = user.email || '';
+
+      // Only the signed-in DM (whoever the worker's ADMIN_UID is) ever sees this —
+      // everyone else's profile/get response comes back with isAdmin left false.
+      var menu = container.querySelector('.nu-menu');
+      var adminLink = menu.querySelector('.nu-menu-admin');
+      if (profile.isAdmin && !adminLink) {
+        adminLink = document.createElement('a');
+        adminLink.className = 'nu-menu-item nu-menu-admin';
+        adminLink.href = 'admin.html';
+        adminLink.innerHTML = ICON.admin + '<span>DM Dashboard</span>';
+        menu.insertBefore(adminLink, menu.querySelector('.nu-logout'));
+      } else if (!profile.isAdmin && adminLink) {
+        adminLink.remove();
+      }
     }
 
     function renderNotifications(data) {
