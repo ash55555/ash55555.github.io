@@ -27,6 +27,23 @@ const TEST_GAME = {
 const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
 const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
 const realGame = hasGame; // every game booking goes through the Worker
+
+// CAMPAIGN_NAMES only knows the site's 5 original campaigns; anything made
+// later through the admin Campaigns tab isn't in it, and would otherwise
+// show the "Test Table" placeholder title instead of its real name. This
+// looks the real title up from the content database for any campaign
+// CAMPAIGN_NAMES doesn't recognize, then re-renders once it's back.
+if (hasGame && !CAMPAIGN_NAMES[query.get("campaign")]) {
+  fetch(WORKER_URL + '/content/public?slug=' + encodeURIComponent(query.get("campaign")))
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !d.title) return;
+      TEST_GAME.title = d.title + (groupName ? " · " + groupName : "");
+      TEST_GAME.eyebrow = "Campaign";
+      if (typeof renderGame === 'function') renderGame();
+    })
+    .catch(() => { /* keeps showing "The Test Table" rather than nothing */ });
+}
 const planLink = null;
 let me = null;
 let serverState = null; // what the Worker says about this player and this game
@@ -54,7 +71,7 @@ const store = {
   },
 };
 
-let profile = store.get('pp-profile', { name: 'Bianca', token: 'wizard', about: '' });
+let profile = store.get('pp-profile', { name: '', token: 'wizard', about: '' });
 let view = query.get("paid") === "1" ? "joined" : "notjoined";
 let skippedIdx = new Set();
 let onConfirm = null;
