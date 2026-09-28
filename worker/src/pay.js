@@ -33,7 +33,7 @@ const SESSIONS_SHOWN = 8;
 // They are fixed here, so nothing in that database can change what anyone pays.
 const FIREBASE_DB = 'https://ash-ttrpg-default-rtdb.firebaseio.com';
 const SESSION_PRICE = 10;
-const MIN_PLAYERS = 3; // a session is only charged when at least this many players are playing it
+const MIN_PLAYERS = 1; // a session is only charged when at least this many players are playing it
 const CAMPAIGN_TITLES = {
   'flying-city': 'The Prophecy of the Flying City',
   'curse-of-strahd': 'Curse of Strahd',

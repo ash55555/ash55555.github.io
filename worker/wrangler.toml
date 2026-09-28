@@ -11,11 +11,15 @@ WHOP_COMPANY_ID = "biz_iSafQUiIY2ST8C"
 WHOP_PRODUCT_ID = "prod_WkFRIyVpCDiJo"
 TEST_PLAYER_EMAILS = "biancas@me.com"
 
+# Open to everyone (2026-09-28, Ash's go-ahead): anyone signed in can now book
+# a seat and save a card, not just the admin + TEST_PLAYER_EMAILS.
+PAY_OPEN = "yes"
+
 # Card-on-file system. PAY_MODE "sandbox" = pretend money at sandbox.whop.com,
 # "live" = real money. CHARGING_MODE: "off" (never charge), "dry" (log what it
 # would charge, charge nothing), "on" (really charge).
 PAY_MODE = "live"
-CHARGING_MODE = "off"
+CHARGING_MODE = "on"
 WHOP_SANDBOX_COMPANY_ID = "biz_A06wLWpjYsaAxB"
 
 # EMAIL_API_KEY is a secret, never stored here.
