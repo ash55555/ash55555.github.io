@@ -61,6 +61,24 @@ export async function loadGames(env, fresh = false) {
   const res = await fetch(`${FIREBASE_DB}/campaigns.json`);
   if (!res.ok) throw new Error('Could not load the game schedule.');
   const data = await res.json();
+
+  // CAMPAIGN_TITLES only knows the site's 5 original campaigns. Anything made
+  // later through the admin Campaigns tab isn't in it, and without this,
+  // every email and notification about that campaign (join, leave, skip,
+  // declined card, session reminders) would show the raw slug instead of its
+  // real title. Looks up the real title from the content database for any
+  // slug CAMPAIGN_TITLES doesn't recognize.
+  const unknownSlugs = Object.keys(data || {}).filter((slug) => !CAMPAIGN_TITLES[slug]);
+  const titleOverrides = {};
+  if (unknownSlugs.length && env.DB) {
+    for (const slug of unknownSlugs) {
+      try {
+        const row = await env.DB.prepare('SELECT title FROM campaign_content WHERE slug=?').bind(slug).first();
+        if (row && row.title) titleOverrides[slug] = row.title;
+      } catch { /* falls back to the raw slug below */ }
+    }
+  }
+
   const games = {};
   for (const [slug, campaign] of Object.entries(data || {})) {
     for (const [slotId, s] of Object.entries((campaign && campaign.slots) || {})) {
@@ -68,7 +86,7 @@ export async function loadGames(env, fresh = false) {
       const key = slotId === 'default' ? slug : `${slug}::${slotId}`;
       games[key] = {
         key,
-        title: (CAMPAIGN_TITLES[slug] || slug) + (s.group ? `, ${s.group}` : ''),
+        title: (CAMPAIGN_TITLES[slug] || titleOverrides[slug] || slug) + (s.group ? `, ${s.group}` : ''),
         day: s.day,
         hour: s.hour,
         minute: Number.isInteger(s.minute) ? s.minute : 0,
