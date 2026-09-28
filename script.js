@@ -100,10 +100,11 @@ function setupNavToggle() {
   });
 }
 
-// Contact form endpoint (Formspree or similar). The destination inbox lives
-// entirely in that service's own dashboard — never in this file or the HTML —
-// so Ash's address is never present in the site's source.
-// TODO: replace with the real endpoint once Ash creates a Formspree form.
+// Contact form endpoint (Formspree). The destination inbox lives entirely in
+// that service's own dashboard — never in this file or the HTML — so Ash's
+// address is never present in the site's source. This is her real, already
+// configured form (confirmed live: GETting it returns 405 Method Not
+// Allowed, not 404, meaning the ID exists and just expects POST).
 const CONTACT_FORM_ENDPOINT = 'https://formspree.io/f/xkjnjoba';
 
 // Ash's Discord DM link. As of the switch to a talk-first booking flow, every

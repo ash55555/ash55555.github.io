@@ -173,6 +173,24 @@ function renderPicked() {
   });
 }
 
+// GAME_MODULES's "Ash runs these" group (modules.js) is a fixed list of just
+// the 5 original campaigns. A campaign made later through the admin
+// Campaigns tab isn't in it, so a player could never pick it here as a
+// structured interest, only type it into "something else" free text, which
+// then doesn't group with everyone else who wants the same game. Fills in
+// any campaign the content database knows about that this list doesn't.
+function mergeCampaignModules() {
+  return fetch(`${WORKER}/content/public-list`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+    if (!d || !d.campaigns) return;
+    const ashGroup = GAME_MODULES[0];
+    if (!ashGroup) return;
+    d.campaigns.forEach((c) => {
+      if (c.title && !ashGroup.items.includes(c.title)) ashGroup.items.push(c.title);
+    });
+    renderModules();
+  }).catch(() => { /* the picker just shows the original 5, same as before */ });
+}
+
 function renderModules() {
   const q = $('me-search').value.trim().toLowerCase();
   const root = $('me-modules');
@@ -430,6 +448,7 @@ async function start(user) {
   $('me-tz').textContent = (typeof friendlyTimeZone === 'function' ? friendlyTimeZone(new Date()) : '') || 'your time';
   buildCalendar();
   renderModules();
+  mergeCampaignModules();
   renderPicked();
   refreshTotal();
   try {

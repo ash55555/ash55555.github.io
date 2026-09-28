@@ -97,16 +97,38 @@
     return { art: art, chip: chip };
   }
 
-  // A light, self-contained live-time sync for just these new cards' chips
-  // (the existing campaigns-data.js already built its own chip list before
-  // these existed, so it never sees them — this covers the same ground for
-  // just this set).
+  // A light, self-contained live-time-and-seats sync for just these new
+  // cards' chips (the existing campaigns-data.js already built its own chip
+  // list before these existed, so it never sees them — this covers the same
+  // ground, day/time AND seat counts, for just this set).
+  var onlineSeatsPromise = fetch(WORKER + '/pay/seats')
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { return (d && d.seats) || {}; })
+    .catch(function () { return {}; });
+
   function watchLiveTime(slug, chip) {
     if (typeof firebase === 'undefined' || typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf('REPLACE_WITH') === 0) return;
+    var lastSlot = null;
+    function applySeats(onlineSeats) {
+      if (!lastSlot || typeof lastSlot.max !== 'number') return;
+      var seatsEl = chip.querySelector('.session-seats');
+      var ctaEl = chip.querySelector('.session-chip-cta');
+      if (!seatsEl) return;
+      var filled = (lastSlot.filled || 0) + (onlineSeats[slug] || 0);
+      var remaining = lastSlot.max - filled;
+      seatsEl.textContent = remaining > 0
+        ? remaining + ' seat' + (remaining === 1 ? '' : 's') + ' left (' + filled + '/' + lastSlot.max + ')'
+        : 'Full (' + filled + '/' + lastSlot.max + ')';
+      if (remaining <= 0) {
+        chip.classList.add('is-full'); chip.disabled = true;
+        if (ctaEl) ctaEl.textContent = 'Full';
+      }
+    }
     try {
       firebase.database().ref('campaigns/' + slug + '/slots/default').on('value', function (snap) {
         var slot = snap.val();
         if (!slot) return;
+        lastSlot = slot;
         var offset = slot.offset != null ? slot.offset : 1;
         chip.dataset.day = slot.day; chip.dataset.hour = slot.hour; chip.dataset.minute = slot.minute || 0; chip.dataset.offset = offset;
         if (slot.source) chip.dataset.source = slot.source;
@@ -116,9 +138,18 @@
           if (next) mainEl.textContent = formatLocal(next);
         }
         var subEl = chip.querySelector('.session-sub');
-        if (subEl) subEl.textContent = slot.enabled === false ? 'Not currently running' : 'Weekly session, shown in your time zone';
-        chip.disabled = slot.enabled === false;
-        chip.classList.toggle('is-full', slot.enabled === false);
+        var ctaEl = chip.querySelector('.session-chip-cta');
+        if (slot.enabled === false) {
+          if (subEl) subEl.textContent = 'Not currently running';
+          if (ctaEl) ctaEl.textContent = 'Paused';
+          chip.disabled = true;
+          chip.classList.add('is-full');
+          return;
+        }
+        if (subEl) subEl.textContent = 'Weekly session, shown in your time zone';
+        chip.disabled = false;
+        chip.classList.remove('is-full');
+        onlineSeatsPromise.then(applySeats);
       }, function () { /* no live time yet; the placeholder stays as-is */ });
     } catch (e) { /* Firebase not configured yet */ }
   }
