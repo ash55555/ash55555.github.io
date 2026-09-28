@@ -1131,14 +1131,14 @@
       bar.className = 'pay-gamebar' + (data.running ? ' running' : '');
       var stateText = el('strong', null, data.running ? 'Billing is ON for this game' : 'Billing has NOT started for this game');
       var explain = el('span', 'pay-muted', data.running
-        ? 'Players are charged ' + money(data.game.price) + ' at the start of each session, as long as at least ' + data.game.min + ' are playing it. Started ' + day(data.startedAt) + '.'
-        : 'Nobody is charged yet, even if the table is full. Click Start game when you are ready. Only sessions after that moment are charged.');
+        ? 'Players are charged ' + money(data.game.price) + ' at the start of each session, as long as someone is actually playing it (the usual target is ' + data.game.min + ', but it still charges below that). Started ' + day(data.startedAt) + '.'
+        : 'Nobody is charged yet, even if the table is full. Click Start game when you are ready, however many players you have. Only sessions after that moment are charged.');
       var goBtn = el('button', 'pay-go' + (data.running ? ' stop' : ''), data.running ? 'Pause billing' : 'Start game');
       goBtn.type = 'button';
       goBtn.addEventListener('click', function () {
         var msg = data.running
           ? 'Pause billing for ' + data.game.title + '? Nobody will be charged for new sessions until you start it again.'
-          : 'Start ' + data.game.title + '? From now on, every player with a saved card is charged ' + money(data.game.price) + ' at the start of each session they are playing (only when at least ' + data.game.min + ' are playing).';
+          : 'Start ' + data.game.title + '? From now on, every player with a saved card is charged ' + money(data.game.price) + ' at the start of each session they are playing, whether that is 1 player or a full table.';
         if (!confirm(msg)) return;
         goBtn.disabled = true;
         statusEl.textContent = 'Working...';
@@ -1160,7 +1160,15 @@
         var th = el('th');
         th.append(el('div', null, day(ts)));
         var n = data.playing ? data.playing[ts] : null;
-        if (n != null) th.append(el('div', n >= data.game.min ? 'pay-ok' : 'pay-short', n >= data.game.min ? n + ' playing' : 'Only ' + n + ' of ' + data.game.min + ' needed. No charge.'));
+        // game.min (3) is just the usual target shown here, not the real
+        // charge gate anymore: once a game is started, any real player in
+        // the session gets charged. Only truly empty ("0 playing") means
+        // no charge.
+        if (n != null) {
+          if (n === 0) th.append(el('div', 'pay-short', 'Nobody playing. No charge.'));
+          else if (n >= data.game.min) th.append(el('div', 'pay-ok', n + ' playing'));
+          else th.append(el('div', 'pay-ok', n + ' playing (under the usual ' + data.game.min + ', still charges)'));
+        }
         head.append(th);
       });
       head.append(el('th', null, ''));

@@ -33,7 +33,17 @@ const SESSIONS_SHOWN = 8;
 // They are fixed here, so nothing in that database can change what anyone pays.
 const FIREBASE_DB = 'https://ash-ttrpg-default-rtdb.firebaseio.com';
 const SESSION_PRICE = 10;
-const MIN_PLAYERS = 1; // a session is only charged when at least this many players are playing it
+// Shown everywhere as "how many seats a table needs" (seat counts, the admin
+// roster's "X of Y needed" text) — informational only, not itself a gate on
+// charging. Ash clicking "Start game" for a specific game IS her judgment
+// call that it has enough players, however many that actually is; see
+// MIN_PLAYERS_TO_CHARGE below for the one real floor on top of that.
+const MIN_PLAYERS = 3;
+// The only real requirement for runCharges() to actually charge a session:
+// somebody is really in it. Once a game is started, this is intentionally
+// NOT tied to MIN_PLAYERS, so a manually-started game with 1 real player
+// (e.g. a one-off test) charges normally instead of silently doing nothing.
+const MIN_PLAYERS_TO_CHARGE = 1;
 const CAMPAIGN_TITLES = {
   'flying-city': 'The Prophecy of the Flying City',
   'curse-of-strahd': 'Curse of Strahd',
@@ -691,8 +701,8 @@ export async function runCharges(env, sendEmail) {
       let ok = gs.running && ts > gs.startedAt;
       if (ok) {
         const playing = await playingCount(env, c.mode, gameKey, game, ts);
-        ok = playing >= game.min;
-        if (!ok) console.log(`${gameKey} ${ts}: only ${playing} playing, needs ${game.min}, so nobody is charged`);
+        ok = playing >= MIN_PLAYERS_TO_CHARGE;
+        if (!ok) console.log(`${gameKey} ${ts}: only ${playing} playing, so nobody is charged`);
       }
       canStart.set(ts, ok);
     }
