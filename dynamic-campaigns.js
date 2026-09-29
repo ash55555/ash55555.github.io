@@ -68,7 +68,7 @@
 
     var footer = el('div', 'campaign-footer');
     footer.innerHTML =
-      '<span class="price-tag"><svg class="icon icon-sm"><use href="#icon-coin"/></svg>$10 / session</span>' +
+      '<span class="price-tag">$10 / session</span>' +
       '<a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>';
     body.appendChild(footer);
 
