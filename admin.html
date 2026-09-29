@@ -147,7 +147,9 @@
     border: none;
     cursor: pointer;
     font-family: 'Nunito', sans-serif;
+    text-decoration: none;
   }
+  .top-bar-actions { display: flex; align-items: center; gap: 0.7em; }
   .btn-primary { background: linear-gradient(135deg, var(--gold), #d99a2e); color: #241407; }
   .btn-ghost { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border); }
   .btn-danger { background: rgba(224, 85, 111, 0.15); color: var(--danger); border: 1px solid var(--danger); }
@@ -425,7 +427,10 @@
   <div id="dashboard">
     <div class="top-bar">
       <h1><img src="medie/ash-token.png" alt="">Ash Tabletop Admin</h1>
-      <button type="button" class="btn btn-ghost" id="logout-btn">Log Out</button>
+      <div class="top-bar-actions">
+        <a class="btn btn-ghost" href="index.html">← Back to site</a>
+        <button type="button" class="btn btn-ghost" id="logout-btn">Log Out</button>
+      </div>
     </div>
 
     <div class="me-shell">
