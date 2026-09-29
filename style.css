@@ -63,9 +63,9 @@ p { margin: 0 0 1em; }
   flex-shrink: 0;
 }
 .icon-d20 {
-  width: 1.5em;
-  height: 1.5em;
-  vertical-align: -0.35em;
+  width: 2.3em;
+  height: 2.3em;
+  vertical-align: -0.7em;
 }
 .icon-sm { width: 1em; height: 1em; }
 .icon-lg { width: 2.4em; height: 2.4em; color: var(--purple); }
