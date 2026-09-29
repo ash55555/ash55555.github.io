@@ -80,6 +80,7 @@
   .pay-details > summary::before { content: '▸  '; color: var(--gold); }
   .pay-details[open] > summary::before { content: '▾  '; }
   .pay-details > .pay-box { border: 0; margin: 0; padding-top: .2em; background: transparent; }
+  .session-settings-box { padding-bottom: 1.4em; margin-bottom: 1.2em !important; border-bottom: 1px solid var(--border) !important; }
   .camp-details > summary { display: flex; align-items: center; gap: .9em; }
   .camp-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none; border: 1px solid var(--border); }
   .camp-info { display: flex; flex-direction: column; gap: .15em; min-width: 0; }
@@ -265,17 +266,6 @@
     font-size: 0.9rem;
   }
 
-  .seed-box {
-    background: var(--bg-panel);
-    border: 1px dashed var(--gold);
-    border-radius: 16px;
-    padding: 1.2em 1.4em;
-    margin-bottom: 2em;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-  }
-  .seed-box b { color: var(--text); }
-
   .announce-box {
     background: var(--bg-panel);
     border: 1px solid var(--border);
@@ -440,10 +430,6 @@
         <span>Notifications</span>
         <span class="me-rail-dot" id="admin-rail-dot" hidden></span>
       </button>
-      <button type="button" class="me-rail-btn" data-tab="players" aria-current="false" aria-label="Players and payments">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>
-        <span>Players &amp; payments</span>
-      </button>
       <button type="button" class="me-rail-btn" data-tab="finance" aria-current="false" aria-label="Finance">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5v9M9.5 9.3c0-1.3 1.2-2.1 2.5-2.1s2.5.8 2.5 2c0 2.5-5 1.7-5 4.2 0 1.2 1.2 2.1 2.5 2.1s2.5-.8 2.5-2.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Finance</span>
@@ -456,13 +442,9 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Announcements</span>
       </button>
-      <button type="button" class="me-rail-btn" data-tab="sessions" aria-current="false" aria-label="Session settings">
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h6M17 7h3M4 12h9M16 12h4M4 17h11M18 17h2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="14" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="15" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
-        <span>Session settings</span>
-      </button>
-      <button type="button" class="me-rail-btn" data-tab="campaigns" aria-current="false" aria-label="Campaigns">
+      <button type="button" class="me-rail-btn" data-tab="campaigns" aria-current="false" aria-label="Campaigns and players">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H18a1 1 0 0 1 1 1v15.5a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 18V5.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        <span>Campaigns</span>
+        <span>Campaigns &amp; Players</span>
       </button>
      </nav>
 
@@ -475,10 +457,6 @@
       <button type="button" class="pay-mini" id="note-test">Send a test notification</button>
       <span class="pay-muted" id="note-test-status"></span>
       <ul class="note-list" id="note-list"></ul>
-    </div>
-
-    <div class="me-panel" data-panel="players" hidden>
-    <div id="pay-boxes"></div>
     </div>
 
     <div class="me-panel" data-panel="finance" hidden>
@@ -548,16 +526,6 @@
       <ul class="announce-errors" id="announce-errors" hidden></ul>
     </div>
 
-    <div class="me-panel" data-panel="sessions" hidden>
-    <div class="seed-box" id="seed-box">
-      <p><b>First time here?</b> Your database is empty. Click below once to load in the campaigns and slots that are already live on the site, so you're editing real data instead of starting blank.</p>
-      <button type="button" class="btn btn-primary" id="seed-btn">Load Current Site Data</button>
-      <p class="slot-status" id="seed-status"></p>
-    </div>
-
-    <div id="campaigns-container"></div>
-    </div>
-
     <div class="me-panel" data-panel="campaigns" hidden>
       <div class="note-box" style="margin-bottom:1.2em;">
         <h2>📖 Campaigns</h2>
@@ -622,7 +590,7 @@
             <div class="field"><label>Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
           </div>
         </div>
-        <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so its times live in Session settings. <button type="button" class="pay-mini" id="cc-time-goto">Edit session times</button></p>
+        <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so each group has its own time, further down under Players &amp; Payments. <button type="button" class="pay-mini" id="cc-time-goto">Take me there</button></p>
 
         <div class="field-checkbox" style="margin-top:1.2em;">
           <input type="checkbox" id="cc-f-published"> <label for="cc-f-published" style="text-transform:none;font-size:0.9rem;">Published (visible on the live page)</label>
@@ -633,6 +601,12 @@
           <p class="slot-status" id="cc-save-status"></p>
         </div>
       </div>
+
+      <div class="note-box" style="margin:2.4em 0 1.2em;">
+        <h2>🎲 Players &amp; Payments</h2>
+        <p class="note">Click a campaign, then a group, to see its schedule, seats, roster and charges together in one place. The seat settings here are still yours to edit by hand any time, even if the real count of booked players is different.</p>
+      </div>
+      <div id="pay-boxes"></div>
     </div>
 
      </div>
@@ -651,32 +625,7 @@
   // worker is deployed — see worker/README.md.
   var ANNOUNCE_WORKER_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';
 
-  var CAMPAIGNS = [
-    { slug: 'flying-city', name: 'The Prophecy of the Flying City' },
-    { slug: 'curse-of-strahd', name: 'Curse of Strahd' },
-    { slug: 'ravenloft-undead-survival', name: 'Ravenloft: Undead Survival' },
-    { slug: 'crooked-moon', name: 'The Crooked Moon' },
-    { slug: 'witchlight', name: 'The Wild Beyond the Witchlight' }
-  ];
-
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-  // Data seeded once, matching what's already hardcoded live on the site,
-  // so the first admin login starts from reality instead of a blank slate.
-  var SEED_DATA = {
-    'flying-city': { slots: { 'default': { day: 3, hour: 18, minute: 0, offset: 1, source: '6:00 PM GMT+1', group: '', filled: 4, max: 5, enabled: true, planId: 'P-7SU49717KD941740NNKJ5MUI' } } },
-    'curse-of-strahd': { slots: {
-      'A': { day: 5, hour: 20, minute: 0, offset: 1, source: '8:00 PM GMT+1', group: 'Group A', filled: 3, max: 5, enabled: true, planId: 'P-96854614WE5575828NKJ5S2A' },
-      'B': { day: 1, hour: 20, minute: 0, offset: 1, source: '8:00 PM GMT+1', group: 'Group B', filled: 4, max: 5, enabled: true, planId: 'P-3V025331GW1160035NKJ5DJA' }
-    }},
-    'ravenloft-undead-survival': { slots: { 'default': { day: 6, hour: 21, minute: 0, offset: 1, source: '9:00 PM GMT+1', group: '', filled: 4, max: 5, enabled: true, planId: 'P-2AU9256410078093GNKJ5VPY' } } },
-    'crooked-moon': { slots: {
-      'A': { day: 4, hour: 20, minute: 0, offset: 1, source: '8:00 PM GMT+1', group: 'Group A', filled: 4, max: 5, enabled: true, planId: 'P-0WY84596LB169710DNKJ5QVI' },
-      'B': { day: 6, hour: 0, minute: 0, offset: 1, source: '12:00 AM GMT+1', group: 'Group B', filled: 3, max: 5, enabled: true, planId: 'P-06V49763KG2775057NKJ5TTY' },
-      'C': { day: 6, hour: 18, minute: 0, offset: 1, source: '6:00 PM GMT+1', group: 'Group C', filled: 3, max: 5, enabled: true, planId: 'P-2XX59202BM273011RNKJ5UJY' }
-    }},
-    'witchlight': { slots: { 'default': { day: 0, hour: 0, minute: 0, offset: 1, source: '12:00 AM GMT+1', group: '', filled: 4, max: 5, enabled: true, planId: 'P-5TK70470Y7592312HNKJ5WPA' } } }
-  };
 
   function pad(n) { return n < 10 ? '0' + n : String(n); }
   function toTimeValue(hour, minute) { return pad(hour) + ':' + pad(minute || 0); }
@@ -798,141 +747,27 @@
     return row;
   }
 
-  function buildAddSlotForm(campaignSlug, container) {
-    var details = document.createElement('details');
-    details.className = 'add-slot';
-    var summary = document.createElement('summary');
-    summary.textContent = '+ Add a new time slot';
-    details.appendChild(summary);
+  // Exposed so the Players & Payments builder (a separate script block,
+  // further down) can draw this exact same form inline under each group,
+  // instead of it living on its own tab.
+  window.AshBuildSlotRow = buildSlotRow;
 
-    var placeholder = document.createElement('div');
-    placeholder.style.marginTop = '0.8em';
-    var newRow = buildSlotRow(campaignSlug, 'new', { day: 3, hour: 18, minute: 0, offset: 1, group: '', filled: 0, max: 5, enabled: true, planId: '' });
-    var saveBtn = newRow.querySelector('.btn-primary');
-    saveBtn.textContent = 'Add slot';
-    newRow.querySelector('.btn-danger').remove();
-    saveBtn.addEventListener('click', function () {
-      // Re-read fresh values and push as a brand new slot instead of overwriting "new"
-    }, { once: false });
-
-    // Override the default save handler to push a new child instead of a fixed id.
-    var freshBtn = saveBtn.cloneNode(true);
-    saveBtn.parentNode.replaceChild(freshBtn, saveBtn);
-    freshBtn.addEventListener('click', function () {
-      var time = fromTimeValue(newRow.querySelector('.f-time').value);
-      var day = parseInt(newRow.querySelector('.f-day').value, 10);
-      var offsetHours = 1;
-      var ampmHour = ((time.hour % 12) || 12);
-      var ampm = time.hour < 12 ? 'AM' : 'PM';
-      var sourceLabel = ampmHour + ':' + pad(time.minute) + ' ' + ampm + ' GMT+' + offsetHours;
-      var newSlot = {
-        day: day, hour: time.hour, minute: time.minute, offset: offsetHours, source: sourceLabel,
-        group: newRow.querySelector('.f-group').value.trim(),
-        filled: parseInt(newRow.querySelector('.f-filled').value, 10) || 0,
-        max: parseInt(newRow.querySelector('.f-max').value, 10) || 1,
-        enabled: newRow.querySelector('.f-enabled').checked,
-        planId: newRow.querySelector('.f-plan').value.trim() || null
-      };
-      var status = newRow.querySelector('.slot-status');
-      freshBtn.disabled = true;
-      firebase.database().ref('campaigns/' + campaignSlug + '/slots').push(newSlot)
-        .then(function () {
-          status.textContent = 'Added! Refresh the page to see it in the list above.';
-          status.className = 'slot-status success';
-        })
-        .catch(function (err) {
-          status.textContent = err.message;
-          status.className = 'slot-status error';
-        })
-        .finally(function () { freshBtn.disabled = false; });
-    });
-
-    placeholder.appendChild(newRow);
-    details.appendChild(placeholder);
-    container.appendChild(details);
-  }
-
-  function renderDashboard(data) {
-    var container = document.getElementById('campaigns-container');
-    container.innerHTML = '';
-    var hasAnyData = data && Object.keys(data).length > 0;
-    document.getElementById('seed-box').style.display = hasAnyData ? 'none' : 'block';
-
-    CAMPAIGNS.forEach(function (c) {
-      var block = document.createElement('div');
-      block.className = 'campaign-block';
-      var h2 = document.createElement('h2');
-      h2.textContent = c.name;
-      block.appendChild(h2);
-
-      var slots = data && data[c.slug] && data[c.slug].slots;
-      if (slots) {
-        Object.keys(slots).forEach(function (slotId) {
-          block.appendChild(buildSlotRow(c.slug, slotId, slots[slotId]));
-        });
-      } else {
-        var none = document.createElement('p');
-        none.className = 'note';
-        none.textContent = 'No slots yet for this campaign.';
-        block.appendChild(none);
-      }
-
-      buildAddSlotForm(c.slug, block);
-      container.appendChild(block);
-    });
-  }
-
-  var lastFirebaseCampaigns = null;
-
-  // Campaigns made through the admin Campaigns tab don't start out in the
-  // CAMPAIGNS list above (that list predates that tab and still names the
-  // site's 5 original pages). This adds any the content database knows
-  // about but this list doesn't, so a brand-new campaign gets a slot-time
-  // editor here too, without needing a code change every time.
-  function mergeContentCampaigns() {
-    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
-      return fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/list', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }),
-      });
-    }).then(function (res) {
-      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load campaigns.'); return data; });
-    }).then(function (data) {
-      var known = {};
-      CAMPAIGNS.forEach(function (c) { known[c.slug] = true; });
-      (data.campaigns || []).forEach(function (c) {
-        if (known[c.slug]) return;
-        CAMPAIGNS.push({ slug: c.slug, name: c.title || c.slug });
-        known[c.slug] = true;
-      });
-    }).catch(function () { /* Session settings just shows the campaigns it already knew about */ });
-  }
+  // Firebase is the source of truth for each slot's schedule/seat settings.
+  // Players & Payments (built from the Worker's own game list) owns *which*
+  // groups exist; this just keeps the latest slot data around and tells it
+  // to redraw whenever something changes here, on another tab, or from
+  // another admin session.
+  window.AshCampaignsData = null;
+  window.AshOnCampaignsUpdate = function () {};
 
   function showDashboard() {
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
-    mergeContentCampaigns().then(function () {
-      if (lastFirebaseCampaigns) renderDashboard(lastFirebaseCampaigns);
-    });
     firebase.database().ref('campaigns').on('value', function (snapshot) {
-      lastFirebaseCampaigns = snapshot.val();
-      renderDashboard(lastFirebaseCampaigns);
+      window.AshCampaignsData = snapshot.val();
+      window.AshOnCampaignsUpdate();
     });
   }
-
-  document.getElementById('seed-btn').addEventListener('click', function () {
-    var status = document.getElementById('seed-status');
-    status.textContent = 'Loading…';
-    status.className = 'slot-status';
-    firebase.database().ref('campaigns').set(SEED_DATA)
-      .then(function () {
-        status.textContent = 'Done! Your live data is loaded below.';
-        status.className = 'slot-status success';
-      })
-      .catch(function (err) {
-        status.textContent = err.message;
-        status.className = 'slot-status error';
-      });
-  });
 
   document.getElementById('login-btn').addEventListener('click', function () {
     var email = document.getElementById('login-email').value.trim();
@@ -1086,6 +921,47 @@
     if (!key) return;
     if (!gamesLoaded) { pendingOpenKey = key; return; }
     openGame(key);
+  };
+  // Opens a campaign's own row (not a specific group) — used by the "Take me
+  // there" link in the campaign editor, since it doesn't know which group's
+  // key it wants, just the campaign slug.
+  var pendingOpenSlug = null;
+  function openCampaign(slug) {
+    var match = Object.keys(gameEls).filter(function (k) { return k === slug || k.indexOf(slug + '::') === 0; })[0];
+    if (match) openGame(match);
+  }
+  window.AshAdminOpenCampaign = function (slug) {
+    if (!slug) return;
+    if (!gamesLoaded) { pendingOpenSlug = slug; return; }
+    openCampaign(slug);
+  };
+
+  // The schedule/seat-count form (day, time, max players, "game is on") used
+  // to live on its own Session settings tab. It's built by the other script
+  // block (window.AshBuildSlotRow) using Firebase's own data
+  // (window.AshCampaignsData); this just slots that same form in right above
+  // each group's roster box, keyed off the same g.key used everywhere else.
+  var sessionBoxes = {};
+  function slugSlotFromKey(key) {
+    var idx = key.indexOf('::');
+    return idx === -1 ? { slug: key, slotId: 'default' } : { slug: key.slice(0, idx), slotId: key.slice(idx + 2) };
+  }
+  function renderSessionSettings(key) {
+    var box = sessionBoxes[key];
+    if (!box || !window.AshBuildSlotRow) return;
+    var parts = slugSlotFromKey(key);
+    var data = window.AshCampaignsData;
+    var slot = data && data[parts.slug] && data[parts.slug].slots && data[parts.slug].slots[parts.slotId];
+    box.innerHTML = '';
+    box.appendChild(el('h3', 'pay-sub', 'Schedule & seats'));
+    if (!slot) {
+      box.appendChild(el('p', 'pay-muted', data == null ? 'Loading…' : 'No schedule saved yet for this group.'));
+      return;
+    }
+    box.appendChild(window.AshBuildSlotRow(parts.slug, parts.slotId, slot));
+  }
+  window.AshOnCampaignsUpdate = function () {
+    Object.keys(sessionBoxes).forEach(renderSessionSettings);
   };
   // Same banner art already used on the public site's campaign cards (index.html),
   // so the admin list is recognizable at a glance instead of reading slugs.
@@ -1369,26 +1245,33 @@
             det.className = 'pay-details';
             var gsum = document.createElement('summary');
             gsum.textContent = (label || g.title) + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
+            var settingsBox = el('div', 'pay-box session-settings-box');
             var groot = el('div', 'pay-box');
             groot.innerHTML = BOX;
-            det.append(gsum, groot);
+            det.append(gsum, settingsBox, groot);
             wrap.appendChild(det);
             setup(g.key, groot)();
             gameEls[g.key] = { camp: camp, group: det };
+            sessionBoxes[g.key] = settingsBox;
+            renderSessionSettings(g.key);
           });
           camp.appendChild(wrap);
         } else {
+          var singleSettingsBox = el('div', 'pay-box session-settings-box');
           var single = el('div', 'camp-single pay-box');
           single.innerHTML = BOX;
-          camp.appendChild(single);
+          camp.append(singleSettingsBox, single);
           setup(groups[0].key, single)();
           gameEls[groups[0].key] = { camp: camp, group: null };
+          sessionBoxes[groups[0].key] = singleSettingsBox;
+          renderSessionSettings(groups[0].key);
         }
 
         holder.appendChild(camp);
       });
       gamesLoaded = true;
       if (pendingOpenKey) { openGame(pendingOpenKey); pendingOpenKey = null; }
+      if (pendingOpenSlug) { openCampaign(pendingOpenSlug); pendingOpenSlug = null; }
     }).catch(function (err) {
       var p = document.createElement('p');
       p.className = 'slot-status error';
@@ -1611,7 +1494,7 @@
             call('admin/notifications/read-one', { id: n.id }).catch(function () { /* the click already cleared it visually; a failed save here just means it may show gold again next reload */ });
           }
           if (n.game && window.AshAdminShowTab) {
-            window.AshAdminShowTab('players');
+            window.AshAdminShowTab('campaigns');
             if (window.AshAdminOpenGame) window.AshAdminOpenGame(n.game);
           }
         });
@@ -1993,8 +1876,7 @@
   }
 
   document.getElementById('cc-time-goto').addEventListener('click', function () {
-    var btn = document.querySelector('.me-rail-btn[data-tab="sessions"]');
-    if (btn) btn.click();
+    if (current && window.AshAdminOpenCampaign) window.AshAdminOpenCampaign(current);
   });
 
   function openEditor(slug) {
