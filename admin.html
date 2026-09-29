@@ -1341,11 +1341,9 @@
         var groups = bySlug[slug];
         var meta = CAMPAIGN_META[slug] || { title: slug, img: '' };
         var totalOnline = groups.reduce(function (n, g) { return n + g.online; }, 0);
-        var anyOpen = groups.some(function (g) { return g.online > 0 || g.running; });
 
         var camp = document.createElement('details');
         camp.className = 'pay-details camp-details';
-        if (anyOpen) camp.open = true;
 
         var sum = document.createElement('summary');
         if (meta.img) {
@@ -1369,7 +1367,6 @@
             var label = g.title.indexOf(meta.title) === 0 ? g.title.slice(meta.title.length).replace(/^,\s*/, '') : g.title;
             var det = document.createElement('details');
             det.className = 'pay-details';
-            if (g.online > 0 || g.running) det.open = true;
             var gsum = document.createElement('summary');
             gsum.textContent = (label || g.title) + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
             var groot = el('div', 'pay-box');
