@@ -202,9 +202,11 @@ body.pp-embed .pp-welcome { margin-bottom: 1.2em; }
 #pp-embed:not(:empty) { background: #fff; border-radius: 14px; padding: 8px; margin-top: 0.8em; }
 
 /* Whop's form starts with its own price/trial header. Ours says what matters
-   (charged on game night), so the top part of their form is tucked out of view. */
+   (charged on game night), so the top part of their form is tucked out of view.
+   Whop later added a buyer-email/sign-in step right under that header; this
+   number must stay short enough to leave that fully visible. */
 #pp-embed > div > div { overflow: hidden; border-radius: 10px; }
-#pp-embed iframe:first-child { margin-top: -208px; clip-path: inset(208px 0 0 0); }
+#pp-embed iframe:first-child { margin-top: -138px; clip-path: inset(138px 0 0 0); }
 
 /* Popup shown from a game: only the game, no profile (that lives on the member page). */
 body.pp-embed .pp-welcome,
