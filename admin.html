@@ -167,22 +167,14 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
-  /* Players & Payments: the same picture tiles as the Campaigns section above; a tile opens to its time slots */
-  #pay-boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1em; align-items: start; }
-  #pay-boxes > .slot-status { grid-column: 1 / -1; }
-  .camp-details { margin: 0 !important; border-radius: 14px; box-shadow: none; }
-  .camp-details[open] { grid-column: 1 / -1; }
-  .camp-details > summary.camp-sum { display: block; padding: 0; position: relative; }
-  .camp-details > summary.camp-sum::before { content: none !important; }
-  .camp-details > summary.camp-sum .camp-cover { height: 100px; background: #1a1230 center / cover no-repeat; border-bottom: 1px solid var(--border); }
-  .camp-details[open] > summary.camp-sum .camp-cover { height: 130px; }
-  .camp-details > summary.camp-sum .camp-info { padding: .8em 1em .5em; gap: .1em; }
-  .camp-details > summary.camp-sum .camp-info strong { font-size: 1rem; font-weight: 800; line-height: 1.25; }
-  .camp-details > summary.camp-sum .camp-pills { margin-top: .5em; }
-  .camp-details > summary.camp-sum .camp-pill { backdrop-filter: none; background: rgba(255,255,255,.06); }
-  .camp-details > summary.camp-sum::after { content: 'View slots \25BE'; display: block; padding: 0 1em .85em; font-size: .78rem; font-weight: 800; color: var(--gold); }
-  .camp-details[open] > summary.camp-sum::after { content: 'Close \25B4'; }
-  .camp-details:hover { border-color: rgba(242,184,79,.55); }
+  /* Players & Payments: wide cover-art rows, each opening to its time slots */
+  .camp-details > summary.camp-sum { position: relative; isolation: isolate; display: flex; align-items: center; gap: 1em; min-height: 156px; padding: 1.2em 1.5em; background: #1a1230 center / cover no-repeat; }
+  .camp-details > summary.camp-sum::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(14,9,28,.9) 0%, rgba(14,9,28,.55) 38%, rgba(14,9,28,0) 78%), linear-gradient(0deg, rgba(14,9,28,.45), transparent 55%); }
+  .camp-details > summary.camp-sum::after { content: 'View slots'; margin-left: auto; flex: none; align-self: flex-start; font-size: .82rem; font-weight: 800; color: var(--gold); background: rgba(14,9,28,.62) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%23f2b84f' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right .7em center / 12px; border: 1px solid rgba(242,184,79,.55); border-radius: 999px; padding: .4em 2.1em .4em 1em; backdrop-filter: blur(4px); white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
+  .camp-details[open] > summary.camp-sum::after { content: 'Close'; background-color: var(--gold); color: #1a1230; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 7.5 6 4l3.5 3.5' fill='none' stroke='%231a1230' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .camp-details > summary.camp-sum:hover::after { background-color: var(--gold); color: #1a1230; }
+  .camp-details > summary.camp-sum .camp-info strong { font-size: 1.6rem; font-weight: 900; line-height: 1.1; text-shadow: 0 2px 14px rgba(0,0,0,.85); }
+  @media (max-width: 560px) { .camp-details > summary.camp-sum { min-height: 150px; flex-wrap: wrap; align-content: space-between; } .camp-details > summary.camp-sum::after { position: absolute; top: .8em; right: .8em; } .camp-details > summary.camp-sum .camp-info { margin-top: 2.2em; } }
   .camp-details > .add-slot { border: 0; margin: 0; padding: 0 1.1em 1.2em; }
   .camp-details > .add-slot > summary { list-style: none; display: flex; align-items: center; justify-content: center; gap: .6em; padding: .8em 1em; border: 1.5px dashed rgba(242,184,79,.5); border-radius: 14px; background: rgba(242,184,79,.05); color: var(--gold); font-weight: 800; font-size: .92rem; transition: background .15s ease, border-color .15s ease, color .15s ease; }
   .camp-details > .add-slot > summary::-webkit-details-marker { display: none; }
@@ -1488,9 +1480,7 @@
 
         var sum = document.createElement('summary');
         sum.className = 'camp-sum';
-        var cover = el('div', 'camp-cover');
-        if (meta.img) cover.style.backgroundImage = 'url("' + meta.img + '")';
-        sum.appendChild(cover);
+        if (meta.img) sum.style.backgroundImage = 'url("' + meta.img + '")';
         var info = el('div', 'camp-info');
         info.appendChild(el('strong', null, meta.title));
         var pills = el('div', 'camp-pills');
