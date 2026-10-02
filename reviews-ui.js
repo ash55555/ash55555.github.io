@@ -103,7 +103,9 @@ var AshReviews = (function () {
 
       // The form (new review, or editing an existing one)
       section.appendChild(el('p', 'rv-lead', 'How was your game?'));
-      section.appendChild(el('p', 'rv-muted', 'You have played ' + sessions + ' sessions with ' + 'Ash' + '. Tell us how it has been.'));
+      section.appendChild(el('p', 'rv-muted', state.testMode
+        ? 'You are Ash, so this box is open to you for testing. Everyone else sees it after ' + needed + ' sessions.'
+        : 'You have played ' + sessions + ' sessions with Ash. Tell us how it has been.'));
 
       var starsWrap = el('div', 'rv-stars');
       starsWrap.setAttribute('role', 'radiogroup');

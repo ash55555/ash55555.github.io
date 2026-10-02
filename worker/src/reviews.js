@@ -53,15 +53,18 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
   const mode = cfg(env).mode;
   try {
     const sessions = await sessionsPlayed(env, mode, user.sub);
+    // Ash's own account can always open the box, so the whole thing can be tried out for real.
+    const testMode = user.sub === env.ADMIN_UID;
+    const eligible = testMode || sessions >= REVIEW_AFTER;
     const row = await env.DB.prepare('SELECT rating, tags, comment, updated_at FROM reviews WHERE uid=?').bind(user.sub).first();
     const mine = row ? { rating: row.rating, tags: parseTags(row.tags), comment: row.comment || '', updatedAt: row.updated_at } : null;
 
     if (action === 'status') {
-      return json({ sessions, needed: REVIEW_AFTER, eligible: sessions >= REVIEW_AFTER, tags: REVIEW_TAGS, review: mine }, 200, corsHeaders);
+      return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, tags: REVIEW_TAGS, review: mine }, 200, corsHeaders);
     }
 
     if (action === 'submit') {
-      if (sessions < REVIEW_AFTER) return json({ error: `You can review Ash after ${REVIEW_AFTER} sessions together. You are at ${sessions}.` }, 403, corsHeaders);
+      if (!eligible) return json({ error: `You can review Ash after ${REVIEW_AFTER} sessions together. You are at ${sessions}.` }, 403, corsHeaders);
       const rating = parseInt(body.rating, 10);
       if (!(rating >= 1 && rating <= 5)) return json({ error: 'Please pick a star rating from 1 to 5.' }, 400, corsHeaders);
       const picked = Array.isArray(body.tags) ? body.tags.filter((t) => REVIEW_TAGS.includes(t)) : [];
