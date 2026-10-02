@@ -56,7 +56,7 @@ var AshReviews = (function () {
   }
 
   function renderDmProfile(container, opts) {
-    var local = { editing: false, thanks: false, review: null };
+    var local = { editing: false, thanks: false, review: null, deleted: false, confirmingDelete: false, notice: '' };
     var form = { rating: 0, tags: [], comment: '', show: true };
 
     function draw() {
@@ -89,7 +89,7 @@ var AshReviews = (function () {
         return;
       }
 
-      var review = local.review || state.review;
+      var review = local.deleted ? null : (local.review || state.review);
       var sessions = state.sessions || 0;
 
       if (!state.eligible) {
@@ -122,11 +122,52 @@ var AshReviews = (function () {
           form = { rating: review.rating, tags: (review.tags || []).slice(), comment: review.comment || '', show: review.show !== false };
           draw();
         });
-        section.appendChild(edit);
+        var actions = el('div', 'rv-actions');
+        actions.appendChild(edit);
+        if (opts.onDelete && !local.confirmingDelete) {
+          var del = el('button', 'btn btn-ghost rv-delete', 'Delete my review');
+          del.type = 'button';
+          del.addEventListener('click', function () { local.confirmingDelete = true; draw(); });
+          actions.appendChild(del);
+        }
+        section.appendChild(actions);
+
+        if (opts.onDelete && local.confirmingDelete) {
+          var box = el('div', 'rv-confirm');
+          box.appendChild(el('p', null, 'Delete your review? It will also come off Ash\u2019s website. This cannot be undone.'));
+          var yes = el('button', 'btn rv-danger', 'Yes, delete it');
+          yes.type = 'button';
+          var no = el('button', 'btn btn-ghost', 'Keep it');
+          no.type = 'button';
+          var st = el('span', 'rv-status');
+          no.addEventListener('click', function () { local.confirmingDelete = false; draw(); });
+          yes.addEventListener('click', function () {
+            yes.disabled = true; no.disabled = true;
+            st.textContent = 'Deleting...';
+            st.className = 'rv-status';
+            Promise.resolve(opts.onDelete())
+              .then(function () {
+                local.deleted = true; local.review = null; local.confirmingDelete = false;
+                local.editing = false; local.thanks = false; local.notice = 'Your review was deleted.';
+                form = { rating: 0, tags: [], comment: '', show: true };
+                draw();
+              })
+              .catch(function (err) {
+                st.textContent = (err && err.message) || 'Something went wrong. Please try again.';
+                st.className = 'rv-status error';
+                yes.disabled = false; no.disabled = false;
+              });
+          });
+          box.appendChild(yes);
+          box.appendChild(no);
+          box.appendChild(st);
+          section.appendChild(box);
+        }
         return;
       }
 
       // The form (new review, or editing an existing one)
+      if (local.notice) section.appendChild(el('p', 'rv-thanks', local.notice));
       section.appendChild(el('p', 'rv-lead', 'How was your game?'));
       section.appendChild(el('p', 'rv-muted', state.testMode
         ? 'You are Ash, so this box is open to you for testing. Everyone else sees it after ' + needed + ' sessions.'
@@ -231,7 +272,7 @@ var AshReviews = (function () {
         Promise.resolve(opts.onSubmit({ rating: form.rating, tags: form.tags.slice(), comment: form.comment.trim(), show: form.show }))
           .then(function (saved) {
             local.review = saved || { rating: form.rating, tags: form.tags.slice(), comment: form.comment.trim(), show: form.show };
-            local.editing = false; local.thanks = true;
+            local.editing = false; local.thanks = true; local.deleted = false; local.notice = '';
             draw();
           })
           .catch(function (err) {

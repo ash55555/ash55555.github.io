@@ -529,6 +529,11 @@ function renderReviewPanel() {
   AshReviews.renderDmProfile($('me-review-body'), {
     dm, name: dm.name || 'Ash', pronouns: dm.pronouns,
     state: { signedIn: true, ...reviewState },
+    onDelete: async () => {
+      await reviewCall('delete');
+      reviewState.review = null;
+      paintReviewTab();
+    },
     onSubmit: async (payload) => {
       const saved = (await reviewCall('submit', payload)).review;
       reviewState.review = saved;

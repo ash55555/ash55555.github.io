@@ -88,6 +88,12 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
       return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, tags: REVIEW_TAGS, review: mine, dm }, 200, corsHeaders);
     }
 
+    // A player can always take their own review back down (only their own, keyed by who they are signed in as).
+    if (action === 'delete') {
+      await env.DB.prepare('DELETE FROM reviews WHERE uid=?').bind(user.sub).run();
+      return json({ ok: true }, 200, corsHeaders);
+    }
+
     if (action === 'submit') {
       if (!eligible) return json({ error: `You can review Ash after ${REVIEW_AFTER} sessions together. You are at ${sessions}.` }, 403, corsHeaders);
       const rating = parseInt(body.rating, 10);

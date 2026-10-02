@@ -432,6 +432,11 @@ async function loadReviewState() {
   try { return { signedIn: true, ...(await reviewApi('status')) }; } catch (err) { return { signedIn: true, error: true }; }
 }
 
+async function deleteReview() {
+  if (preview && !me) return;
+  await reviewApi('delete');
+}
+
 async function submitReview(payload) {
   if (preview && !me) return { rating: payload.rating, tags: payload.tags, comment: payload.comment };
   return (await reviewApi('submit', payload)).review;
@@ -441,7 +446,7 @@ async function openDmProfile() {
   const table = realGame ? (serverState || publicState) : null;
   const dm = table && table.dm;
   const draw = (state) => AshReviews.renderDmProfile($('pp-dm-body'), {
-    dm: dm || { token: 'dragon' }, name: dm ? dm.name : 'Ash', pronouns: dm && dm.pronouns, state, onSubmit: submitReview,
+    dm: dm || { token: 'dragon' }, name: dm ? dm.name : 'Ash', pronouns: dm && dm.pronouns, state, onSubmit: submitReview, onDelete: deleteReview,
   });
   draw({ loading: true });
   openModal('pp-dm');
