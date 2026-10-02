@@ -9,7 +9,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Poppins:wght@600;700;800;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 
 <style>
   :root {
@@ -34,7 +34,7 @@
     font-family: 'Nunito', sans-serif;
     line-height: 1.5;
   }
-  h1, h2, h3 { font-family: 'Cinzel', Georgia, serif; margin: 0 0 0.4em; }
+  h1, h2, h3 { font-family: 'Poppins', 'Segoe UI', sans-serif; font-weight: 800; line-height: 1.15; margin: 0 0 0.4em; }
   .wrap { max-width: 1800px; margin: 0 auto; padding: 2em 2em 5em; }
 
   .top-bar {
@@ -75,7 +75,7 @@
   .pay-go.stop { background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); }
   .pay-details { margin: 0 0 1em; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-panel); }
   .pay-details.pay-highlight { outline: 3px solid var(--gold); outline-offset: 2px; transition: outline-color .3s; }
-  .pay-details > summary { cursor: pointer; padding: 1em 1.3em; font-family: 'Cinzel', Georgia, serif; font-size: 1.05rem; list-style: none; }
+  .pay-details > summary { cursor: pointer; padding: 1em 1.3em; font-family: 'Poppins', 'Segoe UI', sans-serif; font-weight: 800; font-size: 1.05rem; list-style: none; }
   .pay-details > summary::-webkit-details-marker { display: none; }
   .pay-details > summary::before { content: '▸  '; color: var(--gold); }
   .pay-details[open] > summary::before { content: '▾  '; }
@@ -149,12 +149,6 @@
   .camp-details { position: relative; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 28px rgba(0,0,0,.35); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
   .camp-details:hover { border-color: rgba(242,184,79,.5); }
   .camp-details[open] { border-color: rgba(242,184,79,.55); }
-  .camp-details > summary.camp-sum { position: relative; isolation: isolate; display: flex; align-items: center; gap: 1em; min-height: 104px; padding: 1em 1.4em; background: #1a1230 center / cover no-repeat; }
-  .camp-details > summary.camp-sum::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(14,9,28,.95) 0%, rgba(14,9,28,.72) 45%, rgba(14,9,28,.2) 100%); }
-  .camp-details > summary.camp-sum::after { content: '\25BE'; margin-left: auto; font-size: 1.1rem; color: var(--gold); background: rgba(14,9,28,.6); border: 1px solid rgba(242,184,79,.45); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; transition: transform .2s ease; transform: rotate(-90deg); }
-  .camp-details[open] > summary.camp-sum::after { transform: rotate(0); background: var(--gold); color: #1a1230; }
-  .camp-details > summary.camp-sum .camp-thumb { display: none; }
-  .camp-details > summary.camp-sum .camp-info strong { font-size: 1.3rem; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
   .camp-pills { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .45em; }
   .camp-pill { font-size: .72rem; font-weight: 800; border-radius: 999px; padding: .2em .75em; background: rgba(14,9,28,.65); border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.9); backdrop-filter: blur(4px); }
   .camp-pill.on { color: #b7f0c9; border-color: rgba(120,220,160,.55); background: rgba(40,140,80,.3); }
@@ -173,6 +167,22 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
+  /* Players & Payments: the same picture tiles as the Campaigns section above; a tile opens to its time slots */
+  #pay-boxes { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1em; align-items: start; }
+  #pay-boxes > .slot-status { grid-column: 1 / -1; }
+  .camp-details { margin: 0 !important; border-radius: 14px; box-shadow: none; }
+  .camp-details[open] { grid-column: 1 / -1; }
+  .camp-details > summary.camp-sum { display: block; padding: 0; position: relative; }
+  .camp-details > summary.camp-sum::before { content: none !important; }
+  .camp-details > summary.camp-sum .camp-cover { height: 100px; background: #1a1230 center / cover no-repeat; border-bottom: 1px solid var(--border); }
+  .camp-details[open] > summary.camp-sum .camp-cover { height: 130px; }
+  .camp-details > summary.camp-sum .camp-info { padding: .8em 1em .5em; gap: .1em; }
+  .camp-details > summary.camp-sum .camp-info strong { font-size: 1rem; font-weight: 800; line-height: 1.25; }
+  .camp-details > summary.camp-sum .camp-pills { margin-top: .5em; }
+  .camp-details > summary.camp-sum .camp-pill { backdrop-filter: none; background: rgba(255,255,255,.06); }
+  .camp-details > summary.camp-sum::after { content: 'View slots \25BE'; display: block; padding: 0 1em .85em; font-size: .78rem; font-weight: 800; color: var(--gold); }
+  .camp-details[open] > summary.camp-sum::after { content: 'Close \25B4'; }
+  .camp-details:hover { border-color: rgba(242,184,79,.55); }
   .camp-details > .add-slot { border: 0; margin: 0; padding: 0 1.1em 1.2em; }
   .camp-details > .add-slot > summary { list-style: none; display: flex; align-items: center; justify-content: center; gap: .6em; padding: .8em 1em; border: 1.5px dashed rgba(242,184,79,.5); border-radius: 14px; background: rgba(242,184,79,.05); color: var(--gold); font-weight: 800; font-size: .92rem; transition: background .15s ease, border-color .15s ease, color .15s ease; }
   .camp-details > .add-slot > summary::-webkit-details-marker { display: none; }
@@ -182,7 +192,7 @@
   .camp-details > .add-slot[open] > summary { border-style: solid; background: rgba(242,184,79,.1); }
   .camp-details > .add-slot > div { margin-top: .9em !important; padding: 1em 1.1em; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.03); }
   .plan-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
-  .plan-box h2 { font-size: 1.2rem; }
+  .plan-box h2 { font-size: 1.6rem; font-weight: 900; }
   .plan-controls { display: flex; flex-wrap: wrap; gap: .8em; align-items: center; margin: 1em 0; }
   .plan-controls select { font: inherit; color: var(--text); background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 10px; padding: .5em .8em; max-width: 100%; }
   .plan-controls label { font-size: .85rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: .4em; cursor: pointer; }
@@ -226,7 +236,7 @@
   @media (max-width: 640px) { .note-item { grid-template-columns: 1fr; } }
   .pay-short { color: var(--danger); font-size: .74rem; font-weight: 700; }
   .pay-ok { color: var(--success); font-size: .74rem; font-weight: 700; }
-  .fin-balance-amount { font-family: 'Cinzel', Georgia, serif; font-size: 2.4rem; font-weight: 700; color: var(--gold); margin: .25em 0 .1em; }
+  .fin-balance-amount { font-family: 'Poppins', 'Segoe UI', sans-serif; font-size: 2.4rem; font-weight: 800; color: var(--gold); margin: .25em 0 .1em; }
   .fin-btn-disabled { opacity: .45; filter: grayscale(60%); cursor: not-allowed; }
 
   .btn {
@@ -365,7 +375,7 @@
     padding: 1.4em 1.6em;
     margin-bottom: 2em;
   }
-  .announce-box h2 { font-size: 1.1rem; }
+  .announce-box h2 { font-size: 1.5rem; font-weight: 900; }
   .announce-box input {
     width: 100%;
     background: var(--bg-panel-2);
@@ -1478,7 +1488,9 @@
 
         var sum = document.createElement('summary');
         sum.className = 'camp-sum';
-        if (meta.img) sum.style.backgroundImage = 'url("' + meta.img + '")';
+        var cover = el('div', 'camp-cover');
+        if (meta.img) cover.style.backgroundImage = 'url("' + meta.img + '")';
+        sum.appendChild(cover);
         var info = el('div', 'camp-info');
         info.appendChild(el('strong', null, meta.title));
         var pills = el('div', 'camp-pills');
