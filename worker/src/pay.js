@@ -608,6 +608,7 @@ async function adminGames(env, mode, corsHeaders) {
   return json({
     games: Object.values(games).map((g) => ({
       key: g.key, title: g.title, enabled: g.enabled, online: online[g.key] || 0, running: !!running[g.key],
+      day: g.day, hour: g.hour, minute: g.minute || 0, offset: g.offset,
     })),
   }, 200, corsHeaders);
 }

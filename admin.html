@@ -144,6 +144,35 @@
   .camp-groups .pay-details { margin: .7em 0 0; }
   .camp-groups .pay-details > summary { font-size: .92rem; padding: .8em 1.1em; }
   .camp-single { padding: 0 1.3em 1.1em; }
+
+  /* Campaigns & Players list: cover-art campaign cards, each opening to its time slots */
+  .camp-details { position: relative; overflow: hidden; border-radius: 18px; box-shadow: 0 10px 28px rgba(0,0,0,.35); transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+  .camp-details:hover { border-color: rgba(242,184,79,.5); }
+  .camp-details[open] { border-color: rgba(242,184,79,.55); }
+  .camp-details > summary.camp-sum { position: relative; isolation: isolate; display: flex; align-items: center; gap: 1em; min-height: 104px; padding: 1em 1.4em; background: #1a1230 center / cover no-repeat; }
+  .camp-details > summary.camp-sum::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(14,9,28,.95) 0%, rgba(14,9,28,.72) 45%, rgba(14,9,28,.2) 100%); }
+  .camp-details > summary.camp-sum::after { content: '\25BE'; margin-left: auto; font-size: 1.1rem; color: var(--gold); background: rgba(14,9,28,.6); border: 1px solid rgba(242,184,79,.45); width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; transition: transform .2s ease; transform: rotate(-90deg); }
+  .camp-details[open] > summary.camp-sum::after { transform: rotate(0); background: var(--gold); color: #1a1230; }
+  .camp-details > summary.camp-sum .camp-thumb { display: none; }
+  .camp-details > summary.camp-sum .camp-info strong { font-size: 1.3rem; text-shadow: 0 2px 12px rgba(0,0,0,.8); }
+  .camp-pills { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .45em; }
+  .camp-pill { font-size: .72rem; font-weight: 800; border-radius: 999px; padding: .2em .75em; background: rgba(14,9,28,.65); border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.9); backdrop-filter: blur(4px); }
+  .camp-pill.on { color: #b7f0c9; border-color: rgba(120,220,160,.55); background: rgba(40,140,80,.3); }
+  .camp-pill.warn { color: var(--gold); border-color: rgba(242,184,79,.5); }
+  .camp-groups { padding: .3em 1.1em 1.1em; display: grid; gap: .6em; }
+  .camp-groups .pay-details { margin: 0; border-radius: 14px; background: rgba(255,255,255,.03); box-shadow: none; }
+  .camp-groups .pay-details > summary.slot-sum { position: relative; overflow: hidden; border-radius: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: .6em 1em; padding: .85em 1.1em .85em 1.7em; font-family: 'Nunito', sans-serif; font-size: .95rem; }
+  .camp-groups .pay-details > summary.slot-sum::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; background: rgba(255,255,255,.2); }
+  .camp-groups .pay-details > summary.slot-sum.on::before { background: #5fd08a; }
+  .camp-groups .pay-details > summary.slot-sum.paused::before { background: var(--gold); }
+  .camp-groups .pay-details:hover { border-color: rgba(242,184,79,.55); background: rgba(242,184,79,.05); }
+  .slot-badge { font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #1a1230; background: var(--gold); border-radius: 999px; padding: .15em .8em; box-shadow: 0 0 14px rgba(242,184,79,.4); }
+  .slot-when { font-weight: 800; font-size: 1rem; }
+  .slot-meta { color: var(--text-muted); font-size: .82rem; }
+  .slot-sum .camp-pill { background: rgba(255,255,255,.06); }
+  .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
+  .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
+  .game-focus .focus-camp { box-shadow: none; }
   .plan-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
   .plan-box h2 { font-size: 1.2rem; }
   .plan-controls { display: flex; flex-wrap: wrap; gap: .8em; align-items: center; margin: 1em 0; }
@@ -1025,6 +1054,19 @@
 
   // Lets a clicked notification ("Mark joined the-vampiric-dynasty") jump straight
   // to that game's box here, even if the games list is still loading when it's called.
+  // "Fri 8:00 PM" for a group's weekly slot, in the viewer's own time zone.
+  function slotWhen(g) {
+    if (g.day == null || g.hour == null) return '';
+    var off = g.offset || 0;
+    var now = new Date();
+    for (var i = 0; i < 9; i++) {
+      var d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, g.hour - off, g.minute || 0));
+      if (new Date(d.getTime() + off * 3600000).getUTCDay() === g.day) {
+        return d.toLocaleDateString(undefined, { weekday: 'long' }) + ' \u00B7 ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      }
+    }
+    return '';
+  }
   var gameEls = {};
   var gamesLoaded = false;
   var pendingOpenKey = null;
@@ -1427,54 +1469,45 @@
         camp.className = 'pay-details camp-details';
 
         var sum = document.createElement('summary');
-        if (meta.img) {
-          var img = document.createElement('img');
-          img.className = 'camp-thumb';
-          img.src = meta.img;
-          img.alt = '';
-          sum.appendChild(img);
-        }
+        sum.className = 'camp-sum';
+        if (meta.img) sum.style.backgroundImage = 'url("' + meta.img + '")';
         var info = el('div', 'camp-info');
         info.appendChild(el('strong', null, meta.title));
-        info.appendChild(el('span', null, groups.length > 1
-          ? (groups.length + ' groups · ' + totalOnline + ' booked online')
-          : (totalOnline + ' booked online · Billing ' + (groups[0].running ? 'ON' : 'off') + (groups[0].enabled ? '' : ' · paused on the site'))));
+        var pills = el('div', 'camp-pills');
+        pills.appendChild(el('span', 'camp-pill', groups.length + (groups.length === 1 ? ' time slot' : ' time slots')));
+        pills.appendChild(el('span', 'camp-pill', totalOnline + ' booked online'));
+        var runningN = groups.filter(function (g) { return g.running; }).length;
+        if (runningN) pills.appendChild(el('span', 'camp-pill on', runningN === groups.length ? 'Billing ON' : 'Billing ON for ' + runningN));
+        info.appendChild(pills);
         sum.appendChild(info);
         camp.appendChild(sum);
 
-        if (groups.length > 1) {
-          var wrap = el('div', 'camp-groups');
-          groups.forEach(function (g) {
-            var label = g.title.indexOf(meta.title) === 0 ? g.title.slice(meta.title.length).replace(/^,\s*/, '') : g.title;
-            var det = document.createElement('details');
-            det.className = 'pay-details';
-            var gsum = document.createElement('summary');
-            gsum.className = 'pay-link-summary';
-            gsum.addEventListener('click', function (e) { e.preventDefault(); goToGame(g.key); });
-            gsum.textContent = (label || g.title) + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
-            var settingsBox = el('div', 'pay-box session-settings-box');
-            var groot = el('div', 'pay-box');
-            groot.innerHTML = BOX;
-            det.append(gsum, settingsBox, groot);
-            wrap.appendChild(det);
-            setup(g.key, groot)();
-            gameEls[g.key] = { camp: camp, group: det, title: meta.title + ' \u00B7 ' + (label || g.title) };
-            sessionBoxes[g.key] = settingsBox;
-            renderSessionSettings(g.key);
-          });
-          camp.appendChild(wrap);
-        } else {
-          var singleSettingsBox = el('div', 'pay-box session-settings-box');
-          var single = el('div', 'camp-single pay-box');
-          single.innerHTML = BOX;
-          camp.append(singleSettingsBox, single);
-          setup(groups[0].key, single)();
-          gameEls[groups[0].key] = { camp: camp, group: null, title: meta.title };
-          sum.classList.add('pay-link-summary');
-          sum.addEventListener('click', function (e) { e.preventDefault(); goToGame(groups[0].key); });
-          sessionBoxes[groups[0].key] = singleSettingsBox;
-          renderSessionSettings(groups[0].key);
-        }
+        // Every campaign opens to its time slots (one or many); a slot opens that game's own page.
+        var wrap = el('div', 'camp-groups');
+        groups.forEach(function (g) {
+          var label = g.title.indexOf(meta.title) === 0 ? g.title.slice(meta.title.length).replace(/^,\s*/, '') : g.title;
+          var det = document.createElement('details');
+          det.className = 'pay-details';
+          var gsum = document.createElement('summary');
+          gsum.className = 'slot-sum' + (g.running ? ' on' : '') + (g.enabled ? '' : ' paused');
+          gsum.addEventListener('click', function (e) { e.preventDefault(); goToGame(g.key); });
+          gsum.appendChild(el('span', 'slot-badge', groups.length > 1 ? (label || g.title) : 'Time slot'));
+          var when = slotWhen(g);
+          if (when) gsum.appendChild(el('span', 'slot-when', when));
+          gsum.appendChild(el('span', 'camp-pill', g.online + ' booked online'));
+          gsum.appendChild(el('span', 'camp-pill' + (g.running ? ' on' : ''), 'Billing ' + (g.running ? 'ON' : 'off')));
+          if (!g.enabled) gsum.appendChild(el('span', 'camp-pill warn', 'Paused on the site'));
+          var settingsBox = el('div', 'pay-box session-settings-box');
+          var groot = el('div', 'pay-box');
+          groot.innerHTML = BOX;
+          det.append(gsum, settingsBox, groot);
+          wrap.appendChild(det);
+          setup(g.key, groot)();
+          gameEls[g.key] = { camp: camp, group: det, title: groups.length > 1 ? meta.title + ' \u00B7 ' + (label || g.title) : meta.title };
+          sessionBoxes[g.key] = settingsBox;
+          renderSessionSettings(g.key);
+        });
+        camp.appendChild(wrap);
 
         if (window.AshBuildAddSlot) camp.appendChild(window.AshBuildAddSlot(slug));
 
