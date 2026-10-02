@@ -272,6 +272,11 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     return json({ ok: true }, 200, corsHeaders);
   }
 
+  // Every game this player is in, with their next few sessions (the My schedule tab on the profile page).
+  if (action === 'my-games') {
+    try { return await myGames(env, user, corsHeaders); } catch (err) { return json({ error: err.message || 'Something went wrong.' }, 502, corsHeaders); }
+  }
+
   const gameKey = body.game;
   let game;
   try { game = (await loadGames(env))[gameKey]; } catch (err) { return json({ error: err.message }, 502, corsHeaders); }
@@ -423,6 +428,30 @@ async function doStatus(ctx) {
     sessions: list,
     charges: recent,
   }, 200, corsHeaders);
+}
+
+async function myGames(env, user, corsHeaders) {
+  const mode = cfg(env).mode;
+  const games = await loadGames(env);
+  const now = new Date();
+  const joined = (await env.DB.prepare("SELECT game FROM players WHERE mode=? AND uid=? AND status='active' ORDER BY joined_at").bind(mode, user.sub).all()).results;
+  const skips = (await env.DB.prepare('SELECT game, session_ts, by FROM skips WHERE mode=? AND uid=?').bind(mode, user.sub).all()).results;
+  const skipMap = new Map(skips.map((s) => [s.game + '|' + s.session_ts, s.by]));
+  const list = [];
+  for (const row of joined) {
+    const game = games[row.game];
+    if (!game) continue;
+    const gs = await gameState(env, mode, row.game);
+    list.push({
+      key: row.game, title: game.title, price: game.price, running: gs.running,
+      sessions: upcoming(game, now, 4).map((d) => {
+        const ts = iso(d);
+        const by = skipMap.get(row.game + '|' + ts) || null;
+        return { ts, skipped: !!by, skippedBy: by, canChange: d.getTime() - now.getTime() >= SKIP_CUTOFF_MS && by !== 'admin' };
+      }),
+    });
+  }
+  return json({ games: list }, 200, corsHeaders);
 }
 
 async function doSkip(ctx, skip) {

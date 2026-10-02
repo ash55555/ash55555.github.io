@@ -190,3 +190,41 @@
   .me-row { grid-template-columns: 1fr; }
   .me-card-head { flex-direction: column; }
 }
+
+/* ============ My games (My schedule tab) ============ */
+.mg-sep { border: 0; border-top: 1px solid var(--border); margin: 1.8em 0 1.5em; }
+.mg-list { display: grid; gap: 0.9em; }
+.mg-empty { color: var(--text-muted); margin: 0; }
+.mg-empty a { color: var(--blue-accent); font-weight: 700; }
+.mg-card { position: relative; overflow: hidden; background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)); border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35); transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+.mg-card:hover { transform: translateY(-2px); border-color: rgba(242, 184, 79, 0.55); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(242, 184, 79, 0.18); }
+.mg-cover { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 1em; min-height: 128px; padding: 1em 1.2em; text-decoration: none; color: #fff; background: #1a1230 center / cover no-repeat; isolation: isolate; }
+.mg-cover::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(14, 9, 28, 0.94) 0%, rgba(14, 9, 28, 0.72) 42%, rgba(14, 9, 28, 0.18) 100%), linear-gradient(0deg, rgba(14, 9, 28, 0.55), transparent 60%); }
+.mg-cover::after { content: 'Game page \203A'; position: absolute; top: 0.8em; right: 1em; font-size: 0.78rem; font-weight: 800; color: var(--gold); background: rgba(14, 9, 28, 0.6); border: 1px solid rgba(242, 184, 79, 0.45); border-radius: 999px; padding: 0.2em 0.8em; backdrop-filter: blur(4px); }
+.mg-cover:hover::after { background: var(--gold); color: #1a1230; }
+.mg-info { min-width: 0; }
+.mg-group { display: inline-block; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #1a1230; background: var(--gold); border-radius: 999px; padding: 0.15em 0.75em; margin-bottom: 0.45em; box-shadow: 0 0 14px rgba(242, 184, 79, 0.45); }
+.mg-title { font-family: 'Cinzel', serif; font-weight: 700; font-size: 1.35rem; line-height: 1.15; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.8); }
+.mg-next { color: rgba(255, 255, 255, 0.82); font-size: 0.86rem; margin-top: 0.3em; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.8); }
+.mg-countdown { flex: none; font-size: 0.8rem; font-weight: 800; color: #b7f0c9; background: rgba(40, 140, 80, 0.28); border: 1px solid rgba(120, 220, 160, 0.5); border-radius: 999px; padding: 0.3em 0.9em; backdrop-filter: blur(4px); white-space: nowrap; }
+.mg-sessions { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.65em; padding: 0.9em 1em 1.05em; }
+.mg-session { position: relative; border: 1px solid var(--border); border-radius: 12px; padding: 0.65em 0.8em 0.7em 1em; display: flex; flex-direction: column; gap: 0.3em; background: rgba(255, 255, 255, 0.03); overflow: hidden; }
+.mg-session::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #5fd08a; }
+.mg-session.skipped { border-style: dashed; background: rgba(242, 184, 79, 0.05); }
+.mg-session.skipped::before { background: var(--gold); }
+.mg-session.by-ash { background: rgba(255, 120, 120, 0.06); }
+.mg-session.by-ash::before { background: #ff8a8a; }
+.mg-when { font-weight: 700; font-size: 0.9rem; }
+.mg-state { font-size: 0.78rem; font-weight: 800; color: #7fd99a; }
+.mg-session.skipped .mg-state { color: var(--gold); }
+.mg-session.by-ash .mg-state { color: #ff9a9a; }
+.mg-note { font-size: 0.76rem; color: var(--text-muted); }
+.mg-btn { align-self: flex-start; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 0.3em 0.95em; font: inherit; font-weight: 700; font-size: 0.8rem; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.mg-btn:hover { background: var(--gold); border-color: var(--gold); color: #1a1230; }
+.mg-btn[disabled] { opacity: 0.5; cursor: wait; }
+@media (max-width: 560px) {
+  .mg-cover { min-height: 150px; align-items: flex-end; flex-wrap: wrap; }
+  .mg-cover::after { top: 0.6em; right: 0.7em; }
+  .mg-title { font-size: 1.15rem; }
+}
+.me-preview-bar { background: #3a2a10; color: var(--gold); text-align: center; font-size: 0.82rem; font-weight: 700; padding: 0.5em 1em; border-bottom: 1px solid rgba(242, 184, 79, 0.4); }

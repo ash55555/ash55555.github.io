@@ -22,6 +22,7 @@ let removeAvatar = false;
 let chosenToken = 'wizard';
 
 async function call(action, extra) {
+  if (PREVIEW) return previewCall(action, extra);
   const idToken = await me.getIdToken();
   const res = await fetch(`${WORKER}/profile/${action}`, {
     method: 'POST',
@@ -489,6 +490,7 @@ function showTab(name) {
   });
   if (name === 'notifications') loadNotifications();
   if (name === 'review') renderReviewPanel();
+  if (name === 'schedule') loadMyGames();
 }
 document.querySelectorAll('.me-rail-btn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 // Coming from "My schedule" in the nav dropdown, on this page or from another one.
@@ -496,6 +498,209 @@ window.addEventListener('hashchange', () => {
   if (window.location.hash === '#me-schedule') showTab('schedule');
   if (window.location.hash === '#me-review' && reviewState && reviewState.eligible) showTab('review');
 });
+
+/* ------------------------------------------------------------- My games */
+
+// The games this player has joined, with their next sessions and a Skip / Undo button on each.
+// Skipping is the same thing the game page does (and sends the same emails); this just puts every
+// game in one place instead of making players dig for each one.
+let myGames = null;
+
+async function payCall(action, extra) {
+  const idToken = await me.getIdToken();
+  const res = await fetch(`${WORKER}/pay/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...(extra || {}), idToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
+}
+
+function mgEl(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text != null) e.textContent = text;
+  return e;
+}
+function mgWhen(ts) {
+  const d = new Date(ts);
+  const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return day + ' \u00B7 ' + time;
+}
+function mgGameUrl(key) {
+  const [slug, slot] = String(key).split('::');
+  return 'player.html?campaign=' + encodeURIComponent(slug) + (slot ? '&slot=' + encodeURIComponent(slot) : '');
+}
+
+async function loadMyGames() {
+  if (PREVIEW) { myGames = myGames || previewGames(); renderMyGames(); return; }
+  flash('me-mygames-status', 'Loading...', '');
+  try {
+    myGames = (await payCall('my-games')).games || [];
+    flash('me-mygames-status', '', '');
+    renderMyGames();
+  } catch (err) { flash('me-mygames-status', err.message, 'err'); }
+}
+
+async function setSkip(game, session, skip, btn) {
+  btn.disabled = true;
+  try {
+    if (PREVIEW) {
+      session.skipped = skip;
+      session.skippedBy = skip ? 'player' : null;
+    } else {
+      const r = await payCall(skip ? 'skip' : 'unskip', { game: game.key, ts: session.ts });
+      if (r.sessions) game.sessions = r.sessions.slice(0, 4);
+    }
+    renderMyGames();
+    flash('me-mygames-status', skip ? 'Skipped. You will not be charged for that session.' : 'You are back in for that session.', 'ok');
+  } catch (err) {
+    flash('me-mygames-status', err.message, 'err');
+    btn.disabled = false;
+  }
+}
+
+// The art for each campaign: the five on the home page are fixed files, anything Ash adds
+// later comes from the same public list the home page uses.
+const MG_ART = {
+  'flying-city': 'medie/2139d310-c69b-4c0e-b8a0-2eded9ce8094%20%281%29.webp',
+  'curse-of-strahd': 'medie/1466afad-bf88-4950-9f9b-a82a40f44147.webp',
+  'ravenloft-undead-survival': 'medie/37528c55-aa34-4bfa-9f9c-2f9152faf651.webp',
+  'crooked-moon': 'medie/daaeef05-e995-40b5-84d6-4d6f5670fa47.webp',
+  'witchlight': 'medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp',
+};
+let mgArtLoaded = false;
+function loadMyGamesArt() {
+  if (mgArtLoaded) return;
+  mgArtLoaded = true;
+  fetch(WORKER + '/content/public-list')
+    .then((r) => r.json())
+    .then((d) => {
+      (d.campaigns || []).forEach((c) => { if (c.bannerUrl && !MG_ART[c.slug]) MG_ART[c.slug] = c.bannerUrl; });
+      renderMyGames();
+    })
+    .catch(() => {});
+}
+
+function mgIn(ts) {
+  const ms = new Date(ts).getTime() - Date.now();
+  const h = Math.round(ms / 3600000);
+  if (h < 1) return 'starting soon';
+  if (h < 24) return 'in ' + h + (h === 1 ? ' hour' : ' hours');
+  const d = Math.round(h / 24);
+  return d === 1 ? 'tomorrow' : 'in ' + d + ' days';
+}
+
+function renderMyGames() {
+  const list = $('me-mygames-list');
+  list.innerHTML = '';
+  if (!myGames || !myGames.length) {
+    const p = mgEl('p', 'mg-empty', "You haven't joined a game yet. ");
+    const a = mgEl('a', null, 'Browse the campaigns');
+    a.href = 'index.html#campaigns';
+    p.appendChild(a);
+    list.appendChild(p);
+    return;
+  }
+  loadMyGamesArt();
+  myGames.forEach((g) => {
+    const slug = String(g.key).split('::')[0];
+    const [campaign, group] = String(g.title).split(' \u00B7 ');
+    const card = mgEl('div', 'mg-card');
+
+    const cover = mgEl('a', 'mg-cover');
+    cover.href = mgGameUrl(g.key);
+    cover.setAttribute('aria-label', 'Open ' + g.title);
+    if (MG_ART[slug]) cover.style.backgroundImage = 'url("' + MG_ART[slug] + '")';
+    const info = mgEl('div', 'mg-info');
+    if (group) info.appendChild(mgEl('span', 'mg-group', group));
+    info.appendChild(mgEl('div', 'mg-title', campaign));
+    const nextOne = g.sessions.find((s) => !s.skipped);
+    info.appendChild(mgEl('div', 'mg-next', nextOne ? 'Next: ' + mgWhen(nextOne.ts) : 'You are skipping every upcoming session'));
+    cover.appendChild(info);
+    if (nextOne) cover.appendChild(mgEl('span', 'mg-countdown', mgIn(nextOne.ts)));
+    card.appendChild(cover);
+
+    const sessions = mgEl('div', 'mg-sessions');
+    g.sessions.forEach((s) => {
+      const kind = s.skipped ? (s.skippedBy === 'admin' ? 'by-ash' : 'skipped') : 'playing';
+      const box = mgEl('div', 'mg-session ' + kind);
+      box.appendChild(mgEl('div', 'mg-when', mgWhen(s.ts)));
+      box.appendChild(mgEl('div', 'mg-state', s.skipped ? (s.skippedBy === 'admin' ? 'Skipped by Ash' : 'You skipped this one') : 'You are playing'));
+      if (s.canChange) {
+        const btn = mgEl('button', 'mg-btn', s.skipped ? 'Undo skip' : 'Skip this session');
+        btn.type = 'button';
+        btn.addEventListener('click', () => setSkip(g, s, !s.skipped, btn));
+        box.appendChild(btn);
+      } else if (s.skippedBy === 'admin') {
+        box.appendChild(mgEl('div', 'mg-note', 'Message Ash to change this.'));
+      } else {
+        box.appendChild(mgEl('div', 'mg-note', 'Under 24 hours away. Message Ash to change it.'));
+      }
+      sessions.appendChild(box);
+    });
+    card.appendChild(sessions);
+    list.appendChild(card);
+  });
+}
+
+/* ------------------------------------------------- local-only test profile */
+
+// Open profile.html?preview=games on this computer (localhost only, never on the live site) to get a
+// sample player who has joined every one of Ash's games. Nothing there is real or saved.
+const PREVIEW = ['localhost', '127.0.0.1'].includes(window.location.hostname) && new URLSearchParams(window.location.search).get('preview') === 'games';
+
+function previewGames() {
+  // [game key, title, weekday (0=Sunday), hour, offset from UTC]
+  const defs = [
+    ['crooked-moon::A', 'The Crooked Moon \u00B7 Group A', 4, 20, 1],
+    ['crooked-moon::B', 'The Crooked Moon \u00B7 Group B', 6, 0, 1],
+    ['crooked-moon::C', 'The Crooked Moon \u00B7 Group C', 6, 18, 1],
+    ['curse-of-strahd::A', 'Curse of Strahd \u00B7 Group A', 5, 20, 1],
+    ['curse-of-strahd::B', 'Curse of Strahd \u00B7 Group B', 1, 21, 1],
+    ['curse-of-strahd::C', 'Curse of Strahd \u00B7 Group C', 4, 0, 1],
+    ['curse-of-strahd::D', 'Curse of Strahd \u00B7 Group D', 5, 11, 1],
+    ['flying-city', 'The Prophecy of the Flying City', 3, 18, 1],
+    ['ravenloft-undead-survival', 'Ravenloft: Undead Survival', 6, 21, 1],
+    ['the-vampiric-dynasty', 'The Vampiric Dynasty', 3, 18, 1],
+    ['witchlight', 'The Wild Beyond the Witchlight', 0, 0, 1],
+  ];
+  const now = new Date();
+  const games = defs.map(([key, title, day, hour, offset]) => {
+    const utcHour = hour - offset;
+    const targetDay = (day + (utcHour < 0 ? -1 : 0) + 7) % 7;
+    const sessions = [];
+    for (let i = 0; i < 40 && sessions.length < 4; i++) {
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, (utcHour + 24) % 24, 0));
+      if (d.getUTCDay() === targetDay && d.getTime() > now.getTime()) sessions.push(d);
+    }
+    return { key, title, sessions: sessions.map((d) => ({ ts: d.toISOString(), skipped: false, skippedBy: null, canChange: d.getTime() - now.getTime() >= 24 * 3600 * 1000 })) };
+  });
+  // A few sample states so every look is on screen: one skipped by the player, one skipped by Ash, one too close to change.
+  const by = (k) => games.find((g) => g.key === k);
+  by('crooked-moon::A').sessions[1].skipped = true; by('crooked-moon::A').sessions[1].skippedBy = 'player';
+  by('curse-of-strahd::B').sessions[0].skipped = true; by('curse-of-strahd::B').sessions[0].skippedBy = 'admin'; by('curse-of-strahd::B').sessions[0].canChange = false;
+  const soon = new Date(now.getTime() + 10 * 3600 * 1000).toISOString();
+  by('ravenloft-undead-survival').sessions[0] = { ts: soon, skipped: false, skippedBy: null, canChange: false };
+  return games;
+}
+
+function previewCall(action) {
+  if (action === 'get') return Promise.resolve({ name: 'Test Player', pronouns: 'they/them', token: 'wizard', bio: '', avatarUrl: null, interests: [], other: '', slots: '0'.repeat(336), fmt: 'local', tz: browserTz });
+  if (action === 'notifications') return Promise.resolve({ items: [], unread: 0 });
+  return Promise.resolve({ ok: true });
+}
+
+function startPreview() {
+  const bar = document.createElement('div');
+  bar.className = 'me-preview-bar';
+  bar.textContent = 'PREVIEW: a sample test player who has joined every game. This computer only. Nothing here is real or saved.';
+  document.body.insertBefore(bar, document.body.firstChild);
+  start({ getIdToken: async () => 'preview', email: 'test.player@example.com', displayName: 'Test Player' }).then(() => showTab('schedule'));
+}
 
 /* ------------------------------------------------------------ review Ash */
 
@@ -599,7 +804,9 @@ $('me-notif-read').addEventListener('click', async () => {
   try { await call('notifications/read'); await loadNotifications(); } catch (err) { flash('me-notif-status', err.message, 'err'); }
 });
 
-if (typeof firebase !== 'undefined' && firebase.apps.length) {
+if (PREVIEW) {
+  startPreview();
+} else if (typeof firebase !== 'undefined' && firebase.apps.length) {
   firebase.auth().onAuthStateChanged((user) => {
     if (user) start(user);
     else {
