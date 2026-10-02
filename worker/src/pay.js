@@ -251,8 +251,8 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   if (action === 'admin/charges') return await adminAllCharges(env, corsHeaders);
   if (action === 'admin/notifications') {
     const mode = cfg(env).mode;
-    const items = (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? ORDER BY id DESC LIMIT 40').bind(mode).all()).results;
-    const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND read=0').bind(mode).first();
+    const items = (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? AND uid IS NULL ORDER BY id DESC LIMIT 40').bind(mode).all()).results;
+    const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND uid IS NULL AND read=0').bind(mode).first();
     return json({ items, unread: unread ? unread.n : 0, emailOn: !!env.ADMIN_NOTIFY_EMAIL }, 200, corsHeaders);
   }
   if (action === 'admin/notifications/test') {
@@ -260,13 +260,13 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     return json({ ok: true }, 200, corsHeaders);
   }
   if (action === 'admin/notifications/read') {
-    await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND read=0').bind(cfg(env).mode).run();
+    await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND uid IS NULL AND read=0').bind(cfg(env).mode).run();
     return json({ ok: true }, 200, corsHeaders);
   }
   if (action === 'admin/notifications/read-one') {
     const id = parseInt(body.id, 10);
     if (!id) return json({ error: 'Missing notification id.' }, 400, corsHeaders);
-    await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND id=?').bind(cfg(env).mode, id).run();
+    await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND uid IS NULL AND id=?').bind(cfg(env).mode, id).run();
     return json({ ok: true }, 200, corsHeaders);
   }
 
