@@ -17,6 +17,10 @@ var AshNav = (function () {
     joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
   // Notifications that are about running the games. Only Ash's account ever gets these, and
   // clicking one goes to the admin page.
+  function adminLink(n) {
+    if (n.game) return 'admin.html#game=' + encodeURIComponent(n.game);
+    return 'admin.html#tab=' + (n.kind === 'review' ? 'reviews' : 'notifications');
+  }
   var DM_KINDS = { joined: 1, left: 1, skipped_player: 1, review: 1, new_account: 1, charge_failed: 1, gave_up: 1, unknown: 1, reminder: 1 };
   var ICON = {
     profile: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 19.5c1.5-3.6 4.3-5.4 7.5-5.4s6 1.8 7.5 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -126,7 +130,7 @@ var AshNav = (function () {
         item.appendChild(el('span', 'nu-item-time', ago(n.created_at)));
         if (DM_KINDS[n.kind]) {
           item.classList.add('nu-item-link');
-          item.addEventListener('click', function () { window.location.href = 'admin.html'; });
+          item.addEventListener('click', function () { window.location.href = adminLink(n); });
         }
         if (n.kind === 'review_invite') {
           item.classList.add('nu-item-link');

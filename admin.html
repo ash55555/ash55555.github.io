@@ -2201,6 +2201,20 @@
   var saved = null;
   try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
   if (saved && document.querySelector('.me-panel[data-panel="' + saved + '"]')) showTab(saved);
+
+  // Links from the bell / profile page: admin.html#game=<game key> opens Campaigns & Players with that
+  // game's campaign and group open; admin.html#tab=<tab> just opens that tab.
+  var hash = window.location.hash.replace(/^#/, '');
+  var m = hash.match(/^(game|tab)=(.+)$/);
+  if (m) {
+    var target = decodeURIComponent(m[2]);
+    if (m[1] === 'game') {
+      showTab('campaigns');
+      if (window.AshAdminOpenGame) window.AshAdminOpenGame(target);
+    } else if (document.querySelector('.me-panel[data-panel="' + target + '"]')) {
+      showTab(target);
+    }
+  }
 })();
 </script>
 <script>

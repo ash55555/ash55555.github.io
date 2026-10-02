@@ -548,6 +548,10 @@ function renderReviewPanel() {
 const KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game',
   joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
 // The DM-side ones only ever show up for Ash's own account; clicking one opens the admin page.
+function adminLink(n) {
+  if (n.game) return 'admin.html#game=' + encodeURIComponent(n.game);
+  return 'admin.html#tab=' + (n.kind === 'review' ? 'reviews' : 'notifications');
+}
 const DM_KINDS = { joined: 1, left: 1, skipped_player: 1, review: 1, new_account: 1, charge_failed: 1, gave_up: 1, unknown: 1, reminder: 1 };
 function timeAgo(iso) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
@@ -582,7 +586,7 @@ async function loadNotifications() {
         item.querySelector('.ni-time').textContent = timeAgo(n.created_at);
         if (DM_KINDS[n.kind]) {
           item.style.cursor = 'pointer';
-          item.addEventListener('click', () => { window.location.href = 'admin.html'; });
+          item.addEventListener('click', () => { window.location.href = adminLink(n); });
         }
         list.appendChild(item);
       });
