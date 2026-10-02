@@ -114,7 +114,7 @@
   .game-page-head h2 { margin: 0; font-size: 1.4rem; }
   .pay-link-summary { cursor: pointer; list-style: none; }
   .pay-link-summary::-webkit-details-marker { display: none; }
-  .pay-link-summary::after { content: 'Open page \u203A'; float: right; color: var(--blue-accent); font-size: .8rem; font-weight: 700; }
+  .pay-link-summary::after { content: 'Open page \203A'; float: right; color: var(--blue-accent); font-size: .8rem; font-weight: 700; }
   .camp-details > summary.pay-link-summary { display: flex; align-items: center; gap: 1em; }
   .camp-details > summary.pay-link-summary::after { margin-left: auto; float: none; }
 
@@ -1036,7 +1036,14 @@
     if (window.location.hash.slice(1) === h) applyGameView();
     else window.location.hash = h;
   }
+  var focusedRec = null;
   function applyGameView() {
+    // Leaving a game's page puts the list back the way it was: groups closed, campaign as it was.
+    if (focusedRec) {
+      focusedRec.camp.open = focusedRec.prevCampOpen;
+      if (focusedRec.group) focusedRec.group.open = false;
+      focusedRec = null;
+    }
     var panel = document.querySelector('.me-panel[data-panel="campaigns"]');
     document.querySelectorAll('.focus-camp, .focus-group').forEach(function (n) { n.classList.remove('focus-camp', 'focus-group'); });
     var oldHead = document.getElementById('game-page-head');
@@ -1049,6 +1056,8 @@
     if (!rec) return;
     if (window.AshAdminShowTab) window.AshAdminShowTab('campaigns');
     panel.classList.add('game-focus');
+    focusedRec = rec;
+    rec.prevCampOpen = rec.camp.open;
     rec.camp.classList.add('focus-camp');
     rec.camp.open = true;
     if (rec.group) { rec.group.classList.add('focus-group'); rec.group.open = true; }
