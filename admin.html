@@ -80,6 +80,30 @@
   .pay-details > summary::before { content: '▸  '; color: var(--gold); }
   .pay-details[open] > summary::before { content: '▾  '; }
   .pay-details > .pay-box { border: 0; margin: 0; padding-top: .2em; background: transparent; }
+  /* Upcoming sessions: players on the left (token, name, check), session list on the right. */
+  .rb { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 1.2em; align-items: start; }
+  .rb-players { display: grid; gap: .55em; }
+  .rb-row { display: flex; align-items: center; flex-wrap: wrap; gap: .5em .9em; padding: .6em .85em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; }
+  .rb-row.skipped { opacity: .72; }
+  .rb-token { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; overflow: hidden; border: 2px solid rgba(255,255,255,.16); }
+  .rb-token img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rb-who { flex: 1 1 170px; min-width: 0; }
+  .rb-name { font-weight: 700; }
+  .rb-who .pay-muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rb-check { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; background: rgba(127,217,154,.18); color: #7fd99a; border: 1px solid rgba(127,217,154,.55); }
+  .rb-check svg { width: 17px; height: 17px; }
+  .rb-check.off { background: transparent; border: 1px dashed var(--border); }
+  .rb-actions { display: flex; gap: .4em; flex: none; }
+  .rb-sessions { background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; padding: .75em; display: grid; gap: .5em; }
+  .rb-title { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); margin: .1em .2em .2em; }
+  .rb-session { text-align: left; background: transparent; border: 1px solid var(--border); border-radius: 10px; padding: .55em .75em; color: var(--text); cursor: pointer; display: grid; gap: .15em; font: inherit; }
+  .rb-session:hover { border-color: rgba(242,184,79,.45); }
+  .rb-session.selected { border-color: var(--gold); background: rgba(242,184,79,.09); }
+  .rb-date { font-weight: 700; font-size: .92rem; }
+  .rb-count { font-size: .78rem; color: #7fd99a; }
+  .rb-count.none { color: #ff9db0; }
+  @media (max-width: 860px) { .rb { grid-template-columns: 1fr; } .rb-sessions { order: -1; } }
+
   .session-settings-box { padding-bottom: 1.4em; margin-bottom: 1.2em !important; border-bottom: 1px solid var(--border) !important; }
   .camp-details > summary { display: flex; align-items: center; gap: .9em; }
   .camp-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none; border: 1px solid var(--border); }
@@ -954,7 +978,7 @@
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<h3 class='pay-sub'>Upcoming sessions</h3>\n<div class='pay-scroll'><table class='pay-table pay-upcoming'></table></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
+  var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<h3 class='pay-sub'>Upcoming sessions</h3>\n<div class='pay-upcoming'></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
 
   // Lets a clicked notification ("Mark joined the-vampiric-dynasty") jump straight
   // to that game's box here, even if the games list is still loading when it's called.
@@ -1082,6 +1106,96 @@
       return b;
     }
 
+    var selectedTs = null;
+    var WORKER_ORIGIN = URL_BASE.replace(/\/pay\/$/, '');
+    var TOKENS = {
+      dragon: { emoji: '\u{1F409}', color: '#6b46c1' },
+      wizard: { emoji: '\u{1F9D9}', color: '#2f5fa8' },
+      dagger: { emoji: '\u{1F5E1}️', color: '#8a3b3b' },
+      elf: { emoji: '\u{1F9DD}', color: '#2f7a5a' },
+      bat: { emoji: '\u{1F987}', color: '#4a3a6b' },
+      dice: { emoji: '\u{1F3B2}', color: '#a8702f' }
+    };
+    var CHECK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    // The player's own picture if they uploaded one, otherwise their token.
+    function tokenEl(p) {
+      var t = el('span', 'rb-token');
+      if (p.avatarId) {
+        var img = document.createElement('img');
+        img.src = WORKER_ORIGIN + '/profile/avatar/' + encodeURIComponent(p.avatarId);
+        img.alt = '';
+        t.append(img);
+      } else {
+        var tk = TOKENS[p.token] || TOKENS.wizard;
+        t.style.background = tk.color;
+        t.textContent = tk.emoji;
+      }
+      return t;
+    }
+
+    // Players on the left (token, name, a check if they are in the picked
+    // session), the list of upcoming sessions on the right to pick from.
+    function renderBoard(data) {
+      var skipMap = {};
+      data.skips.forEach(function (s) { skipMap[s.uid + '|' + s.session_ts] = s.by; });
+      var players = data.players.filter(function (p) { return p.status === 'active'; });
+      var host = root.querySelector('.pay-upcoming');
+      host.innerHTML = '';
+      if (!players.length) { host.append(el('p', 'pay-muted', 'Nobody has joined online yet.')); return; }
+      if (!data.sessions.length) { host.append(el('p', 'pay-muted', 'No upcoming sessions.')); return; }
+      if (!selectedTs || data.sessions.indexOf(selectedTs) === -1) selectedTs = data.sessions[0];
+      var ts = selectedTs;
+
+      var board = el('div', 'rb');
+      var left = el('div', 'rb-players');
+      var right = el('div', 'rb-sessions');
+
+      right.append(el('div', 'rb-title', 'Sessions'));
+      data.sessions.forEach(function (sts) {
+        var item = el('button', 'rb-session' + (sts === ts ? ' selected' : ''));
+        item.type = 'button';
+        item.append(el('span', 'rb-date', day(sts)));
+        var n = data.playing ? data.playing[sts] : null;
+        // game.min (3) is just the usual target shown here, not the real
+        // charge gate anymore: once a game is started, any real player in
+        // the session gets charged. Only truly empty ("0 playing") means
+        // no charge.
+        if (n != null) {
+          if (n === 0) item.append(el('span', 'rb-count none', 'Nobody playing. No charge.'));
+          else if (n >= data.game.min) item.append(el('span', 'rb-count', n + ' playing'));
+          else item.append(el('span', 'rb-count', n + ' playing (under the usual ' + data.game.min + ', still charges)'));
+        }
+        item.addEventListener('click', function () { selectedTs = sts; renderBoard(data); });
+        right.append(item);
+      });
+
+      players.forEach(function (p) {
+        var by = skipMap[p.uid + '|' + ts];
+        var row = el('div', 'rb-row' + (by ? ' skipped' : ''));
+        var who = el('div', 'rb-who');
+        who.append(el('div', 'rb-name', p.name || p.email), el('div', 'pay-muted', p.email + (p.card ? ' · ' + p.card : '')));
+        var check = el('span', 'rb-check' + (by ? ' off' : ''));
+        check.title = by ? (by === 'admin' ? 'Skipped by you' : 'Skipped by the player') : 'Playing this session';
+        if (!by) check.innerHTML = CHECK_SVG;
+        row.append(tokenEl(p), who, check);
+        if (by) row.append(el('span', 'pay-muted', by === 'admin' ? 'Skipped by you' : 'Skipped'));
+        var actions = el('div', 'rb-actions');
+        actions.append(button(by ? 'Undo skip' : 'Skip for them', function () {
+          return call('admin/skip', { uid: p.uid, ts: ts, skipped: !by });
+        }));
+        actions.append(button('Remove', function () {
+          if (!confirm('Remove ' + (p.name || p.email) + ' from this game? They will not be charged again.')) return Promise.reject(new Error('Cancelled.'));
+          return call('admin/remove', { uid: p.uid });
+        }));
+        row.append(actions);
+        left.append(row);
+      });
+
+      board.append(left, right);
+      host.append(board);
+    }
+
     function render(data) {
       root.querySelector('.pay-title').textContent = data.game.title;
       var badges = root.querySelector('.pay-badges');
@@ -1115,61 +1229,12 @@
       });
       bar.append(stateText, explain, goBtn);
 
-      var skipMap = {};
-      data.skips.forEach(function (s) { skipMap[s.uid + '|' + s.session_ts] = s.by; });
-      var players = data.players.filter(function (p) { return p.status === 'active'; });
-
-      var up = root.querySelector('.pay-upcoming');
-      up.innerHTML = '';
-      var head = el('tr');
-      head.append(el('th', null, 'Player'));
-      data.sessions.forEach(function (ts) {
-        var th = el('th');
-        th.append(el('div', null, day(ts)));
-        var n = data.playing ? data.playing[ts] : null;
-        // game.min (3) is just the usual target shown here, not the real
-        // charge gate anymore: once a game is started, any real player in
-        // the session gets charged. Only truly empty ("0 playing") means
-        // no charge.
-        if (n != null) {
-          if (n === 0) th.append(el('div', 'pay-short', 'Nobody playing. No charge.'));
-          else if (n >= data.game.min) th.append(el('div', 'pay-ok', n + ' playing'));
-          else th.append(el('div', 'pay-ok', n + ' playing (under the usual ' + data.game.min + ', still charges)'));
-        }
-        head.append(th);
-      });
-      head.append(el('th', null, ''));
-      up.append(head);
-      if (!players.length) {
-        var empty = el('tr'); var td = el('td', 'pay-muted', 'Nobody has joined online yet.'); td.colSpan = data.sessions.length + 2; empty.append(td); up.append(empty);
-      }
-      players.forEach(function (p) {
-        var tr = el('tr');
-        var who = el('td');
-        who.append(el('div', null, p.name || p.email), el('div', 'pay-muted', p.email + (p.card ? ' · ' + p.card : '')));
-        tr.append(who);
-        data.sessions.forEach(function (ts) {
-          var by = skipMap[p.uid + '|' + ts];
-          var cell = el('td');
-          var box = el('div', 'pay-cell' + (by ? ' skipped' : ''));
-          box.append(el('span', 'pay-state', by ? (by === 'admin' ? 'Skipped by you' : 'Skipped') : 'Playing'));
-          box.append(button(by ? 'Undo skip' : 'Skip for them', function () {
-            return call('admin/skip', { uid: p.uid, ts: ts, skipped: !by });
-          }));
-          cell.append(box);
-          tr.append(cell);
-        });
-        var last = el('td');
-        last.append(button('Remove', function () {
-          if (!confirm('Remove ' + (p.name || p.email) + ' from this game? They will not be charged again.')) return Promise.reject(new Error('Cancelled.'));
-          return call('admin/remove', { uid: p.uid });
-        }));
-        tr.append(last);
-        up.append(tr);
-      });
+      renderBoard(data);
 
       var past = root.querySelector('.pay-past');
       past.innerHTML = '';
+      var skipMap = {};
+      data.skips.forEach(function (s) { skipMap[s.uid + '|' + s.session_ts] = s.by; });
       var firstJoin = data.players.reduce(function (min, p) { return !min || p.joinedAt < min ? p.joinedAt : min; }, '');
       var pastSessions = data.pastSessions.filter(function (ts) { return firstJoin && ts > firstJoin; }).slice(0, 4);
       var ph = el('tr');

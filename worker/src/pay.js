@@ -479,7 +479,7 @@ async function doLeave(ctx) {
 async function adminRoster(ctx) {
   const { env, gameKey, game, corsHeaders } = ctx;
   const now = new Date();
-  const players = (await env.DB.prepare('SELECT * FROM players WHERE mode=? AND game=? ORDER BY status, joined_at').bind(ctx.mode, gameKey).all()).results;
+  const players = (await env.DB.prepare('SELECT p.*, pr.token AS pr_token, pr.avatar_id AS avatar_id FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid WHERE p.mode=? AND p.game=? ORDER BY p.status, p.joined_at').bind(ctx.mode, gameKey).all()).results;
   const skips = (await env.DB.prepare('SELECT uid, session_ts, by FROM skips WHERE mode=? AND game=?').bind(ctx.mode, gameKey).all()).results;
   const charges = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? ORDER BY session_ts DESC LIMIT 200').bind(ctx.mode, gameKey).all()).results;
   const sessions = upcoming(game, now, SESSIONS_SHOWN).map(iso);
@@ -500,6 +500,7 @@ async function adminRoster(ctx) {
     pastSessions,
     players: players.map((p) => ({
       uid: p.uid, email: p.email, name: p.name, status: p.status, joinedAt: p.joined_at,
+      token: p.pr_token || p.token || '', avatarId: p.avatar_id || null,
       card: p.card_last4 ? `${p.card_brand || 'card'} ${p.card_last4}` : '',
     })),
     skips,
