@@ -696,6 +696,35 @@ p { margin: 0 0 1em; }
   font-size: 1rem;
 }
 
+.review-avatar-token {
+  font-size: 1.5rem;
+}
+
+.review-stars {
+  margin: 0 0 0.5em;
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+.review-stars span { color: rgba(255, 255, 255, 0.2); }
+.review-stars span.on { color: var(--gold); }
+
+.review-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+  margin: 0 0 0.8em;
+}
+.review-tags span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(242, 184, 79, 0.1);
+  border: 1px solid rgba(242, 184, 79, 0.35);
+  border-radius: 999px;
+  padding: 0.2em 0.65em;
+}
+
 .review-quote {
   font-style: italic;
   margin-bottom: 0.6em;

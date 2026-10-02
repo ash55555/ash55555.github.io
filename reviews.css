@@ -36,3 +36,6 @@
 .rv-stars-static .rv-star { color: rgba(255, 255, 255, 0.18); font-size: 1.5rem; }
 .rv-stars-static .rv-star.on { color: var(--gold); }
 .rv-comment { margin: 0.7em 0 0; font-style: italic; color: var(--text); }
+.rv-show { display: flex; align-items: flex-start; gap: 0.6em; margin-top: 1em; font-size: 0.9rem; color: var(--text); cursor: pointer; }
+.rv-show input { margin-top: 0.2em; width: 1.05em; height: 1.05em; accent-color: var(--gold); flex: none; }
+.rv-visibility { margin: 0.7em 0 0; font-size: 0.78rem; color: var(--text-muted); }

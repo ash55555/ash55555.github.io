@@ -118,3 +118,5 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+ALTER TABLE reviews ADD COLUMN show_public INTEGER NOT NULL DEFAULT 1;

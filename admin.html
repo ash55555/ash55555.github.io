@@ -104,6 +104,22 @@
   .rb-count.none { color: #ff9db0; }
   @media (max-width: 860px) { .rb { grid-template-columns: 1fr; } .rb-sessions { order: -1; } }
 
+  /* Reviews tab */
+  .rva-row { display: flex; gap: 1em; align-items: flex-start; padding: .9em 1em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; margin-top: .7em; }
+  .rva-token { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; overflow: hidden; border: 2px solid rgba(255,255,255,.16); }
+  .rva-token img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rva-body { flex: 1 1 auto; min-width: 0; }
+  .rva-head { display: flex; align-items: center; flex-wrap: wrap; gap: .5em .8em; }
+  .rva-name { font-weight: 700; }
+  .rva-stars { color: var(--gold); letter-spacing: .08em; }
+  .rva-stars .off { color: rgba(255,255,255,.2); }
+  .rva-badge { font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: .2em .6em; background: rgba(127,217,154,.18); color: #7fd99a; }
+  .rva-badge.private { background: rgba(255,255,255,.08); color: var(--text-muted); }
+  .rva-tags { display: flex; flex-wrap: wrap; gap: .35em; margin-top: .5em; }
+  .rva-tags span { font-size: .72rem; font-weight: 700; color: var(--gold); background: rgba(242,184,79,.1); border: 1px solid rgba(242,184,79,.35); border-radius: 999px; padding: .2em .65em; }
+  .rva-comment { margin: .6em 0 0; font-style: italic; overflow-wrap: anywhere; }
+  .rva-meta { margin: .5em 0 0; font-size: .78rem; color: var(--text-muted); }
+
   .session-settings-box { padding-bottom: 1.4em; margin-bottom: 1.2em !important; border-bottom: 1px solid var(--border) !important; }
   .camp-details > summary { display: flex; align-items: center; gap: .9em; }
   .camp-thumb { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; flex: none; border: 1px solid var(--border); }
@@ -467,6 +483,10 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Announcements</span>
       </button>
+      <button type="button" class="me-rail-btn" data-tab="reviews" aria-current="false" aria-label="Reviews">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3.6l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.6 6.9 19.3l1-5.7-4.1-4 5.7-.8z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Reviews</span>
+      </button>
       <button type="button" class="me-rail-btn" data-tab="campaigns" aria-current="false" aria-label="Campaigns and players">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H18a1 1 0 0 1 1 1v15.5a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 18V5.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         <span>Campaigns &amp; Players</span>
@@ -549,6 +569,15 @@
         <p class="slot-status" id="announce-status"></p>
       </div>
       <ul class="announce-errors" id="announce-errors" hidden></ul>
+    </div>
+
+    <div class="me-panel" data-panel="reviews" hidden>
+      <div class="pay-box">
+        <h2>⭐ Player reviews</h2>
+        <p class="note">What players wrote about you. Reviews they chose to show appear in "What Players Are Saying" on your homepage. Delete one and it disappears from your website too.</p>
+        <p class="slot-status" id="rv-admin-status"></p>
+        <div id="rv-admin-list"></div>
+      </div>
     </div>
 
     <div class="me-panel" data-panel="campaigns" hidden>
@@ -2174,5 +2203,81 @@
   if (saved && document.querySelector('.me-panel[data-panel="' + saved + '"]')) showTab(saved);
 })();
 </script>
+<script>
+(function () {
+  var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/review/';
+  var TOKENS = { dragon: ['\u{1F409}', '#6b46c1'], wizard: ['\u{1F9D9}', '#2f5fa8'], dagger: ['\u{1F5E1}\uFE0F', '#8a3b3b'], elf: ['\u{1F9DD}', '#2f7a5a'], bat: ['\u{1F987}', '#4a3a6b'], dice: ['\u{1F3B2}', '#a8702f'] };
+  var listEl = document.getElementById('rv-admin-list');
+  var statusEl = document.getElementById('rv-admin-status');
+
+  function call(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {})) });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Something went wrong.'); return data; });
+    });
+  }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function when(iso) {
+    return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function render(reviews) {
+    listEl.innerHTML = '';
+    if (!reviews.length) { listEl.appendChild(el('p', 'pay-muted', 'No reviews yet. They show up here as players leave them.')); return; }
+    reviews.forEach(function (r) {
+      var row = el('div', 'rva-row');
+      var token = el('span', 'rva-token');
+      if (r.avatar) { var img = document.createElement('img'); img.src = r.avatar; img.alt = ''; token.appendChild(img); }
+      else { var t = TOKENS[r.token] || TOKENS.wizard; token.style.background = t[1]; token.textContent = t[0]; }
+
+      var body = el('div', 'rva-body');
+      var head = el('div', 'rva-head');
+      head.appendChild(el('span', 'rva-name', r.name));
+      var stars = el('span', 'rva-stars');
+      for (var i = 1; i <= 5; i++) stars.appendChild(el('span', i <= r.rating ? '' : 'off', '\u2605'));
+      head.appendChild(stars);
+      head.appendChild(el('span', 'rva-badge' + (r.shown ? '' : ' private'), r.shown ? 'On your website' : 'Private'));
+      body.appendChild(head);
+      if (r.tags && r.tags.length) {
+        var tags = el('div', 'rva-tags');
+        r.tags.forEach(function (tg) { tags.appendChild(el('span', null, tg)); });
+        body.appendChild(tags);
+      }
+      if (r.comment) body.appendChild(el('p', 'rva-comment', '\u201C' + r.comment + '\u201D'));
+      body.appendChild(el('p', 'rva-meta', r.sessions + ' sessions with you \u00B7 ' + when(r.updatedAt)));
+
+      var del = el('button', 'btn btn-danger', 'Delete');
+      del.type = 'button';
+      del.addEventListener('click', function () {
+        if (!confirm('Delete ' + r.name + "'s review? It disappears from your website too, and this cannot be undone.")) return;
+        del.disabled = true;
+        statusEl.textContent = 'Deleting...';
+        statusEl.className = 'slot-status';
+        call('admin/delete', { uid: r.uid }).then(load).catch(function (err) {
+          statusEl.textContent = err.message; statusEl.className = 'slot-status error'; del.disabled = false;
+        });
+      });
+      row.append(token, body, del);
+      listEl.appendChild(row);
+    });
+  }
+
+  function load() {
+    statusEl.textContent = 'Loading...';
+    statusEl.className = 'slot-status';
+    return call('admin/list').then(function (d) { statusEl.textContent = ''; render(d.reviews || []); })
+      .catch(function (err) { statusEl.textContent = err.message; statusEl.className = 'slot-status error'; });
+  }
+
+  document.querySelector('.me-rail-btn[data-tab="reviews"]').addEventListener('click', load);
+  firebase.auth().onAuthStateChanged(function (user) { if (user) load(); });
+})();
+</script>
 </body>
 </html>

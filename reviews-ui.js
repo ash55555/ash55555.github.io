@@ -57,7 +57,7 @@ var AshReviews = (function () {
 
   function renderDmProfile(container, opts) {
     var local = { editing: false, thanks: false, review: null };
-    var form = { rating: 0, tags: [], comment: '' };
+    var form = { rating: 0, tags: [], comment: '', show: true };
 
     function draw() {
       container.innerHTML = '';
@@ -113,12 +113,13 @@ var AshReviews = (function () {
           card.appendChild(tl);
         }
         if (review.comment) card.appendChild(el('p', 'rv-comment', '“' + review.comment + '”'));
+        card.appendChild(el('p', 'rv-visibility', review.show === false ? 'Only Ash can see this.' : 'Shown on Ash’s website.'));
         section.appendChild(card);
         var edit = el('button', 'btn btn-ghost rv-edit', 'Edit your review');
         edit.type = 'button';
         edit.addEventListener('click', function () {
           local.editing = true; local.thanks = false;
-          form = { rating: review.rating, tags: (review.tags || []).slice(), comment: review.comment || '' };
+          form = { rating: review.rating, tags: (review.tags || []).slice(), comment: review.comment || '', show: review.show !== false };
           draw();
         });
         section.appendChild(edit);
@@ -195,6 +196,15 @@ var AshReviews = (function () {
       section.appendChild(ta);
       section.appendChild(count);
 
+      var showRow = el('label', 'rv-show');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = form.show;
+      cb.addEventListener('change', function () { form.show = cb.checked; });
+      showRow.appendChild(cb);
+      showRow.appendChild(el('span', null, 'Show my review on Ash’s website, with my name and picture'));
+      section.appendChild(showRow);
+
       var foot = el('div', 'rv-foot');
       var send = el('button', 'btn btn-primary', local.editing ? 'Save changes' : 'Send review');
       send.type = 'button';
@@ -208,7 +218,7 @@ var AshReviews = (function () {
       }
       foot.appendChild(status);
       section.appendChild(foot);
-      section.appendChild(el('p', 'rv-note', 'Your review goes straight to ' + 'Ash' + '.'));
+      section.appendChild(el('p', 'rv-note', 'Your review always goes to Ash. If the box above is ticked, it also appears on Ash’s website. Untick it to keep it private.'));
 
       function sync() { send.disabled = !form.rating; }
       sync();
@@ -218,9 +228,9 @@ var AshReviews = (function () {
         send.disabled = true;
         status.textContent = 'Sending...';
         status.className = 'rv-status';
-        Promise.resolve(opts.onSubmit({ rating: form.rating, tags: form.tags.slice(), comment: form.comment.trim() }))
+        Promise.resolve(opts.onSubmit({ rating: form.rating, tags: form.tags.slice(), comment: form.comment.trim(), show: form.show }))
           .then(function (saved) {
-            local.review = saved || { rating: form.rating, tags: form.tags.slice(), comment: form.comment.trim() };
+            local.review = saved || { rating: form.rating, tags: form.tags.slice(), comment: form.comment.trim(), show: form.show };
             local.editing = false; local.thanks = true;
             draw();
           })

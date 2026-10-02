@@ -13,7 +13,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { runReminders } from './reminders.js';
-import { handleReview, runReviewInvites } from './reviews.js';
+import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
 import { handleContentAdmin, handleContentPublic, handleContentPublicList, handleContentBanner } from './content.js';
 
 const FIREBASE_JWKS_URL =
@@ -47,6 +47,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length));
+    }
+    if (url.pathname === '/review/public' && request.method === 'GET') {
+      return handleReviewsPublic(request, env, corsHeaders);
     }
     if (url.pathname.startsWith('/review/')) {
       return handleReview(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/review/'.length), sendEmail);

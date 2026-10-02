@@ -754,6 +754,92 @@ function setupReviewsMarquee() {
   window.addEventListener('pointercancel', endDrag);
 }
 
+// Reviews players left from their profile page and chose to show on the website.
+// They go at the front of the strip (and of its looping duplicate), so the newest
+// is seen first. The written reviews already on the page are left exactly as they are.
+const REVIEWS_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/review/public';
+const REVIEW_TOKENS = {
+  dragon: ['\u{1F409}', '#6b46c1'], wizard: ['\u{1F9D9}', '#2f5fa8'], dagger: ['\u{1F5E1}\uFE0F', '#8a3b3b'],
+  elf: ['\u{1F9DD}', '#2f7a5a'], bat: ['\u{1F987}', '#4a3a6b'], dice: ['\u{1F3B2}', '#a8702f'],
+};
+
+function buildPlayerReviewCard(r, hidden) {
+  const card = document.createElement('article');
+  card.className = 'review-card';
+  if (hidden) card.setAttribute('aria-hidden', 'true');
+
+  let avatar;
+  if (r.avatar) {
+    avatar = document.createElement('img');
+    avatar.className = 'review-avatar';
+    avatar.src = r.avatar;
+    avatar.alt = hidden ? '' : r.name;
+    avatar.loading = 'lazy';
+  } else {
+    const t = REVIEW_TOKENS[r.token] || REVIEW_TOKENS.wizard;
+    avatar = document.createElement('div');
+    avatar.className = 'review-avatar review-avatar-initials review-avatar-token';
+    avatar.style.background = t[1];
+    avatar.textContent = t[0];
+    avatar.setAttribute('aria-hidden', 'true');
+  }
+  card.appendChild(avatar);
+
+  const stars = document.createElement('p');
+  stars.className = 'review-stars';
+  stars.setAttribute('aria-label', r.rating + ' out of 5 stars');
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement('span');
+    star.className = i <= r.rating ? 'on' : '';
+    star.textContent = '\u2605';
+    stars.appendChild(star);
+  }
+  card.appendChild(stars);
+
+  if (r.tags && r.tags.length) {
+    const tags = document.createElement('p');
+    tags.className = 'review-tags';
+    r.tags.forEach((t) => {
+      const chip = document.createElement('span');
+      chip.textContent = t;
+      tags.appendChild(chip);
+    });
+    card.appendChild(tags);
+  }
+
+  if (r.comment) {
+    const quote = document.createElement('p');
+    quote.className = 'review-quote';
+    quote.textContent = '"' + r.comment + '"';
+    card.appendChild(quote);
+  }
+
+  const author = document.createElement('p');
+  author.className = 'review-author';
+  author.textContent = r.name;
+  card.appendChild(author);
+  return card;
+}
+
+async function loadPlayerReviews() {
+  const track = document.querySelector('.reviews-track');
+  if (!track) return;
+  try {
+    const res = await fetch(REVIEWS_URL);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.reviews || !data.reviews.length) return;
+    const firstReal = track.querySelector('.review-card:not([aria-hidden="true"])');
+    const firstCopy = track.querySelector('.review-card[aria-hidden="true"]');
+    data.reviews.forEach((r) => {
+      track.insertBefore(buildPlayerReviewCard(r, false), firstReal);
+      track.insertBefore(buildPlayerReviewCard(r, true), firstCopy);
+    });
+    // The strip measures itself on resize, so tell it the content just got longer.
+    window.dispatchEvent(new Event('resize'));
+  } catch (err) { /* the written reviews stay as they are */ }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   renderSessionChips();
   setupNavToggle();
@@ -763,5 +849,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPaypalModal();
   setupSignupModal();
   setupReviewsMarquee();
+  loadPlayerReviews();
 });
 

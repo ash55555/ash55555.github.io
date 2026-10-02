@@ -51,18 +51,39 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
   try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
 
   const mode = cfg(env).mode;
+  const self = new URL(request.url).origin;
   try {
+    // Ash only: see every review, and delete one.
+    if (action === 'admin/list' || action === 'admin/delete') {
+      if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
+      if (action === 'admin/list') {
+        const rows = (await env.DB.prepare(
+          `SELECT r.uid, r.name, r.rating, r.tags, r.comment, r.sessions, r.show_public, r.created_at, r.updated_at, pr.token AS token, pr.avatar_id AS avatar_id
+           FROM reviews r LEFT JOIN profiles pr ON pr.uid = r.uid ORDER BY r.updated_at DESC LIMIT 200`).all()).results;
+        return json({
+          reviews: rows.map((r) => ({
+            uid: r.uid, name: r.name, rating: r.rating, tags: parseTags(r.tags), comment: r.comment || '', sessions: r.sessions,
+            shown: r.show_public !== 0, createdAt: r.created_at, updatedAt: r.updated_at, token: r.token || '',
+            avatar: r.avatar_id ? `${self}/profile/avatar/${r.avatar_id}` : null,
+          })),
+        }, 200, corsHeaders);
+      }
+      const target = String(body.uid || '');
+      if (!target) return json({ error: 'Missing review.' }, 400, corsHeaders);
+      await env.DB.prepare('DELETE FROM reviews WHERE uid=?').bind(target).run();
+      return json({ ok: true }, 200, corsHeaders);
+    }
+
     const sessions = await sessionsPlayed(env, mode, user.sub);
     // Ash's own account can always open the box, so the whole thing can be tried out for real.
     const testMode = user.sub === env.ADMIN_UID;
     const eligible = testMode || sessions >= REVIEW_AFTER;
-    const row = await env.DB.prepare('SELECT rating, tags, comment, updated_at FROM reviews WHERE uid=?').bind(user.sub).first();
-    const mine = row ? { rating: row.rating, tags: parseTags(row.tags), comment: row.comment || '', updatedAt: row.updated_at } : null;
+    const row = await env.DB.prepare('SELECT rating, tags, comment, updated_at, show_public FROM reviews WHERE uid=?').bind(user.sub).first();
+    const mine = row ? { rating: row.rating, tags: parseTags(row.tags), comment: row.comment || '', show: row.show_public !== 0, updatedAt: row.updated_at } : null;
 
     if (action === 'status') {
       // Ash's public card (same name, picture and pronouns anyone sees at the table).
       const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
-      const self = new URL(request.url).origin;
       const dm = { name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon', avatar: d && d.avatar_id ? `${self}/profile/avatar/${d.avatar_id}` : null, pronouns: (d && d.pronouns) || '' };
       return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, tags: REVIEW_TAGS, review: mine, dm }, 200, corsHeaders);
     }
@@ -74,27 +95,49 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
       const picked = Array.isArray(body.tags) ? body.tags.filter((t) => REVIEW_TAGS.includes(t)) : [];
       const tags = Array.from(new Set(picked));
       const comment = clean(body.comment, 600);
+      // Shown on the website unless the player unticks the box.
+      const show = body.show === false ? 0 : 1;
 
       const prof = await env.DB.prepare('SELECT name FROM profiles WHERE uid=?').bind(user.sub).first();
       const name = clean((prof && prof.name) || user.name || (user.email || '').split('@')[0] || 'A player', 40);
       const now = new Date().toISOString();
       await env.DB.prepare(
-        `INSERT INTO reviews (uid, mode, name, rating, tags, comment, sessions, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)
+        `INSERT INTO reviews (uid, mode, name, rating, tags, comment, sessions, show_public, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(uid) DO UPDATE SET mode=excluded.mode, name=excluded.name, rating=excluded.rating, tags=excluded.tags,
-           comment=excluded.comment, sessions=excluded.sessions, updated_at=excluded.updated_at`)
-        .bind(user.sub, mode, name, rating, JSON.stringify(tags), comment, sessions, now, now).run();
+           comment=excluded.comment, sessions=excluded.sessions, show_public=excluded.show_public, updated_at=excluded.updated_at`)
+        .bind(user.sub, mode, name, rating, JSON.stringify(tags), comment, sessions, show, now, now).run();
 
       await notify(env, sendEmail, mode, 'review', null,
         `${mine ? 'Updated review' : 'New review'}: ${rating}/5 from ${name}`,
         `${name} rated you ${rating} out of 5 after ${sessions} sessions together.\n` +
         `What stood out: ${tags.length ? tags.join(', ') : 'nothing picked'}.` +
-        (comment ? `\n"${comment}"` : ''));
-      return json({ ok: true, review: { rating, tags, comment, updatedAt: now } }, 200, corsHeaders);
+        (comment ? `\n"${comment}"` : '') +
+        (show ? '\nIt is shown on your website.' : '\nThey chose to keep it private, so it is not on your website.'));
+      return json({ ok: true, review: { rating, tags, comment, show: !!show, updatedAt: now } }, 200, corsHeaders);
     }
     return json({ error: 'Unknown action' }, 404, corsHeaders);
   } catch (err) {
     return json({ error: err.message || 'Something went wrong.' }, 502, corsHeaders);
   }
+}
+
+// Public (no sign-in): the reviews players chose to show on the website, newest first.
+// Only the name, picture, stars, qualities and comment go out, nothing else.
+export async function handleReviewsPublic(request, env, corsHeaders) {
+  const mode = cfg(env).mode;
+  const self = new URL(request.url).origin;
+  const rows = (await env.DB.prepare(
+    `SELECT r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
+     FROM reviews r LEFT JOIN profiles pr ON pr.uid = r.uid
+     WHERE r.mode=? AND r.show_public=1 ORDER BY r.updated_at DESC LIMIT 30`).bind(mode).all()).results;
+  const reviews = rows.map((r) => ({
+    name: r.name, rating: r.rating, tags: parseTags(r.tags), comment: r.comment || '', token: r.token || '',
+    avatar: r.avatar_id ? `${self}/profile/avatar/${r.avatar_id}` : null,
+  }));
+  return new Response(JSON.stringify({ reviews }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...corsHeaders },
+  });
 }
 
 // Sends the "how was your game?" notice and email, once per player, the first
@@ -155,7 +198,7 @@ export function reviewInviteEmailHtml({ name, sessions, url }) {
         <p style="margin:14px 0 0;font-size:30px;letter-spacing:6px;color:#f2b84f">&#9733;&#9733;&#9733;&#9733;&#9733;</p>
         <p style="margin:6px 0 0;font-size:15px;color:#ffffff;font-weight:700">Would you like to rate your experience?</p>
       </td></tr></table>
-      <p style="margin:18px 0 0;font-size:15px">Leave a star rating and tell us what Ash does best, like setting the mood or always coming prepared. Your review goes straight to Ash.</p>
+      <p style="margin:18px 0 0;font-size:15px">Leave a star rating and tell us what Ash does best, like setting the mood or always coming prepared. Your review goes to Ash, and you choose whether it also appears on the website.</p>
       <p style="margin:22px 0 0;text-align:center"><a href="${escapeHtml(url)}" style="display:inline-block;background:#f2b84f;color:#241407;padding:13px 26px;border-radius:12px;text-decoration:none;font-weight:700;font-size:16px">Rate your experience</a></p>
       <p style="margin:20px 0 0;font-size:14px;color:#b9a9d9;text-align:center">It takes less than a minute, and it is completely optional.</p>
       <p style="margin:14px 0 0">See you at the table. Roll well!</p>
