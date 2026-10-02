@@ -146,8 +146,16 @@ function renderHeader() {
 function renderRoster() {
   const list = $('pp-roster');
   list.innerHTML = '';
-  const add = (name, tokenId, role, avatar, pronouns) => {
+  const add = (name, tokenId, role, avatar, pronouns, onClick) => {
     const li = document.createElement('li');
+    if (onClick) {
+      li.classList.add('pp-clickable');
+      li.tabIndex = 0;
+      li.setAttribute('role', 'button');
+      li.title = 'See ' + name + "'s profile and leave a review";
+      li.addEventListener('click', onClick);
+      li.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } });
+    }
     if (avatar) {
       const holder = document.createElement('div');
       holder.className = 'pp-token pp-token-sm';
@@ -178,7 +186,7 @@ function renderRoster() {
   };
   const table = realGame ? (serverState || publicState) : null;
   const dm = table && table.dm;
-  add(dm ? dm.name : 'Ash', dm ? dm.token : 'dragon', 'DM', dm && dm.avatar, dm && dm.pronouns);
+  add(dm ? dm.name : 'Ash', dm ? dm.token : 'dragon', 'DM', dm && dm.avatar, dm && dm.pronouns, openDmProfile);
   const seats = seatNumbers();
   if (table) {
     const anonymous = Math.max(0, seats.filled - table.roster.length);
@@ -393,6 +401,64 @@ function renderAll() {
   document.querySelectorAll('.pp-previewbar [data-state]').forEach((b) => b.classList.toggle('active', b.dataset.state === view));
 }
 
+// ---------------------------------------------------------------- Ash's profile + reviews
+// Clicking Ash in 'Who's at the table' opens a profile card with a review box under it.
+// The box only opens up once the Worker says this player has played enough sessions.
+// On this computer's preview (localhost) the three states are faked from the preview bar,
+// so you can see each one without needing real sessions. Nothing there is saved.
+const PREVIEW_REVIEWS = {
+  locked: { signedIn: true, sessions: 3, needed: 5, eligible: false, review: null },
+  ready: { signedIn: true, sessions: 6, needed: 5, eligible: true, review: null },
+  done: { signedIn: true, sessions: 6, needed: 5, eligible: true, review: { rating: 5, tags: ['Sets the mood', 'Always prepared'], comment: 'Best table I have played at. Ash makes every session feel like a movie.' } },
+};
+let previewReview = 'locked';
+
+async function reviewApi(action, extra) {
+  const idToken = await me.getIdToken();
+  const res = await fetch(WORKER_URL + '/review/' + action, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...(extra || {}), idToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
+}
+
+async function loadReviewState() {
+  if (preview && !me) return JSON.parse(JSON.stringify({ ...PREVIEW_REVIEWS[previewReview], tags: AshReviews.DEFAULT_TAGS }));
+  await authReady;
+  if (!me) return { signedIn: false, needed: 5 };
+  try { return { signedIn: true, ...(await reviewApi('status')) }; } catch (err) { return { signedIn: true, error: true }; }
+}
+
+async function submitReview(payload) {
+  if (preview && !me) return { rating: payload.rating, tags: payload.tags, comment: payload.comment };
+  return (await reviewApi('submit', payload)).review;
+}
+
+async function openDmProfile() {
+  const table = realGame ? (serverState || publicState) : null;
+  const dm = table && table.dm;
+  let tokenNode;
+  if (dm && dm.avatar) {
+    tokenNode = document.createElement('div');
+    tokenNode.className = 'pp-token pp-token-lg';
+    const img = document.createElement('img');
+    img.src = dm.avatar;
+    img.alt = '';
+    tokenNode.appendChild(img);
+  } else {
+    tokenNode = tokenEl(dm ? dm.token : 'dragon', 'pp-token-lg');
+  }
+  const draw = (state) => AshReviews.renderDmProfile($('pp-dm-body'), {
+    tokenNode, name: dm ? dm.name : 'Ash', pronouns: dm && dm.pronouns, state, onSubmit: submitReview,
+  });
+  draw({ loading: true });
+  openModal('pp-dm');
+  draw(await loadReviewState());
+}
+
 function openModal(id) { $(id).hidden = false; document.body.classList.add('modal-open'); }
 function closeModals() {
   document.querySelectorAll('.modal').forEach((m) => { m.hidden = true; });
@@ -417,6 +483,13 @@ document.querySelectorAll('.pp-previewbar [data-state]').forEach((b) => {
     view = b.dataset.state;
     skippedIdx = view === 'skipped' ? new Set([0]) : new Set();
     renderAll();
+  });
+});
+document.querySelectorAll('.pp-previewbar [data-review]').forEach((b) => {
+  b.addEventListener('click', () => {
+    previewReview = b.dataset.review;
+    document.querySelectorAll('.pp-previewbar [data-review]').forEach((x) => x.classList.toggle('active', x === b));
+    openDmProfile();
   });
 });
 document.querySelectorAll('.js-close').forEach((el) => el.addEventListener('click', closeModals));
@@ -665,6 +738,7 @@ if (hasGame) {
 renderProfile();
 renderAll();
 loadPublicTable();
+if (query.get('review') === '1') Promise.race([authReady, new Promise((ok) => setTimeout(ok, 3000))]).then(openDmProfile);
 
 // Coming back from Whop after saving a card: finish booking the seat.
 (async function returnFromWhop() {

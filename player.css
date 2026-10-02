@@ -244,3 +244,50 @@ body.pp-embed .pp-grid { grid-template-columns: 1fr; }
 
 .pp-token img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .pp-pronouns { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+
+/* ============ Ash's profile + reviews ============ */
+.pp-roster li.pp-clickable { cursor: pointer; border: 1px solid transparent; transition: border-color 0.15s ease, transform 0.15s ease; }
+.pp-roster li.pp-clickable:hover,
+.pp-roster li.pp-clickable:focus-visible { border-color: var(--gold); transform: translateY(-1px); }
+.pp-roster li.pp-clickable::after { content: 'View profile'; font-size: 0.72rem; color: var(--blue-accent); font-weight: 700; margin-left: 0.3em; }
+
+.pp-dm-dialog { max-width: 560px; width: 94vw; max-height: 92vh; overflow-y: auto; }
+.rv-head { display: flex; align-items: center; gap: 1em; padding-right: 2.2em; }
+.rv-who h3 { margin: 0; font-size: 1.4rem; }
+.rv-sub { display: flex; align-items: center; gap: 0.6em; margin-top: 0.3em; flex-wrap: wrap; }
+.rv-role { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #241407; background: var(--gold); border-radius: 999px; padding: 0.2em 0.7em; white-space: nowrap; }
+.rv-section { margin-top: 1.3em; padding-top: 1.1em; border-top: 1px solid var(--border); }
+.rv-section h4 { margin: 0 0 0.6em; font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); }
+.rv-muted { color: var(--text-muted); font-size: 0.92rem; margin: 0 0 0.7em; }
+.rv-lead { display: block; font-weight: 800; font-size: 1.1rem; margin: 0.4em 0 0.2em; color: var(--text); }
+.rv-lead-sm { font-size: 0.98rem; margin-top: 1.2em; }
+.rv-lead .rv-muted { font-weight: 400; margin: 0; }
+
+.rv-stars { display: flex; gap: 0.25em; margin-top: 0.6em; }
+.rv-star-btn { background: none; border: 0; padding: 0; font-size: 2.4rem; line-height: 1; color: rgba(255, 255, 255, 0.18); cursor: pointer; transition: color 0.12s ease, transform 0.12s ease; }
+.rv-star-btn.on { color: var(--gold); text-shadow: 0 0 14px rgba(242, 184, 79, 0.45); }
+.rv-star-btn:hover { transform: scale(1.12); }
+.rv-star-word { min-height: 1.4em; margin-top: 0.2em; color: var(--text-muted); font-weight: 700; font-size: 0.9rem; }
+
+.rv-tags { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 0.5em; }
+.rv-tag { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: var(--text-muted); border-radius: 999px; padding: 0.45em 0.95em; font: inherit; font-size: 0.88rem; cursor: pointer; transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease; }
+.rv-tag:hover { border-color: rgba(242, 184, 79, 0.5); color: var(--text); }
+.rv-tag.on { background: rgba(242, 184, 79, 0.16); border-color: var(--gold); color: var(--gold); font-weight: 700; }
+.rv-tags-static .rv-tag { cursor: default; }
+
+#rv-comment { width: 100%; margin-top: 0.5em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); padding: 0.7em 0.85em; font: inherit; resize: vertical; box-sizing: border-box; }
+.rv-count { text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2em; }
+.rv-foot { display: flex; align-items: center; gap: 0.8em; flex-wrap: wrap; margin-top: 1em; }
+.rv-foot .btn[disabled] { opacity: 0.5; cursor: not-allowed; transform: none; }
+.rv-status { font-size: 0.88rem; color: var(--text-muted); }
+.rv-status.error { color: #f08a8a; }
+.rv-note { margin: 0.8em 0 0; font-size: 0.8rem; color: var(--text-muted); }
+
+.rv-progress { height: 10px; background: var(--bg-panel-2); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+.rv-progress-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--gold)); border-radius: 999px; }
+
+.rv-thanks { color: #7fd99a; font-weight: 700; margin: 0 0 0.8em; }
+.rv-mine { background: var(--bg-panel-2); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 14px; padding: 1em 1.1em; margin-bottom: 1em; }
+.rv-stars-static .rv-star { color: rgba(255, 255, 255, 0.18); font-size: 1.5rem; }
+.rv-stars-static .rv-star.on { color: var(--gold); }
+.rv-comment { margin: 0.7em 0 0; font-style: italic; color: var(--text); }

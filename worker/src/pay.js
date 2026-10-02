@@ -889,7 +889,7 @@ function classify(d) {
   return 'pending';
 }
 
-const KIND_ICON = { joined: 'New player', left: 'Player left', skipped_player: 'Player skipped', charge_failed: 'Charge failed', gave_up: 'Charge gave up', unknown: 'Check Whop', reminder: 'Reminder sent' };
+const KIND_ICON = { joined: 'New player', left: 'Player left', skipped_player: 'Player skipped', review: 'New review', charge_failed: 'Charge failed', gave_up: 'Charge gave up', unknown: 'Check Whop', reminder: 'Reminder sent' };
 
 // Adds an entry to the notifications list in the admin page and, for real-money
 // events, emails Ash at ADMIN_NOTIFY_EMAIL (a Worker secret, never in the site).

@@ -297,6 +297,8 @@ p { margin: 0 0 1em; }
 .nu-empty { margin: 0; padding: 1.2em 1em; color: var(--text-muted); font-size: 0.85rem; }
 .nu-item { display: flex; flex-direction: column; gap: 0.15em; padding: 0.7em 1em; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
 .nu-item:last-child { border-bottom: 0; }
+.nu-item-link { cursor: pointer; }
+.nu-item-link:hover { background: rgba(255, 255, 255, 0.05); }
 .nu-item.unread { background: rgba(242, 184, 79, 0.06); }
 .nu-item-kind { font-weight: 800; color: var(--gold); }
 .nu-item-body { color: var(--text-muted); }

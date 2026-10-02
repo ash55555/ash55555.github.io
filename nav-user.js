@@ -13,7 +13,7 @@ var AshNav = (function () {
     bat: { emoji: '\u{1F987}', color: '#4a3a6b' },
     dice: { emoji: '\u{1F3B2}', color: '#a8702f' },
   };
-  var KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', removed: 'Removed from a game' };
+  var KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game' };
   var ICON = {
     profile: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 19.5c1.5-3.6 4.3-5.4 7.5-5.4s6 1.8 7.5 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
     schedule: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 13h2.4M8 16.3h2.4M13.6 13H16M13.6 16.3H16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -120,6 +120,13 @@ var AshNav = (function () {
         item.appendChild(el('span', 'nu-item-kind', KIND_LABEL[n.kind] || n.title));
         if (n.body) item.appendChild(el('span', 'nu-item-body', n.body));
         item.appendChild(el('span', 'nu-item-time', ago(n.created_at)));
+        if (n.kind === 'review_invite' && n.game) {
+          item.classList.add('nu-item-link');
+          item.addEventListener('click', function () {
+            var parts = String(n.game).split('::');
+            window.location.href = 'player.html?campaign=' + encodeURIComponent(parts[0]) + (parts[1] ? '&slot=' + encodeURIComponent(parts[1]) : '') + '&review=1';
+          });
+        }
         list.appendChild(item);
       });
     }

@@ -9,8 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=20260929b">
-<link rel="stylesheet" href="player.css?v=20260930a">
+<link rel="stylesheet" href="style.css?v=20261003a">
+<link rel="stylesheet" href="player.css?v=20261003a">
 </head>
 <body>
 
@@ -36,6 +36,12 @@
     <button type="button" data-state="joined">Joined</button>
     <button type="button" data-state="skipped">Skipped next week</button>
     <button type="button" data-state="left">Left the game</button>
+  </span>
+  <span class="pp-previewbar-states">
+    Review box (click Ash under "Who's at the table"):
+    <button type="button" data-review="locked">Not enough sessions</button>
+    <button type="button" data-review="ready">Ready to review</button>
+    <button type="button" data-review="done">Already reviewed</button>
   </span>
 </div>
 
@@ -251,6 +257,16 @@
   </div>
 </div>
 
+<!-- ================= DM PROFILE + REVIEWS MODAL ================= -->
+<div class="modal" id="pp-dm" hidden>
+  <div class="modal-dialog pp-dm-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-dm-title">
+    <button type="button" class="modal-close js-close" aria-label="Close">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></svg>
+    </button>
+    <div id="pp-dm-body"></div>
+  </div>
+</div>
+
 <!-- ================= CONFIRM MODAL ================= -->
 <div class="modal" id="pp-confirm" hidden>
   <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-confirm-title">
@@ -275,7 +291,8 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-init.js?v=20260926b"></script>
 <script src="tz.js?v=20260927a"></script>
-<script src="nav-user.js?v=20261002a"></script>
-<script src="player.js?v=20260928c"></script>
+<script src="nav-user.js?v=20261003a"></script>
+<script src="reviews-ui.js?v=20261003a"></script>
+<script src="player.js?v=20261003a"></script>
 </body>
 </html>

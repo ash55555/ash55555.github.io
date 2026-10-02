@@ -13,6 +13,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { runReminders } from './reminders.js';
+import { handleReview, runReviewInvites } from './reviews.js';
 import { handleContentAdmin, handleContentPublic, handleContentPublicList, handleContentBanner } from './content.js';
 
 const FIREBASE_JWKS_URL =
@@ -46,6 +47,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length));
+    }
+    if (url.pathname.startsWith('/review/')) {
+      return handleReview(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/review/'.length), sendEmail);
     }
     if (url.pathname.startsWith('/content/banner/') && request.method === 'GET') {
       return handleContentBanner(request, env, corsHeaders, url.pathname.slice('/content/banner/'.length));
@@ -130,6 +134,9 @@ export default {
         .then(() => runReminders(env, sendEmail))
         .then((r) => console.log('reminder run', JSON.stringify(r)))
         .catch((err) => console.error('reminder run failed', err && err.message))
+        .then(() => runReviewInvites(env, sendEmail))
+        .then((r) => console.log('review invite run', JSON.stringify(r)))
+        .catch((err) => console.error('review invite run failed', err && err.message))
     );
   },
 };

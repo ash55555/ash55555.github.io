@@ -106,3 +106,15 @@ CREATE TABLE IF NOT EXISTS campaign_content (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS campaign_content_banner ON campaign_content (banner_id);
+
+CREATE TABLE IF NOT EXISTS reviews (
+  uid TEXT PRIMARY KEY,
+  mode TEXT NOT NULL,
+  name TEXT,
+  rating INTEGER NOT NULL,
+  tags TEXT NOT NULL DEFAULT '[]',
+  comment TEXT NOT NULL DEFAULT '',
+  sessions INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

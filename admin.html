@@ -151,7 +151,7 @@
   .note-kind { font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; border-radius: 999px; padding: .25em .6em; text-align: center; background: rgba(155,109,255,.2); color: #cbb6ff; }
   .note-kind.charge_failed, .note-kind.gave_up, .note-kind.unknown { background: rgba(224,85,111,.2); color: #ff9db0; }
   .note-kind.joined { background: rgba(127,217,154,.18); color: #7fd99a; }
-  .note-kind.skipped_player { background: rgba(242,184,79,.18); color: #f2b84f; }
+  .note-kind.skipped_player, .note-kind.review { background: rgba(242,184,79,.18); color: #f2b84f; }
   .note-kind.left { background: rgba(242,184,79,.18); color: var(--gold); }
   .note-title { font-weight: 800; }
   .note-body { color: var(--text-muted); font-size: .82rem; white-space: pre-line; margin-top: .2em; }
@@ -1561,7 +1561,7 @@
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var LABELS = { joined: 'New player', left: 'Left', skipped_player: 'Skipped', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
+  var LABELS = { joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
   var listEl = document.getElementById('note-list');
 
   function call(action, extra) {
@@ -1584,7 +1584,7 @@
     badge.textContent = data.unread + ' new';
     var railDot = document.getElementById('admin-rail-dot');
     if (railDot) railDot.hidden = !data.unread;
-    document.getElementById('note-sub').textContent = 'New players, players who leave or skip a session, failed charges and session reminders show up here.' +
+    document.getElementById('note-sub').textContent = 'New players, reviews, players who leave or skip a session, failed charges and session reminders show up here.' +
       (data.emailOn ? ' Each one is also emailed to you.' : ' Email copies are not switched on yet.');
     listEl.innerHTML = '';
     if (!data.items.length) {
