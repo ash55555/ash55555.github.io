@@ -435,8 +435,22 @@ async function doSkip(ctx, skip) {
     return json({ error: 'It is less than 24 hours before this session, so it is too late to change it here. Please message Ash.' }, 409, corsHeaders);
   }
   if (skip) {
-    await env.DB.prepare('INSERT OR IGNORE INTO skips (mode, game, uid, session_ts, by, created_at) VALUES (?,?,?,?,?,?)')
+    const ins = await env.DB.prepare('INSERT OR IGNORE INTO skips (mode, game, uid, session_ts, by, created_at) VALUES (?,?,?,?,?,?)')
       .bind(ctx.mode, gameKey, user.sub, ts, 'player', iso(now)).run();
+    // Only announce a skip that is actually new, so a double click or a repeat
+    // does not email anyone twice.
+    if (ins.meta && ins.meta.changes === 1) {
+      const tz = await playerTz(env, user.sub);
+      const w = when(ts, tz);
+      const who = me.name || me.email;
+      await notifyPlayer(env, ctx.mode, user.sub, 'skipped_self', gameKey, 'You skipped a session',
+        `You skipped your ${w.day} session of ${game.title}. You will not be charged for it.`);
+      await emailSkip(ctx, me, ts, tz, 'player');
+      const playing = await playingCount(env, ctx.mode, gameKey, game, ts);
+      const utc = when(ts, '');
+      await notify(env, ctx.sendEmail, ctx.mode, 'skipped_player', gameKey, `${who} skipped ${game.title}`,
+        `${who} (${me.email}) skipped the session on ${utc.day} at ${utc.time}. They will not be charged for it.\nPlaying that night: ${playing} (${game.min} needed to start).`);
+    }
   } else {
     const row = await env.DB.prepare('SELECT by FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(ctx.mode, gameKey, user.sub, ts).first();
     if (row && row.by === 'admin') return json({ error: 'Ash skipped this one for you. Please message Ash to change it.' }, 409, corsHeaders);
@@ -506,16 +520,23 @@ async function adminSkip(ctx) {
   const ok = upcoming(game, now, 26).some((d) => iso(d) === ts);
   if (!ok) return json({ error: 'That session is not in the future.' }, 400, corsHeaders);
   if (body.skipped) {
+    const prev = await env.DB.prepare('SELECT by FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(ctx.mode, gameKey, uid, ts).first();
     await env.DB.prepare('INSERT INTO skips (mode, game, uid, session_ts, by, created_at) VALUES (?,?,?,?,?,?) ON CONFLICT(mode, game, uid, session_ts) DO UPDATE SET by=excluded.by')
       .bind(ctx.mode, gameKey, uid, ts, 'admin', iso(now)).run();
-    await notifyPlayer(env, ctx.mode, uid, 'skipped_admin', gameKey, 'Ash skipped a session for you', `Your ${fmtShort(ts)} session of ${game.title} is skipped. You will not be charged for it.`);
+    // Already skipped by you earlier? Then the player was already told.
+    if (!prev || prev.by !== 'admin') {
+      const tz = await playerTz(env, uid);
+      const w = when(ts, tz);
+      await notifyPlayer(env, ctx.mode, uid, 'skipped_admin', gameKey, 'Your DM skipped a session',
+        `Your DM skipped your ${w.day} session of ${game.title}. You will not be charged for it.`);
+      await emailSkip(ctx, player, ts, tz, 'admin');
+    }
   } else {
     await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(ctx.mode, gameKey, uid, ts).run();
   }
   return json({ ok: true }, 200, corsHeaders);
 }
 
-function fmtShort(ts) { return new Date(ts).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }); }
 
 async function adminRefund(ctx) {
   const { env, body, gameKey, corsHeaders } = ctx;
@@ -867,7 +888,7 @@ function classify(d) {
   return 'pending';
 }
 
-const KIND_ICON = { joined: 'New player', left: 'Player left', charge_failed: 'Charge failed', gave_up: 'Charge gave up', unknown: 'Check Whop', reminder: 'Reminder sent' };
+const KIND_ICON = { joined: 'New player', left: 'Player left', skipped_player: 'Player skipped', charge_failed: 'Charge failed', gave_up: 'Charge gave up', unknown: 'Check Whop', reminder: 'Reminder sent' };
 
 // Adds an entry to the notifications list in the admin page and, for real-money
 // events, emails Ash at ADMIN_NOTIFY_EMAIL (a Worker secret, never in the site).
@@ -886,18 +907,108 @@ export async function notify(env, sendEmail, mode, kind, gameKey, title, body) {
   const to = env.ADMIN_NOTIFY_EMAIL;
   if (mode !== 'live' || !to || !sendEmail) return;
   try {
-    await sendEmail(env, to, title,
-      `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#241a3d">
+    await sendEmail(env, to, title, adminEmailHtml(kind, title, body));
+  } catch (err) { console.error('notification email failed', err && err.message); }
+}
+
+export function adminEmailHtml(kind, title, body) {
+  return `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#241a3d">
         <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9b6dff;font-weight:700">${escapeHtml(KIND_ICON[kind] || kind)}</p>
         <h2 style="margin:0 0 12px">${escapeHtml(title)}</h2>
         <p style="line-height:1.55">${escapeHtml(body || '').replace(/\n/g, '<br>')}</p>
         <p><a href="https://ashtabletop.com/admin.html" style="display:inline-block;background:#f2b84f;color:#241407;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700">Open your admin page</a></p>
-      </div>`);
-  } catch (err) { console.error('notification email failed', err && err.message); }
+      </div>`;
 }
 
 function fmtUtc(ts) { return new Date(ts).toUTCString().replace(' GMT', ' UTC'); }
 
 export function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// ------------------------------------------------- time zones and skip emails
+
+// Time zone abbreviation people recognize (AEST, EDT...) or "" when there is none.
+function abbreviation(date, tz) {
+  const raw = /^(GMT|UTC)[+\-−]/;
+  for (const loc of ['en-US', 'en-GB', 'en-AU', 'en-NZ', 'en-CA', 'en-IN', 'en-ZA']) {
+    try {
+      const part = new Intl.DateTimeFormat(loc, { timeZone: tz, timeZoneName: 'short' }).formatToParts(date).find((p) => p.type === 'timeZoneName');
+      if (part && !raw.test(part.value)) return part.value;
+    } catch { /* try the next */ }
+  }
+  return '';
+}
+
+// "Saturday, October 3" and "9:00 PM AEST" for one person's own time zone.
+export function when(ts, tz) {
+  const d = new Date(ts);
+  try {
+    if (!tz) throw new Error('no zone');
+    const day = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' }).format(d);
+    const time = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(d);
+    const abbr = abbreviation(d, tz);
+    return { day, time: time + (abbr ? ' ' + abbr : ' your local time'), known: true };
+  } catch {
+    const day = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }).format(d);
+    const time = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).format(d);
+    return { day, time: time + ' UTC', known: false };
+  }
+}
+
+async function playerTz(env, uid) {
+  try {
+    const row = await env.DB.prepare('SELECT tz FROM profiles WHERE uid=?').bind(uid).first();
+    return (row && row.tz) || '';
+  } catch { return ''; }
+}
+
+// by = 'admin' (the DM skipped it for them) or 'player' (they skipped it themselves).
+export function skipEmailHtml({ name, game, ts, tz, by }) {
+  const w = when(ts, tz);
+  const byDm = by === 'admin';
+  const heading = byDm ? 'Your DM skipped a session' : 'Session skipped';
+  const lead = byDm
+    ? `Hi ${escapeHtml(name || 'there')}, your DM just skipped your session on <strong style="color:#ffffff">${escapeHtml(w.day)}</strong>.`
+    : `Hi ${escapeHtml(name || 'there')}, you skipped your session on <strong style="color:#ffffff">${escapeHtml(w.day)}</strong>. Got it!`;
+  const closing = byDm
+    ? 'Think this is a mistake? Message Ash on Discord and it gets sorted out.'
+    : 'Changed your mind? You can undo this on your player page up to 24 hours before the session.';
+  return `<!doctype html><html><body style="margin:0;background:#120b1c;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+   <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#1c1230;border-radius:20px;overflow:hidden;border:1px solid #3a2a5c">
+    <tr><td style="padding:28px 32px 10px;background:linear-gradient(135deg,#3b2a6d,#1c1230)">
+      <p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f2b84f;font-weight:700">Ash Tabletop</p>
+      <h1 style="margin:8px 0 0;font-size:26px;line-height:1.2;color:#ffffff">${escapeHtml(heading)}</h1>
+    </td></tr>
+    <tr><td style="padding:20px 32px 30px;color:#d9cdf2;font-size:16px;line-height:1.55">
+      <p style="margin:0 0 16px">${lead}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#2a1d47;border-radius:14px;border:1px solid #4a3877;border-left:4px solid #f2b84f"><tr><td style="padding:18px 20px">
+        <p style="margin:0 0 10px"><span style="display:inline-block;background:#3d2f10;border:1px solid #f2b84f;color:#f2b84f;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border-radius:999px">Skipped</span></p>
+        <p style="margin:0;font-size:13px;color:#b9a9d9;text-transform:uppercase;letter-spacing:.08em;font-weight:700">${escapeHtml(game.title)}</p>
+        <p style="margin:6px 0 2px;font-size:22px;color:#ffffff;font-weight:700">${escapeHtml(w.day)}</p>
+        <p style="margin:0;font-size:20px;color:#f2b84f;font-weight:700">${escapeHtml(w.time)}</p>
+      </td></tr></table>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;background:#16301f;border-radius:14px;border:1px solid #2f6b4a"><tr><td style="padding:14px 18px">
+        <p style="margin:0;font-size:15px;color:#8fe0b0;font-weight:700">You will not be charged for this session.</p>
+        <p style="margin:4px 0 0;font-size:14px;color:#b7e8cb">Your seat is still yours for all your other sessions.</p>
+      </td></tr></table>
+      ${w.known ? '' : '<p style="margin:10px 0 0;font-size:13px;color:#b9a9d9">Times are in UTC. Your player page shows the game in your own time zone.</p>'}
+      <p style="margin:22px 0 0;text-align:center"><a href="https://ashtabletop.com/player.html" style="display:inline-block;background:#f2b84f;color:#241407;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px">Open your player page</a></p>
+      <p style="margin:20px 0 0;font-size:14px;color:#b9a9d9">${escapeHtml(closing)}</p>
+      <p style="margin:14px 0 0">See you at the next one. Roll well!</p>
+    </td></tr>
+   </table>
+  </td></tr></table></body></html>`;
+}
+
+// Emails the player about a skip. Real-money games only, like reminders, so
+// practice/test players never get a real email.
+async function emailSkip(ctx, player, ts, tz, by) {
+  if (ctx.mode !== 'live' || !ctx.sendEmail || !player || !player.email) return;
+  try {
+    await ctx.sendEmail(ctx.env, player.email,
+      by === 'admin' ? `Your DM skipped your ${ctx.game.title} session` : `You skipped your ${ctx.game.title} session`,
+      skipEmailHtml({ name: player.name, game: ctx.game, ts, tz, by }));
+  } catch (err) { console.error('skip email failed', player.email, err && err.message); }
 }

@@ -2,38 +2,10 @@
 // a short, friendly reminder with the game and the time in their own time zone.
 // Ash gets one summary email per session (who is playing, who skipped, billing).
 
-import { loadGames, cfg, upcoming, iso, gameState, playingCount, escapeHtml, notify } from './pay.js';
+import { loadGames, cfg, upcoming, iso, gameState, playingCount, escapeHtml, notify, when } from './pay.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const LEAD_MS = 24 * HOUR_MS;
-
-// Time zone abbreviation people recognize (AEST, EDT...) or "" when there is none.
-function abbreviation(date, tz) {
-  const raw = /^(GMT|UTC)[+\-−]/;
-  for (const loc of ['en-US', 'en-GB', 'en-AU', 'en-NZ', 'en-CA', 'en-IN', 'en-ZA']) {
-    try {
-      const part = new Intl.DateTimeFormat(loc, { timeZone: tz, timeZoneName: 'short' }).formatToParts(date).find((p) => p.type === 'timeZoneName');
-      if (part && !raw.test(part.value)) return part.value;
-    } catch { /* try the next */ }
-  }
-  return '';
-}
-
-// "Saturday, October 3" and "9:00 PM AEST" for one person's own time zone.
-function when(ts, tz) {
-  const d = new Date(ts);
-  try {
-    if (!tz) throw new Error('no zone');
-    const day = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' }).format(d);
-    const time = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }).format(d);
-    const abbr = abbreviation(d, tz);
-    return { day, time: time + (abbr ? ' ' + abbr : ' your local time'), known: true };
-  } catch {
-    const day = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }).format(d);
-    const time = new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' }).format(d);
-    return { day, time: time + ' UTC', known: false };
-  }
-}
 
 function untilText(ms) {
   const h = Math.max(0, Math.round(ms / HOUR_MS));

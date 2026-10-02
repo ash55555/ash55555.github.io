@@ -493,7 +493,7 @@ window.addEventListener('hashchange', () => { if (window.location.hash === '#me-
 
 /* ----------------------------------------------------------- notifications */
 
-const KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', removed: 'Removed from a game' };
+const KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', removed: 'Removed from a game' };
 function timeAgo(iso) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 90) return 'just now';
