@@ -9,6 +9,7 @@
 // the heat map. Saves made before this change were in UTC (slots_fmt not "local").
 
 import { verifyUser, cfg } from './pay.js';
+import { noteAccount } from './accounts.js';
 
 const SLOT_COUNT = 336;
 const TOKEN_IDS = ['dragon', 'wizard', 'dagger', 'elf', 'bat', 'dice'];
@@ -60,7 +61,7 @@ export async function handleAvatar(request, env, corsHeaders, id) {
   });
 }
 
-export async function handleProfile(request, env, corsHeaders, origin, action, verify = verifyUser) {
+export async function handleProfile(request, env, corsHeaders, origin, action, sendEmail, verify = verifyUser) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
   if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
 
@@ -70,6 +71,9 @@ export async function handleProfile(request, env, corsHeaders, origin, action, v
 
   let user;
   try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
+
+  // First time we see a brand-new account, tell Ash.
+  await noteAccount(env, sendEmail, user, body.idToken);
 
   const self = new URL(request.url).origin;
   try {
@@ -84,14 +88,22 @@ export async function handleProfile(request, env, corsHeaders, origin, action, v
     if (action === 'save') return await saveProfile(env, user, body, corsHeaders, self);
     if (action === 'availability') return await saveAvailability(env, user, body, corsHeaders);
 
+    // Players see only their own notifications. Ash's player side shows the same single list as the
+    // DM Notifications tab (the DM ones plus Ash's own), so reading one reads both. Only for Ash's account.
+    const isAsh = user.sub === env.ADMIN_UID;
     if (action === 'notifications') {
       const mode = cfg(env).mode;
-      const items = (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? AND uid=? ORDER BY id DESC LIMIT 20').bind(mode, user.sub).all()).results;
-      const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND uid=? AND read=0').bind(mode, user.sub).first();
+      const items = isAsh
+        ? (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? AND (uid IS NULL OR uid=?) ORDER BY id DESC LIMIT 40').bind(mode, user.sub).all()).results
+        : (await env.DB.prepare('SELECT id, created_at, kind, game, title, body, read FROM notifications WHERE mode=? AND uid=? ORDER BY id DESC LIMIT 20').bind(mode, user.sub).all()).results;
+      const unread = isAsh
+        ? await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND (uid IS NULL OR uid=?) AND read=0').bind(mode, user.sub).first()
+        : await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND uid=? AND read=0').bind(mode, user.sub).first();
       return json({ items, unread: unread ? unread.n : 0 }, 200, corsHeaders);
     }
     if (action === 'notifications/read') {
-      await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND uid=? AND read=0').bind(cfg(env).mode, user.sub).run();
+      if (isAsh) await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND (uid IS NULL OR uid=?) AND read=0').bind(cfg(env).mode, user.sub).run();
+      else await env.DB.prepare('UPDATE notifications SET read=1 WHERE mode=? AND uid=? AND read=0').bind(cfg(env).mode, user.sub).run();
       return json({ ok: true }, 200, corsHeaders);
     }
 

@@ -14,6 +14,7 @@ import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { runReminders } from './reminders.js';
 import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
+import { noteAccount } from './accounts.js';
 import { handleContentAdmin, handleContentPublic, handleContentPublicList, handleContentBanner } from './content.js';
 
 const FIREBASE_JWKS_URL =
@@ -46,7 +47,7 @@ export default {
       return handleAvatar(request, env, corsHeaders, url.pathname.slice('/profile/avatar/'.length));
     }
     if (url.pathname.startsWith('/profile/')) {
-      return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length));
+      return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length), sendEmail);
     }
     if (url.pathname === '/review/public' && request.method === 'GET') {
       return handleReviewsPublic(request, env, corsHeaders);
@@ -241,6 +242,7 @@ async function handleWelcomeEmail(request, env, corsHeaders, originOk) {
   }
 
   let email;
+  let claims;
   try {
     const jwks = createRemoteJWKSet(new URL(FIREBASE_JWKS_URL));
     const { payload } = await jwtVerify(idToken, jwks, {
@@ -248,6 +250,7 @@ async function handleWelcomeEmail(request, env, corsHeaders, originOk) {
       audience: env.FIREBASE_PROJECT_ID,
     });
     email = payload.email;
+    claims = payload;
   } catch {
     return json({ error: 'Invalid or expired sign-in' }, 401, corsHeaders);
   }
@@ -255,6 +258,9 @@ async function handleWelcomeEmail(request, env, corsHeaders, originOk) {
   if (!email) {
     return json({ error: 'No email on this account' }, 400, corsHeaders);
   }
+
+  // A sign-up from the home page lands here first, so tell Ash right away.
+  await noteAccount(env, sendEmail, { sub: claims.sub, email, name: claims.name }, idToken);
 
   try {
     await sendEmail(

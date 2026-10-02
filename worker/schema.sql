@@ -120,3 +120,9 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 ALTER TABLE reviews ADD COLUMN show_public INTEGER NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS accounts_seen (
+  uid TEXT PRIMARY KEY,
+  email TEXT,
+  seen_at TEXT NOT NULL
+);
