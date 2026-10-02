@@ -104,6 +104,20 @@
   .rb-count.none { color: #ff9db0; }
   @media (max-width: 860px) { .rb { grid-template-columns: 1fr; } .rb-sessions { order: -1; } }
 
+  /* A game's own page: hide everything in Campaigns & Players except that game's boxes */
+  .game-focus > *:not(#pay-boxes):not(.game-page-head) { display: none !important; }
+  .game-focus #pay-boxes > details.camp-details:not(.focus-camp) { display: none; }
+  .game-focus .focus-camp > summary, .game-focus .focus-camp > .add-slot { display: none; }
+  .game-focus .focus-camp .camp-groups > details:not(.focus-group) { display: none; }
+  .game-focus .focus-group > summary { display: none; }
+  .game-page-head { display: flex; align-items: center; gap: 1em; flex-wrap: wrap; margin-bottom: 1.1em; }
+  .game-page-head h2 { margin: 0; font-size: 1.4rem; }
+  .pay-link-summary { cursor: pointer; list-style: none; }
+  .pay-link-summary::-webkit-details-marker { display: none; }
+  .pay-link-summary::after { content: 'Open page \u203A'; float: right; color: var(--blue-accent); font-size: .8rem; font-weight: 700; }
+  .camp-details > summary.pay-link-summary { display: flex; align-items: center; gap: 1em; }
+  .camp-details > summary.pay-link-summary::after { margin-left: auto; float: none; }
+
   /* Reviews tab */
   .rva-row { display: flex; gap: 1em; align-items: flex-start; padding: .9em 1em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; margin-top: .7em; }
   .rva-token { width: 46px; height: 46px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 1.4rem; overflow: hidden; border: 2px solid rgba(255,255,255,.16); }
@@ -1014,20 +1028,45 @@
   var gameEls = {};
   var gamesLoaded = false;
   var pendingOpenKey = null;
+  // Every game has its own page: admin.html#game=<game key>. The same boxes as before
+  // (schedule and seats, players, upcoming sessions, charges), just shown on their own
+  // instead of inside a dropdown, with a link of their own and a working Back button.
   function openGame(key) {
+    var h = 'game=' + encodeURIComponent(key);
+    if (window.location.hash.slice(1) === h) applyGameView();
+    else window.location.hash = h;
+  }
+  function applyGameView() {
+    var panel = document.querySelector('.me-panel[data-panel="campaigns"]');
+    document.querySelectorAll('.focus-camp, .focus-group').forEach(function (n) { n.classList.remove('focus-camp', 'focus-group'); });
+    var oldHead = document.getElementById('game-page-head');
+    if (oldHead) oldHead.remove();
+    panel.classList.remove('game-focus');
+    var m = window.location.hash.match(/^#game=(.+)$/);
+    if (!m || !gamesLoaded) return;
+    var key = decodeURIComponent(m[1]);
     var rec = gameEls[key];
     if (!rec) return;
+    if (window.AshAdminShowTab) window.AshAdminShowTab('campaigns');
+    panel.classList.add('game-focus');
+    rec.camp.classList.add('focus-camp');
     rec.camp.open = true;
-    if (rec.group) rec.group.open = true;
-    var target = rec.group || rec.camp;
-    // A fresh details.open needs a beat to lay out before scrollIntoView measures
-    // it correctly — and "smooth" here was landing back at scrollY 0 in testing.
-    setTimeout(function () {
-      target.scrollIntoView({ behavior: 'instant', block: 'center' });
-    }, 50);
-    target.classList.add('pay-highlight');
-    setTimeout(function () { target.classList.remove('pay-highlight'); }, 2200);
+    if (rec.group) { rec.group.classList.add('focus-group'); rec.group.open = true; }
+    var head = el('div', 'game-page-head');
+    head.id = 'game-page-head';
+    var back = el('button', 'pay-mini', '\u2190 All games');
+    back.type = 'button';
+    back.addEventListener('click', function () { window.location.hash = ''; });
+    head.append(back, el('h2', null, rec.title || key));
+    panel.insertBefore(head, panel.firstChild);
+    window.scrollTo(0, 0);
   }
+  function goToGame(key) { window.location.hash = 'game=' + encodeURIComponent(key); }
+  window.addEventListener('hashchange', applyGameView);
+  // Clicking Campaigns & Players in the side menu always brings you back to the full list.
+  document.querySelector('.me-rail-btn[data-tab="campaigns"]').addEventListener('click', function () {
+    if (/^#game=/.test(window.location.hash)) window.location.hash = '';
+  });
   window.AshAdminOpenGame = function (key) {
     if (!key) return;
     if (!gamesLoaded) { pendingOpenKey = key; return; }
@@ -1039,7 +1078,12 @@
   var pendingOpenSlug = null;
   function openCampaign(slug) {
     var match = Object.keys(gameEls).filter(function (k) { return k === slug || k.indexOf(slug + '::') === 0; })[0];
-    if (match) openGame(match);
+    if (!match) return;
+    var camp = gameEls[match].camp;
+    camp.open = true;
+    setTimeout(function () { camp.scrollIntoView({ behavior: 'instant', block: 'start' }); }, 50);
+    camp.classList.add('pay-highlight');
+    setTimeout(function () { camp.classList.remove('pay-highlight'); }, 2200);
   }
   window.AshAdminOpenCampaign = function (slug) {
     if (!slug) return;
@@ -1396,6 +1440,8 @@
             var det = document.createElement('details');
             det.className = 'pay-details';
             var gsum = document.createElement('summary');
+            gsum.className = 'pay-link-summary';
+            gsum.addEventListener('click', function (e) { e.preventDefault(); goToGame(g.key); });
             gsum.textContent = (label || g.title) + '  |  ' + g.online + ' booked online  |  Billing ' + (g.running ? 'ON' : 'off') + (g.enabled ? '' : '  |  paused on the site');
             var settingsBox = el('div', 'pay-box session-settings-box');
             var groot = el('div', 'pay-box');
@@ -1403,7 +1449,7 @@
             det.append(gsum, settingsBox, groot);
             wrap.appendChild(det);
             setup(g.key, groot)();
-            gameEls[g.key] = { camp: camp, group: det };
+            gameEls[g.key] = { camp: camp, group: det, title: meta.title + ' \u00B7 ' + (label || g.title) };
             sessionBoxes[g.key] = settingsBox;
             renderSessionSettings(g.key);
           });
@@ -1414,7 +1460,9 @@
           single.innerHTML = BOX;
           camp.append(singleSettingsBox, single);
           setup(groups[0].key, single)();
-          gameEls[groups[0].key] = { camp: camp, group: null };
+          gameEls[groups[0].key] = { camp: camp, group: null, title: meta.title };
+          sum.classList.add('pay-link-summary');
+          sum.addEventListener('click', function (e) { e.preventDefault(); goToGame(groups[0].key); });
           sessionBoxes[groups[0].key] = singleSettingsBox;
           renderSessionSettings(groups[0].key);
         }
@@ -1424,6 +1472,7 @@
         holder.appendChild(camp);
       });
       gamesLoaded = true;
+      applyGameView();
       if (pendingOpenKey) { openGame(pendingOpenKey); pendingOpenKey = null; }
       if (pendingOpenSlug) { openCampaign(pendingOpenSlug); pendingOpenSlug = null; }
     }).catch(function (err) {
