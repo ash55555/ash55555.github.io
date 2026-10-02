@@ -173,6 +173,14 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
+  .camp-details > .add-slot { border: 0; margin: 0; padding: 0 1.1em 1.2em; }
+  .camp-details > .add-slot > summary { list-style: none; display: flex; align-items: center; justify-content: center; gap: .6em; padding: .8em 1em; border: 1.5px dashed rgba(242,184,79,.5); border-radius: 14px; background: rgba(242,184,79,.05); color: var(--gold); font-weight: 800; font-size: .92rem; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  .camp-details > .add-slot > summary::-webkit-details-marker { display: none; }
+  .camp-details > .add-slot > summary::before { content: '+'; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--gold); color: #1a1230; font-size: 1.1rem; line-height: 1; font-weight: 900; transition: transform .2s ease; }
+  .camp-details > .add-slot > summary:hover { background: rgba(242,184,79,.14); border-color: var(--gold); border-style: solid; }
+  .camp-details > .add-slot[open] > summary::before { transform: rotate(45deg); }
+  .camp-details > .add-slot[open] > summary { border-style: solid; background: rgba(242,184,79,.1); }
+  .camp-details > .add-slot > div { margin-top: .9em !important; padding: 1em 1.1em; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.03); }
   .plan-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
   .plan-box h2 { font-size: 1.2rem; }
   .plan-controls { display: flex; flex-wrap: wrap; gap: .8em; align-items: center; margin: 1em 0; }
@@ -855,7 +863,7 @@
     var details = document.createElement('details');
     details.className = 'add-slot';
     var summary = document.createElement('summary');
-    summary.textContent = '+ Add a new session';
+    summary.textContent = 'Add a new session';
     details.appendChild(summary);
 
     var holder = document.createElement('div');
