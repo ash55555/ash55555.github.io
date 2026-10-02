@@ -586,14 +586,18 @@ async function adminBalance(env, corsHeaders) {
   const pending = usd ? (usd.pending_balance || 0) : 0;
   const reserve = usd ? (usd.reserve_balance || 0) : 0;
   const withdrawable = tb ? (tb.total_withdrawable_balance || 0) : balance;
-  // "Total" is every dollar Whop currently credits her for, whether it has
-  // finished clearing or not — balance alone hid money sitting as pending
-  // or in reserve right after a charge, which is what she actually wants to see.
+  // Whop sometimes settles part of what she's owed into a second ledger
+  // entry in "usdt" (a dollar-pegged stablecoin) instead of "usd" — same
+  // real dollar value, just a different bucket. The "usd" entry alone
+  // silently dropped that money from the total. Sum every currency entry
+  // Whop lists (they're each already dollar-equivalent here) instead of
+  // only the one literally labeled "usd", so nothing she's owed goes missing.
+  const total = (d.balances || []).reduce((sum, b) => sum + (b.balance || 0) + (b.pending_balance || 0) + (b.reserve_balance || 0), 0);
   return json({
     mode: c.mode,
     currency: (usd && usd.currency) || 'usd',
     balance, pending, reserve, withdrawable,
-    total: balance + pending + reserve,
+    total,
   }, 200, corsHeaders);
 }
 
