@@ -249,6 +249,7 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders);
   if (action === 'admin/balance') return await adminBalance(env, corsHeaders);
   if (action === 'admin/charges') return await adminAllCharges(env, corsHeaders);
+  if (action === 'admin/stats') return await adminStats(env, corsHeaders);
   if (action === 'admin/notifications') {
     const mode = cfg(env).mode;
     // One shared list for Ash: the DM notifications plus any addressed to Ash's own player account.
@@ -657,6 +658,20 @@ async function adminBalance(env, corsHeaders) {
 
 // Every charge across every game in one list, for the admin Finance tab —
 // the per-game "Players & payments" tab already shows this one game at a time.
+// Raw material for the Finance charts: when each player joined and left, and every
+// charge that actually brought money in. The page does the counting, so the range
+// buttons (day, week, month, year, all) never need another round trip.
+async function adminStats(env, corsHeaders) {
+  const mode = cfg(env).mode;
+  const players = (await env.DB.prepare('SELECT uid, game, joined_at, left_at FROM players WHERE mode=?').bind(mode).all()).results;
+  const charges = (await env.DB.prepare("SELECT game, session_ts, amount, refunded_amount FROM charges WHERE mode=? AND status IN ('paid','refunded')").bind(mode).all()).results;
+  return json({
+    mode,
+    players: players.map((p) => ({ uid: p.uid, game: p.game, joined: p.joined_at, left: p.left_at })),
+    charges: charges.map((c) => ({ game: c.game, ts: c.session_ts, net: Math.max(0, (c.amount || 0) - (c.refunded_amount || 0)) })),
+  }, 200, corsHeaders);
+}
+
 async function adminAllCharges(env, corsHeaders) {
   const mode = cfg(env).mode;
   let games;

@@ -230,6 +230,30 @@
   .pay-ok { color: var(--success); font-size: .74rem; font-weight: 700; }
   .fin-balance-amount { font-family: 'Poppins', 'Segoe UI', sans-serif; font-size: 2.4rem; font-weight: 800; color: var(--gold); margin: .25em 0 .1em; }
   .fin-btn-disabled { opacity: .45; filter: grayscale(60%); cursor: not-allowed; }
+  /* Finance: players and income charts */
+  .fs-box { margin-bottom: 1.6em; }
+  .fs-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .8em 1.2em; margin-bottom: 1em; }
+  .fs-head h2 { margin: 0; }
+  .fs-ranges { display: inline-flex; gap: .3em; padding: .25em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 999px; flex-wrap: wrap; }
+  .fs-range { font: inherit; font-weight: 800; font-size: .8rem; color: var(--text-muted); background: transparent; border: 0; border-radius: 999px; padding: .4em 1em; cursor: pointer; transition: background .15s ease, color .15s ease; }
+  .fs-range:hover { color: var(--text); }
+  .fs-range.on { background: var(--gold); color: #1a1230; box-shadow: 0 0 16px rgba(242,184,79,.35); }
+  .fs-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .8em; margin-bottom: 1.2em; }
+  .fs-tile { position: relative; overflow: hidden; background: linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border: 1px solid var(--border); border-radius: 14px; padding: .9em 1.05em; }
+  .fs-tile::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, var(--gold)); }
+  .fs-tile-label { font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+  .fs-tile-value { font-family: 'Poppins', 'Segoe UI', sans-serif; font-weight: 800; font-size: 1.7rem; line-height: 1.15; margin-top: .15em; color: var(--c, var(--gold)); }
+  .fs-tile-sub { font-size: .76rem; color: var(--text-muted); margin-top: .1em; }
+  .fs-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1em; }
+  .fs-chart { position: relative; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 16px; padding: 1em 1.1em .7em; }
+  .fs-chart h3 { margin: 0 0 .1em; font-size: 1.05rem; }
+  .fs-chart .pay-muted { margin: 0 0 .6em; }
+  .fs-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .fs-grid { stroke: rgba(255,255,255,.08); stroke-width: 1; }
+  .fs-axis { fill: var(--text-muted); font-size: 11px; font-family: 'Nunito', sans-serif; }
+  .fs-tip { position: absolute; z-index: 5; pointer-events: none; background: rgba(14,9,28,.95); border: 1px solid rgba(242,184,79,.5); border-radius: 10px; padding: .45em .7em; font-size: .8rem; box-shadow: 0 8px 22px rgba(0,0,0,.5); white-space: nowrap; transform: translate(-50%, -110%); opacity: 0; transition: opacity .1s ease; }
+  .fs-tip b { color: var(--gold); }
+  .fs-empty { position: absolute; inset: 3.4em 1em 2.2em; display: grid; place-items: center; color: var(--text-muted); font-size: .85rem; pointer-events: none; }
 
   .btn {
     display: inline-flex;
@@ -567,6 +591,25 @@
         </div>
         <button type="button" class="btn btn-primary" id="fin-withdraw-btn">Withdraw ↗</button>
         <p class="slot-status error" id="fin-withdraw-warn" hidden></p>
+      </div>
+
+      <div class="pay-box fs-box">
+        <div class="fs-head">
+          <h2>📈 Players and income</h2>
+          <div class="fs-ranges" id="fs-ranges" role="group" aria-label="Time range">
+            <button type="button" class="fs-range" data-r="day">Last day</button>
+            <button type="button" class="fs-range" data-r="week">Last week</button>
+            <button type="button" class="fs-range on" data-r="month">Last month</button>
+            <button type="button" class="fs-range" data-r="year">Last year</button>
+            <button type="button" class="fs-range" data-r="all">All time</button>
+          </div>
+        </div>
+        <p class="slot-status" id="fs-status"></p>
+        <div class="fs-tiles" id="fs-tiles"></div>
+        <div class="fs-charts">
+          <div class="fs-chart" id="fs-players"><h3>Players</h3><p class="pay-muted">How many different players had a seat at your tables.</p><div id="fs-players-svg"></div><div class="fs-tip"></div></div>
+          <div class="fs-chart" id="fs-income"><h3>Income</h3><p class="pay-muted">Money from played sessions, before Whop's fees.</p><div id="fs-income-svg"></div><div class="fs-tip"></div></div>
+        </div>
       </div>
 
       <div class="pay-box">
@@ -1679,11 +1722,209 @@
     });
   }
 
+  // ---------------------------------------------------------------- players and income charts
+  var fsData = null;
+  var fsRange = 'month';
+  var HOUR = 3600000, DAYMS = 86400000;
+
+  function fsFloor(d, unit) {
+    var x = new Date(d);
+    if (unit === 'hour') x.setMinutes(0, 0, 0);
+    else if (unit === 'day') x.setHours(0, 0, 0, 0);
+    else if (unit === 'week') { x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); }
+    else { x.setHours(0, 0, 0, 0); x.setDate(1); }
+    return x;
+  }
+  function fsAdd(d, unit, n) {
+    var x = new Date(d);
+    if (unit === 'hour') x.setHours(x.getHours() + n);
+    else if (unit === 'day') x.setDate(x.getDate() + n);
+    else if (unit === 'week') x.setDate(x.getDate() + 7 * n);
+    else x.setMonth(x.getMonth() + n);
+    return x;
+  }
+  function fsBuckets(range) {
+    var now = new Date();
+    var unit, count, from;
+    if (range === 'day') { unit = 'hour'; count = 24; }
+    else if (range === 'week') { unit = 'day'; count = 7; }
+    else if (range === 'month') { unit = 'day'; count = 30; }
+    else if (range === 'year') { unit = 'month'; count = 12; }
+    if (range === 'all') {
+      var first = now.getTime();
+      fsData.players.forEach(function (p) { first = Math.min(first, new Date(p.joined).getTime()); });
+      fsData.charges.forEach(function (c) { first = Math.min(first, new Date(c.ts).getTime()); });
+      var days = Math.max(1, (now.getTime() - first) / DAYMS);
+      unit = days <= 45 ? 'day' : days <= 300 ? 'week' : 'month';
+      from = fsFloor(first, unit);
+      count = 0;
+      for (var t = new Date(from); t <= now; t = fsAdd(t, unit, 1)) count++;
+      count = Math.max(count, 2);
+    } else {
+      from = fsAdd(fsFloor(now, unit), unit, -(count - 1));
+    }
+    var out = [];
+    for (var i = 0; i < count; i++) {
+      var start = fsAdd(from, unit, i);
+      out.push({ start: start, end: fsAdd(start, unit, 1) });
+    }
+    return { unit: unit, list: out };
+  }
+  function fsLabel(d, unit, long) {
+    if (unit === 'hour') return d.toLocaleTimeString(undefined, { hour: 'numeric' }) + (long ? ', ' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '');
+    if (unit === 'month') return d.toLocaleDateString(undefined, long ? { month: 'long', year: 'numeric' } : { month: 'short' });
+    if (unit === 'week' && long) return 'Week of ' + d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString(undefined, long ? { weekday: 'short', month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric' });
+  }
+  function fsNice(max) {
+    if (max <= 0) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(max) / Math.LN10));
+    var n = max / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+  }
+
+  // Everyone who has a seat at a given moment (the same person in two games counts once).
+  function fsActiveAt(t) {
+    var seen = {};
+    fsData.players.forEach(function (p) {
+      var j = new Date(p.joined).getTime();
+      var l = p.left ? new Date(p.left).getTime() : Infinity;
+      if (j <= t && l > t) seen[p.uid] = true;
+    });
+    return Object.keys(seen).length;
+  }
+
+  function fsDraw(kind, mount, values, buckets, unit, fmt, color) {
+    var W = 560, H = 230, L = 38, R = 10, T = 12, B = 26;
+    var iw = W - L - R, ih = H - T - B;
+    var max = fsNice(Math.max.apply(null, values.concat([0])));
+    var n = values.length;
+    var step = n > 1 ? iw / (n - 1) : iw;
+    var gid = 'g-' + kind;
+    var svg = '<svg class="fs-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" data-kind="' + kind + '">';
+    svg += '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + color + '" stop-opacity=".55"/><stop offset="1" stop-color="' + color + '" stop-opacity=".02"/></linearGradient></defs>';
+    var ticks = 1;
+    [4, 5, 2, 3].some(function (t) { if (max / t === Math.round(max / t)) { ticks = t; return true; } return false; });
+    for (var k = 0; k <= ticks; k++) {
+      var y = T + ih - (ih * k / ticks);
+      svg += '<line class="fs-grid" x1="' + L + '" x2="' + (W - R) + '" y1="' + y + '" y2="' + y + '"/>';
+      svg += '<text class="fs-axis" x="' + (L - 6) + '" y="' + (y + 4) + '" text-anchor="end">' + fmt(max * k / ticks, true) + '</text>';
+    }
+    var every = Math.ceil(n / 6);
+    for (var i = 0; i < n; i++) {
+      var x = kind === 'income' ? L + (iw / n) * (i + 0.5) : L + (n > 1 ? step * i : iw / 2);
+      if (i % every === 0) svg += '<text class="fs-axis" x="' + x + '" y="' + (H - 6) + '" text-anchor="middle">' + fsLabel(buckets[i].start, unit, false) + '</text>';
+    }
+    if (kind === 'income') {
+      var bw = Math.max(3, Math.min(34, (iw / n) * 0.62));
+      values.forEach(function (v, i) {
+        var h = ih * v / max;
+        var x = L + (iw / n) * (i + 0.5) - bw / 2;
+        if (v > 0) svg += '<rect x="' + x + '" y="' + (T + ih - h) + '" width="' + bw + '" height="' + Math.max(2, h) + '" rx="' + Math.min(6, bw / 2) + '" fill="url(#' + gid + ')" stroke="' + color + '" stroke-width="1.5"/>';
+        else svg += '<rect x="' + x + '" y="' + (T + ih - 2) + '" width="' + bw + '" height="2" rx="1" fill="rgba(255,255,255,.12)"/>';
+      });
+    } else {
+      var pts = values.map(function (v, i) { return [L + (n > 1 ? step * i : iw / 2), T + ih - ih * v / max]; });
+      var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+      svg += '<path d="' + line + ' L' + pts[pts.length - 1][0] + ' ' + (T + ih) + ' L' + pts[0][0] + ' ' + (T + ih) + ' Z" fill="url(#' + gid + ')"/>';
+      svg += '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" style="filter: drop-shadow(0 0 6px ' + color + ')"/>';
+      if (n <= 40) pts.forEach(function (p) { svg += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="3" fill="#1a1230" stroke="' + color + '" stroke-width="2"/>'; });
+    }
+    svg += '<line class="fs-cursor" x1="0" x2="0" y1="' + T + '" y2="' + (T + ih) + '" stroke="' + color + '" stroke-width="1" stroke-dasharray="4 4" opacity="0"/>';
+    svg += '</svg>';
+    mount.innerHTML = svg;
+    if (!values.some(function (v) { return v > 0; })) {
+      var empty = document.createElement('div');
+      empty.className = 'fs-empty';
+      empty.textContent = 'Nothing here yet for this period.';
+      mount.appendChild(empty);
+    }
+
+    var box = mount.parentNode;
+    var tip = box.querySelector('.fs-tip');
+    var el = mount.querySelector('svg');
+    var cursor = mount.querySelector('.fs-cursor');
+    el.addEventListener('mousemove', function (e) {
+      var r = el.getBoundingClientRect();
+      var vx = (e.clientX - r.left) / r.width * W;
+      var idx = kind === 'income' ? Math.floor((vx - L) / (iw / n)) : Math.round((vx - L) / (n > 1 ? step : iw));
+      idx = Math.max(0, Math.min(n - 1, idx));
+      var cx = kind === 'income' ? L + (iw / n) * (idx + 0.5) : L + (n > 1 ? step * idx : iw / 2);
+      cursor.setAttribute('x1', cx); cursor.setAttribute('x2', cx); cursor.setAttribute('opacity', '.8');
+      var yv = T + ih - ih * values[idx] / max;
+      var br = box.getBoundingClientRect();
+      tip.innerHTML = fsLabel(buckets[idx].start, unit, true) + '<br><b>' + fmt(values[idx]) + '</b>';
+      tip.style.left = (r.left - br.left + cx / W * r.width) + 'px';
+      tip.style.top = (r.top - br.top + yv / H * r.height) + 'px';
+      tip.style.opacity = 1;
+    });
+    el.addEventListener('mouseleave', function () { tip.style.opacity = 0; cursor.setAttribute('opacity', '0'); });
+  }
+
+  function fsTile(label, value, sub, color) {
+    return '<div class="fs-tile" style="--c:' + color + '"><div class="fs-tile-label">' + label + '</div><div class="fs-tile-value">' + value + '</div><div class="fs-tile-sub">' + sub + '</div></div>';
+  }
+
+  function renderStats() {
+    if (!fsData) return;
+    var b = fsBuckets(fsRange);
+    var now = Date.now();
+    var start = b.list[0].start.getTime();
+    var players = b.list.map(function (x) { return fsActiveAt(Math.min(x.end.getTime(), now) - 1); });
+    var income = b.list.map(function (x) {
+      var sum = 0, s = x.start.getTime(), e = x.end.getTime();
+      fsData.charges.forEach(function (c) { var t = new Date(c.ts).getTime(); if (t >= s && t < e && t <= now) sum += c.net; });
+      return Math.round(sum * 100) / 100;
+    });
+    var total = income.reduce(function (a, v) { return a + v; }, 0);
+    var sessions = 0;
+    fsData.charges.forEach(function (c) { var t = new Date(c.ts).getTime(); if (t >= start && t <= now && c.net > 0) sessions++; });
+    var firstJoin = {};
+    fsData.players.forEach(function (p) { var j = new Date(p.joined).getTime(); if (!(p.uid in firstJoin) || j < firstJoin[p.uid]) firstJoin[p.uid] = j; });
+    var newcomers = Object.keys(firstJoin).filter(function (u) { return firstJoin[u] >= start; }).length;
+    var peak = Math.max.apply(null, players.concat([0]));
+    var span = { day: 'in the last 24 hours', week: 'in the last 7 days', month: 'in the last 30 days', year: 'in the last 12 months', all: 'since you started' }[fsRange];
+
+    document.getElementById('fs-tiles').innerHTML =
+      fsTile('Income', money(total), span, '#7fd99a') +
+      fsTile('Paid sessions', sessions, sessions ? 'about ' + money(total / sessions) + ' each' : 'none yet', '#f2b84f') +
+      fsTile('Players now', fsActiveAt(now), 'with a seat right now', '#b79cff') +
+      fsTile('New players', newcomers, span, '#7ecbff') +
+      fsTile('Busiest moment', peak, peak === 1 ? 'player' : 'players at once', '#ff9db0');
+
+    var moneyFmt = function (v, axis) { return axis ? (v >= 1000 ? '$' + (v / 1000) + 'k' : '$' + Math.round(v * 100) / 100) : money(v); };
+    var countFmt = function (v, axis) { return axis ? String(Math.round(v)) : v + (v === 1 ? ' player' : ' players'); };
+    fsDraw('players', document.getElementById('fs-players-svg'), players, b.list, b.unit, countFmt, '#b79cff');
+    fsDraw('income', document.getElementById('fs-income-svg'), income, b.list, b.unit, moneyFmt, '#7fd99a');
+  }
+
+  function loadStats() {
+    var status = document.getElementById('fs-status');
+    status.textContent = 'Loading…';
+    status.className = 'slot-status';
+    return call('admin/stats').then(function (d) {
+      status.textContent = '';
+      fsData = d;
+      renderStats();
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    });
+  }
+  document.getElementById('fs-ranges').addEventListener('click', function (e) {
+    var btn = e.target.closest('.fs-range');
+    if (!btn) return;
+    fsRange = btn.dataset.r;
+    Array.prototype.forEach.call(document.querySelectorAll('.fs-range'), function (x) { x.classList.toggle('on', x === btn); });
+    renderStats();
+  });
+
   var finStarted = false;
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || finStarted) return;
     finStarted = true;
     loadBalance();
+    loadStats();
     loadCharges();
   });
 })();
