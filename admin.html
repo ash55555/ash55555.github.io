@@ -752,6 +752,63 @@
   // instead of it living on its own tab.
   window.AshBuildSlotRow = buildSlotRow;
 
+  // "+ Add a new session" — pushes a brand-new slot (new group) under a
+  // campaign, instead of overwriting an existing one.
+  window.AshBuildAddSlot = function (campaignSlug) {
+    var details = document.createElement('details');
+    details.className = 'add-slot';
+    var summary = document.createElement('summary');
+    summary.textContent = '+ Add a new session';
+    details.appendChild(summary);
+
+    var holder = document.createElement('div');
+    holder.style.marginTop = '0.8em';
+    var row = buildSlotRow(campaignSlug, 'new', { day: 3, hour: 18, minute: 0, offset: 1, group: '', filled: 0, max: 5, enabled: true, planId: '' });
+    row.querySelector('.btn-danger').remove();
+
+    // cloneNode drops the "overwrite this slot" click handler buildSlotRow attached.
+    var oldBtn = row.querySelector('.btn-primary');
+    var addBtn = oldBtn.cloneNode(true);
+    addBtn.textContent = 'Add session';
+    oldBtn.parentNode.replaceChild(addBtn, oldBtn);
+
+    var status = row.querySelector('.slot-status');
+    addBtn.addEventListener('click', function () {
+      var time = fromTimeValue(row.querySelector('.f-time').value);
+      var ampmHour = ((time.hour % 12) || 12);
+      var ampm = time.hour < 12 ? 'AM' : 'PM';
+      var newSlot = {
+        day: parseInt(row.querySelector('.f-day').value, 10),
+        hour: time.hour,
+        minute: time.minute,
+        offset: 1,
+        source: ampmHour + ':' + pad(time.minute) + ' ' + ampm + ' GMT+1',
+        group: row.querySelector('.f-group').value.trim(),
+        filled: parseInt(row.querySelector('.f-filled').value, 10) || 0,
+        max: parseInt(row.querySelector('.f-max').value, 10) || 1,
+        enabled: row.querySelector('.f-enabled').checked,
+        planId: row.querySelector('.f-plan').value.trim() || null
+      };
+      addBtn.disabled = true;
+      status.textContent = 'Adding…';
+      status.className = 'slot-status';
+      firebase.database().ref('campaigns/' + campaignSlug + '/slots').push(newSlot)
+        .then(function () {
+          status.textContent = 'Added! Refresh the page and it shows up in the list above.';
+          status.className = 'slot-status success';
+        })
+        .catch(function (err) {
+          status.textContent = err.message;
+          status.className = 'slot-status error';
+        })
+        .finally(function () { addBtn.disabled = false; });
+    });
+
+    holder.appendChild(row);
+    details.appendChild(holder);
+    return details;
+  };
+
   // Firebase is the source of truth for each slot's schedule/seat settings.
   // Players & Payments (built from the Worker's own game list) owns *which*
   // groups exist; this just keeps the latest slot data around and tells it
@@ -1266,6 +1323,8 @@
           sessionBoxes[groups[0].key] = singleSettingsBox;
           renderSessionSettings(groups[0].key);
         }
+
+        if (window.AshBuildAddSlot) camp.appendChild(window.AshBuildAddSlot(slug));
 
         holder.appendChild(camp);
       });
