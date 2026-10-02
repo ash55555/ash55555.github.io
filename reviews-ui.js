@@ -3,7 +3,7 @@
 // whole card and redraws itself as the player picks stars and submits.
 //
 // options:
-//   tokenNode  an element for Ash's token or picture
+//   dm         { token, avatar } for Ash's token or picture
 //   name, pronouns
 //   state      { loading } | { error } | { signedIn:false, needed }
 //              | { signedIn:true, sessions, needed, eligible, tags, review }
@@ -14,6 +14,14 @@ var AshReviews = (function () {
     'Sets the mood', 'Always prepared', 'Great storyteller', 'Welcoming to everyone', 'Brings NPCs to life',
     'Keeps the pace moving', 'Explains rules clearly', 'Fair and flexible', 'Makes me feel safe', 'Rule of cool'
   ];
+  var TOKENS = {
+    dragon: { emoji: '🐉', color: '#6b46c1' },
+    wizard: { emoji: '🧙', color: '#2f5fa8' },
+    dagger: { emoji: '🗡️', color: '#8a3b3b' },
+    elf: { emoji: '🧝', color: '#2f7a5a' },
+    bat: { emoji: '🦇', color: '#4a3a6b' },
+    dice: { emoji: '🎲', color: '#a8702f' }
+  };
   var STAR_WORDS = ['', 'Not for me', 'It was okay', 'Good', 'Great', 'Amazing'];
   var MAX_COMMENT = 600;
 
@@ -22,6 +30,22 @@ var AshReviews = (function () {
     if (cls) e.className = cls;
     if (text != null) e.textContent = text;
     return e;
+  }
+
+  function makeToken(dm) {
+    var t = el('div', 'rv-token');
+    t.setAttribute('aria-hidden', 'true');
+    if (dm && dm.avatar) {
+      var img = document.createElement('img');
+      img.src = dm.avatar;
+      img.alt = '';
+      t.appendChild(img);
+    } else {
+      var tk = TOKENS[dm && dm.token] || TOKENS.dragon;
+      t.style.background = tk.color;
+      t.textContent = tk.emoji;
+    }
+    return t;
   }
 
   function starRow(rating) {
@@ -40,7 +64,7 @@ var AshReviews = (function () {
       var state = opts.state || {};
 
       var head = el('div', 'rv-head');
-      if (opts.tokenNode) head.appendChild(opts.tokenNode);
+      head.appendChild(makeToken(opts.dm));
       var who = el('div', 'rv-who');
       var title = el('h3', null, opts.name || 'Ash');
       title.id = 'pp-dm-title';

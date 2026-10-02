@@ -474,6 +474,8 @@ async function start(user) {
   setPill();
   loadNotifBadge();
   showTab(window.location.hash === '#me-schedule' ? 'schedule' : 'profile');
+  // Runs after the page is up, so a slow or failed review check never holds the profile back.
+  loadReviewTab().then(() => { if (window.location.hash === '#me-review' && reviewState && reviewState.eligible) showTab('review'); });
 }
 
 /* ---------------------------------------------------------- sidebar tabs */
@@ -486,10 +488,55 @@ function showTab(name) {
     b.setAttribute('aria-current', String(on));
   });
   if (name === 'notifications') loadNotifications();
+  if (name === 'review') renderReviewPanel();
 }
 document.querySelectorAll('.me-rail-btn').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 // Coming from "My schedule" in the nav dropdown, on this page or from another one.
-window.addEventListener('hashchange', () => { if (window.location.hash === '#me-schedule') showTab('schedule'); });
+window.addEventListener('hashchange', () => {
+  if (window.location.hash === '#me-schedule') showTab('schedule');
+  if (window.location.hash === '#me-review' && reviewState && reviewState.eligible) showTab('review');
+});
+
+/* ------------------------------------------------------------ review Ash */
+
+// The "Review Ash" tab only appears once the Worker says this player has played
+// enough sessions with Ash. Ash's own account always sees it, so it can be tried out.
+let reviewState = null;
+async function reviewCall(action, extra) {
+  const idToken = await me.getIdToken();
+  const res = await fetch(`${WORKER}/review/${action}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...(extra || {}), idToken }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+  return data;
+}
+function paintReviewTab() {
+  const open = !!(reviewState && reviewState.eligible);
+  $('me-review-btn').hidden = !open;
+  // A gold dot while they have not reviewed yet.
+  $('me-review-dot').hidden = !(open && !reviewState.review);
+}
+async function loadReviewTab() {
+  try { reviewState = await reviewCall('status'); } catch (err) { reviewState = null; }
+  paintReviewTab();
+}
+function renderReviewPanel() {
+  if (!reviewState || typeof AshReviews === 'undefined') return;
+  const dm = reviewState.dm || {};
+  AshReviews.renderDmProfile($('me-review-body'), {
+    dm, name: dm.name || 'Ash', pronouns: dm.pronouns,
+    state: { signedIn: true, ...reviewState },
+    onSubmit: async (payload) => {
+      const saved = (await reviewCall('submit', payload)).review;
+      reviewState.review = saved;
+      paintReviewTab();
+      return saved;
+    },
+  });
+}
 
 /* ----------------------------------------------------------- notifications */
 

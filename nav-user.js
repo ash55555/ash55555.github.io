@@ -120,12 +120,9 @@ var AshNav = (function () {
         item.appendChild(el('span', 'nu-item-kind', KIND_LABEL[n.kind] || n.title));
         if (n.body) item.appendChild(el('span', 'nu-item-body', n.body));
         item.appendChild(el('span', 'nu-item-time', ago(n.created_at)));
-        if (n.kind === 'review_invite' && n.game) {
+        if (n.kind === 'review_invite') {
           item.classList.add('nu-item-link');
-          item.addEventListener('click', function () {
-            var parts = String(n.game).split('::');
-            window.location.href = 'player.html?campaign=' + encodeURIComponent(parts[0]) + (parts[1] ? '&slot=' + encodeURIComponent(parts[1]) : '') + '&review=1';
-          });
+          item.addEventListener('click', function () { window.location.href = 'profile.html#me-review'; });
         }
         list.appendChild(item);
       });

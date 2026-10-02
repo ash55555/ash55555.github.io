@@ -60,7 +60,11 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
     const mine = row ? { rating: row.rating, tags: parseTags(row.tags), comment: row.comment || '', updatedAt: row.updated_at } : null;
 
     if (action === 'status') {
-      return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, tags: REVIEW_TAGS, review: mine }, 200, corsHeaders);
+      // Ash's public card (same name, picture and pronouns anyone sees at the table).
+      const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
+      const self = new URL(request.url).origin;
+      const dm = { name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon', avatar: d && d.avatar_id ? `${self}/profile/avatar/${d.avatar_id}` : null, pronouns: (d && d.pronouns) || '' };
+      return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, tags: REVIEW_TAGS, review: mine, dm }, 200, corsHeaders);
     }
 
     if (action === 'submit') {
@@ -123,18 +127,16 @@ export async function runReviewInvites(env, sendEmail) {
       `You have played ${d.n} sessions with Ash. Would you like to rate your experience?`);
     try {
       await sendEmail(env, p.email, `You've played ${d.n} sessions with Ash. How was your game?`,
-        reviewInviteEmailHtml({ name, sessions: d.n, url: reviewUrl(p.game) }));
+        reviewInviteEmailHtml({ name, sessions: d.n, url: reviewUrl() }));
       report.invited++;
     } catch (err) { console.error('review invite email failed', p.email, err && err.message); }
   }
   return report;
 }
 
-// Where the email and the notice send the player: their game's page, with the
-// review box on Ash's profile already open.
-export function reviewUrl(gameKey) {
-  const [slug, slot] = String(gameKey || '').split('::');
-  return 'https://ashtabletop.com/player.html?campaign=' + encodeURIComponent(slug || '') + (slot ? '&slot=' + encodeURIComponent(slot) : '') + '&review=1';
+// Where the email and the notice send the player: the Review Ash tab on their profile page.
+export function reviewUrl() {
+  return 'https://ashtabletop.com/profile.html#me-review';
 }
 
 export function reviewInviteEmailHtml({ name, sessions, url }) {

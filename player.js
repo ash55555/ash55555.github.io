@@ -440,19 +440,8 @@ async function submitReview(payload) {
 async function openDmProfile() {
   const table = realGame ? (serverState || publicState) : null;
   const dm = table && table.dm;
-  let tokenNode;
-  if (dm && dm.avatar) {
-    tokenNode = document.createElement('div');
-    tokenNode.className = 'pp-token pp-token-lg';
-    const img = document.createElement('img');
-    img.src = dm.avatar;
-    img.alt = '';
-    tokenNode.appendChild(img);
-  } else {
-    tokenNode = tokenEl(dm ? dm.token : 'dragon', 'pp-token-lg');
-  }
   const draw = (state) => AshReviews.renderDmProfile($('pp-dm-body'), {
-    tokenNode, name: dm ? dm.name : 'Ash', pronouns: dm && dm.pronouns, state, onSubmit: submitReview,
+    dm: dm || { token: 'dragon' }, name: dm ? dm.name : 'Ash', pronouns: dm && dm.pronouns, state, onSubmit: submitReview,
   });
   draw({ loading: true });
   openModal('pp-dm');
