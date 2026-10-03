@@ -383,7 +383,17 @@ async function loadPublicTable() {
 
 async function loadStatus() {
   if (!realControls()) return;
-  try { applyStatus(await api('status')); } catch (err) {
+  try {
+    const status = await api('status');
+    // Someone who is already in this game goes straight to their schedule, where they can skip sessions.
+    // (Not right after joining or paying, and not when they came from the schedule's own "Game page" link.)
+    const justJoined = ['paid', 'setup_intent_id', 'payment_method_id', 'checkout_status', 'state_id', 'saved'].some((k) => query.has(k));
+    if (status.joined && !justJoined && query.get('stay') !== '1') {
+      (window.top || window).location.href = 'profile.html#me-schedule';
+      return;
+    }
+    applyStatus(status);
+  } catch (err) {
     // 403 = online booking is not open to this account yet: show the "opening soon" note instead of a Join button.
     if (err.status === 403) { bookingClosed = true; renderAll(); }
   }

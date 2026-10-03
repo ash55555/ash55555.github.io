@@ -532,7 +532,7 @@ function mgWhen(ts) {
 }
 function mgGameUrl(key) {
   const [slug, slot] = String(key).split('::');
-  return 'player.html?campaign=' + encodeURIComponent(slug) + (slot ? '&slot=' + encodeURIComponent(slot) : '');
+  return 'player.html?stay=1&campaign=' + encodeURIComponent(slug) + (slot ? '&slot=' + encodeURIComponent(slot) : '');
 }
 
 async function loadMyGames() {
