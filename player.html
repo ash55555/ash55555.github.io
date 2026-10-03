@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20261003e">
-<link rel="stylesheet" href="player.css?v=20261003b">
+<link rel="stylesheet" href="player.css?v=20261003c">
 <link rel="stylesheet" href="reviews.css?v=20261003c">
 </head>
 <body>
@@ -208,6 +208,11 @@
           <div class="pp-when-charged"><strong>You are charged when each session starts.</strong><span id="cb-charge-line"></span></div>
           <div class="pp-billing" id="pp-billing-modal"></div>
           <div id="pp-embed"></div>
+          <p class="pp-trouble" id="pp-trouble" hidden>
+            <span>Stuck on the bank verification, or it keeps spinning?</span>
+            <button type="button" class="link-button" id="pp-trouble-btn">Try the standard bank check</button>
+            <span class="pp-trouble-note">Your card is not charged either way.</span>
+          </p>
           <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span class="js-price">10</span> at the start time of each session you have not skipped, until you leave the game. Skip a session or leave any time up to 24 hours before it starts.</p>
           <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
           <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
@@ -294,6 +299,6 @@
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261003d"></script>
 <script src="reviews-ui.js?v=20261003e"></script>
-<script src="player.js?v=20261003d"></script>
+<script src="player.js?v=20261003e"></script>
 </body>
 </html>

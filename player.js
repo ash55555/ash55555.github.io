@@ -652,12 +652,13 @@ async function openRealCheckout() {
   mountCardForm(run);
 }
 
-async function mountCardForm(run) {
+async function mountCardForm(run, lenient) {
   const note = $('pp-checkout-note');
+  $('pp-trouble').hidden = true;
   note.hidden = false;
   note.textContent = 'Getting your secure card form ready...';
   try {
-    const data = await api('setup', { returnQuery: window.location.search });
+    const data = await api('setup', { returnQuery: window.location.search, lenient: lenient === true });
     await loadWhopElements();
     if (run !== checkoutRun) return;
     const elements = window.WhopElements(data.environment === 'sandbox' ? { environment: 'sandbox' } : {});
@@ -665,11 +666,40 @@ async function mountCardForm(run) {
     const element = session.create('checkout', { buyerEmail: me.email, lockBuyerEmail: true, onComplete: () => finishJoin(data.configId, run) });
     element.mount($('pp-embed'));
     note.hidden = true;
+    // Only offered on the first, strict attempt. Once the standard check is in use there is nothing lighter to offer.
+    $('pp-trouble').hidden = lenient === true;
+    watchForSavedCard(data.configId, run);
   } catch (err) {
     if (err.status === 403) { bookingClosed = true; closeModals(); renderAll(); return; }
     note.textContent = err.message;
   }
 }
+
+// Whop's card form can stay stuck on its verification screen even after the card was saved.
+// While the form is open, quietly ask the Worker every few seconds whether the card is saved, and
+// finish the join as soon as it is. Anything that is not a clear "saved" answer is ignored here.
+let savedWatch = null;
+function watchForSavedCard(configId, run) {
+  if (savedWatch) clearInterval(savedWatch);
+  const started = Date.now();
+  savedWatch = setInterval(async () => {
+    const dialog = document.getElementById('pp-checkout');
+    if (run !== checkoutRun || finishing || !dialog || dialog.hidden || Date.now() - started > 20 * 60 * 1000) {
+      if (run !== checkoutRun || !dialog || dialog.hidden || Date.now() - started > 20 * 60 * 1000) { clearInterval(savedWatch); savedWatch = null; }
+      return;
+    }
+    try {
+      const r = await api('complete', { configId, consent: true, adult: true, name: profile.name, token: profile.token });
+      if (r._status === 200 && run === checkoutRun && !finishing) { clearInterval(savedWatch); savedWatch = null; finishJoin(configId, run); }
+    } catch (err) { /* still waiting; stay quiet */ }
+  }, 4000);
+}
+
+$('pp-trouble-btn').addEventListener('click', () => {
+  const run = ++checkoutRun;
+  $('pp-embed').innerHTML = '';
+  mountCardForm(run, true);
+});
 
 // Replaces the whole booking screen with one short message (or brings it back when text is null).
 function showDone(text, title) {
