@@ -45,8 +45,9 @@
     padding-bottom: 1em;
     border-bottom: 1px solid var(--border);
   }
-  .top-bar h1 { font-size: 1.4rem; }
-  .top-bar img { width: 36px; height: 36px; border-radius: 50%; vertical-align: middle; margin-right: 0.5em; }
+  .top-bar h1 { font-size: 1.4rem; margin: 0; display: flex; align-items: center; gap: .6em; line-height: 1; }
+  .top-bar img { width: 40px; height: 40px; border-radius: 50%; margin: 0; flex: none; display: block; object-fit: cover; }
+  .top-bar-actions { display: flex; align-items: center; gap: .6em; }
 
   .pay-box { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; padding: 1.4em 1.5em; margin-bottom: 2em; }
   .pay-box h2 { font-size: 1.2rem; }
@@ -525,8 +526,103 @@
   .cc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1em; }
   .cc-count { font-size: .7rem; color: var(--text-muted); text-align: right; margin-top: .25em; }
 </style>
+<style id="admin-glass">
+  /* ===== DM side: liquid glass (admin page only) ===== */
+  :root {
+    --gold: #6ee7f7;                       /* the cyan accent replaces yellow everywhere in the admin */
+    --mix: linear-gradient(135deg, #8f6bff 0%, #33c8ff 52%, #ff6fb0 100%);
+    --g-fill: linear-gradient(135deg, rgba(160,140,255,.16) 0%, rgba(20,12,44,.42) 55%, rgba(110,150,255,.12) 100%);
+    --g-soft: linear-gradient(160deg, rgba(150,130,255,.1), rgba(14,9,32,.45));
+    --g-line: rgba(255,255,255,.16);
+    --g-edge: 1px solid rgba(255,255,255,.16);
+    --g-shine: inset 0 1.5px 0 rgba(255,255,255,.26), inset 0 -1px 0 rgba(255,255,255,.05), 0 14px 34px rgba(8,3,24,.35);
+    --g-blur: blur(22px) saturate(190%);
+    --border: rgba(255,255,255,.14);
+  }
+  body { background: #0b0716 !important; }
+  .ag-orbs { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .ag-orbs i { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .42; animation: agorb 26s ease-in-out infinite alternate; }
+  .ag-orbs i:nth-child(1) { width: 56vw; height: 56vw; left: -14vw; top: -16vw; background: radial-gradient(circle, #7b4dff, transparent 68%); }
+  .ag-orbs i:nth-child(2) { width: 48vw; height: 48vw; right: -12vw; top: 4vh; background: radial-gradient(circle, #1fb8ff, transparent 68%); animation-duration: 31s; animation-delay: -7s; }
+  .ag-orbs i:nth-child(3) { width: 46vw; height: 46vw; left: 20vw; bottom: -22vw; background: radial-gradient(circle, #ff5fa8, transparent 68%); animation-duration: 28s; animation-delay: -12s; }
+  .ag-orbs i:nth-child(4) { width: 34vw; height: 34vw; right: 6vw; bottom: 4vh; background: radial-gradient(circle, #33d6c8, transparent 70%); opacity: .25; animation-duration: 34s; animation-delay: -4s; }
+  @keyframes agorb { from { transform: translate3d(0,0,0) scale(1); } to { transform: translate3d(6vw, 5vh, 0) scale(1.18); } }
+  .wrap { position: relative; z-index: 1; }
+  @media (prefers-reduced-motion: reduce) { .ag-orbs i { animation: none; } }
+
+  /* big glass surfaces */
+  .top-bar, .pay-box, .plan-box, .announce-box, .note-box, .cc-editor, .cc-card, .camp-details, #login-screen {
+    background: var(--g-fill); border: var(--g-edge); box-shadow: var(--g-shine);
+    -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
+  }
+  .pay-box, .plan-box, .announce-box, .note-box, .cc-editor { border-radius: 24px; }
+  .top-bar { border-radius: 999px; padding: .7em 1.3em; margin-bottom: 1.6em; }
+  #login-screen { border-radius: 28px; }
+  /* glass inside glass: no second blur, just a soft tint */
+  .pay-box .pay-box, .pay-details .pay-box, .plan-box .pay-box, .cc-editor .pay-box { background: transparent; border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .pay-details { background: var(--g-soft); border: var(--g-edge); box-shadow: none; }
+  .camp-details { background: var(--g-fill); border-radius: 22px; box-shadow: var(--g-shine); }
+  .camp-details:hover, .camp-details[open] { border-color: rgba(110,231,247,.5); }
+  .camp-groups .pay-details:hover { border-color: rgba(110,231,247,.55); background: rgba(110,231,247,.07); }
+  .pay-gamebar, .rb-row, .rb-sessions, .rva-row, .plan-detail, .note-item, .fs-chart, .fs-tile, .rb-session, .pay-mini, .pay-badge, .cc-banner-btn, .pay-gamebar.running {
+    background: var(--g-soft); border: 1px solid var(--g-line);
+  }
+  .pay-gamebar.running { border-color: rgba(127,217,154,.55); }
+  .pay-badge.warn { color: #ffcf6b; border-color: rgba(255,207,107,.5); }
+  .camp-pill.warn { color: #ffcf6b; border-color: rgba(255,207,107,.5); }
+  .note-item.unread { border-color: rgba(110,231,247,.55); }
+  .note-item.has-game:hover { border-color: rgba(110,231,247,.4); }
+  .rb-session:hover { border-color: rgba(110,231,247,.5); }
+  .rb-session.selected { border-color: var(--gold); background: rgba(110,231,247,.1); }
+  .rva-tags span { background: rgba(110,231,247,.1); border-color: rgba(110,231,247,.35); }
+  .fs-tip { border-color: rgba(110,231,247,.5); }
+  .slot-sum::after { border-color: rgba(110,231,247,.5); }
+  .pay-pill, .slot-badge { box-shadow: none; }
+  .slot-badge { background: var(--mix); color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+  .camp-groups .pay-details > summary.slot-sum.paused::before { background: #ffcf6b; }
+  .slot-sum:hover::after { background: var(--mix); color: #fff; border-color: transparent; }
+  .camp-details > summary.camp-sum::after { color: #fff; background-color: rgba(14,9,32,.55); border-color: rgba(255,255,255,.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236ee7f7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  .camp-details > .add-slot > summary { border-color: rgba(110,231,247,.5); background: rgba(110,231,247,.06); }
+  .camp-details > .add-slot > summary::before { background: var(--mix); color: #fff; }
+  .camp-details > .add-slot > summary:hover, .camp-details > .add-slot[open] > summary { background: rgba(110,231,247,.14); border-color: var(--gold); }
+  .cc-new-card:hover { border-color: var(--gold); color: var(--gold); }
+  .pay-details.pay-highlight { outline-color: var(--gold); }
+
+  /* inputs */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea {
+    background: rgba(10,6,24,.5) !important; border: 1px solid rgba(255,255,255,.18) !important; color: var(--text); border-radius: 12px;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold) !important; }
+
+  /* buttons */
+  .btn { border-radius: 999px; border: 1px solid rgba(255,255,255,.22); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.25); }
+  .btn-primary, .pay-go { background: var(--mix) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.28); text-shadow: 0 1px 4px rgba(0,0,0,.35); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.3); border-radius: 999px; }
+  .btn-ghost, .pay-go.stop { background: var(--g-soft) !important; color: var(--text) !important; border: 1px solid var(--g-line); text-shadow: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.18); }
+  .btn-danger { background: rgba(224,85,111,.18); border-radius: 999px; }
+  .pay-mini { border-radius: 999px; }
+  .pay-mini:hover, .btn-ghost:hover { border-color: var(--gold); }
+  .top-bar .btn, .top-bar-actions .btn { padding: .5em 1.1em; }
+
+  /* the side menu */
+  .me-rail-btn { background: var(--g-soft); border: 1px solid var(--g-line); border-radius: 18px; -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); box-shadow: inset 0 1px 0 rgba(255,255,255,.14); }
+  .me-rail-btn:hover { color: var(--text); border-color: rgba(110,231,247,.45); background: var(--g-soft); }
+  .me-rail-btn.active { color: #fff; border: 1px solid rgba(255,255,255,.3); background: linear-gradient(135deg, rgba(143,107,255,.6), rgba(51,200,255,.42), rgba(255,111,176,.5)); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.3); }
+
+  /* finance, charts, tables */
+  .fs-range.on { background: var(--mix); color: #fff; box-shadow: none; }
+  .fs-ranges { background: rgba(14,9,32,.45); border-color: var(--g-line); }
+  .pay-table th, .pay-table td { border-bottom-color: rgba(255,255,255,.1); }
+  .note-kind.skipped_player, .note-kind.review, .note-kind.new_account, .note-kind.left { background: rgba(110,231,247,.16); color: var(--gold); }
+
+  /* the calendar sits straight on the page glass now */
+  /* on a game own page the campaign banner row stays hidden */
+  .game-focus .focus-camp > summary.camp-sum { display: none !important; }
+  .me-panel .cal-stage { background: transparent; border: 0; padding: 0; overflow: visible; border-radius: 0; }
+  .cal-orbs { display: none; }
+</style>
 </head>
 <body>
+<div class="ag-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <div class="wrap">
 
@@ -924,6 +1020,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="firebase-init.js"></script>
+<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1 && /preview=glass/.test(location.search)) document.write('<scr' + 'ipt src="admin-preview.js"></scr' + 'ipt>');</script>
 <script>
 (function () {
   // Cloudflare Worker that actually sends the emails. Placeholder until the
@@ -2062,7 +2159,7 @@
 
     document.getElementById('fs-tiles').innerHTML =
       fsTile('Income', money(total), span, '#7fd99a') +
-      fsTile('Paid sessions', sessions, sessions ? 'about ' + money(total / sessions) + ' each' : 'none yet', '#f2b84f') +
+      fsTile('Paid sessions', sessions, sessions ? 'about ' + money(total / sessions) + ' each' : 'none yet', '#6ee7f7') +
       fsTile('Players now', fsActiveAt(now), 'with a seat right now', '#b79cff') +
       fsTile('New players', newcomers, span, '#7ecbff') +
       fsTile('Busiest moment', peak, peak === 1 ? 'player' : 'players at once', '#ff9db0');
