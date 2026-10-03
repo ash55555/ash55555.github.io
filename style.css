@@ -604,6 +604,33 @@ p { margin: 0 0 1em; }
 }
 /* A full group disappears from the public pages; a list with nothing left in it goes too. */
 .session-chip.is-full-hidden { display: none !important; }
+
+/* A game the signed-in player is already in */
+.session-chip.is-joined {
+  position: relative;
+  cursor: pointer;
+  opacity: 1;
+  border-color: rgba(127, 217, 154, 0.6);
+  background: linear-gradient(100deg, rgba(127, 217, 154, 0.16), rgba(127, 217, 154, 0.03));
+  box-shadow: 0 0 22px rgba(127, 217, 154, 0.14);
+}
+.session-chip.is-joined:hover, .session-chip.is-joined:focus-visible {
+  background: linear-gradient(100deg, rgba(127, 217, 154, 0.24), rgba(127, 217, 154, 0.06));
+  border-color: #7fd99a;
+}
+.session-chip.is-joined .icon { color: #7fd99a; }
+.session-chip.is-joined .session-sub { color: #b7f0c9; }
+.session-chip.is-joined .session-seats { color: var(--text-muted); }
+.session-chip.is-joined .session-chip-cta {
+  display: inline-flex; align-items: center; gap: 0.4em; align-self: center;
+  color: #0f2a1a; background: #7fd99a; border: 0; border-radius: 999px;
+  padding: 0.35em 0.95em; font-weight: 900; white-space: nowrap;
+  box-shadow: 0 0 16px rgba(127, 217, 154, 0.45);
+}
+.session-chip.is-joined .session-chip-cta::before {
+  content: ''; width: 0.95em; height: 0.95em; flex: none;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.2 6.4 4.9 9 9.8 3.2' fill='none' stroke='%230f2a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 .session-list:not(:has(.session-chip:not(.is-full-hidden))) { display: none; }
 
 #paypal-button-slot {

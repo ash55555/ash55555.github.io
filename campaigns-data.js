@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chip.classList.add('is-full-hidden');
       }
     }
+    if (window.AshJoined) window.AshJoined.mark(chip);
   }
 
   function hideChip(chip) {

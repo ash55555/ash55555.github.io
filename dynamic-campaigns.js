@@ -124,6 +124,7 @@
         if (ctaEl) ctaEl.textContent = 'Full';
         chip.classList.add('is-full-hidden'); // a full group is not shown to visitors at all
       }
+      if (window.AshJoined) window.AshJoined.mark(chip);
     }
     try {
       firebase.database().ref('campaigns/' + slug + '/slots/default').on('value', function (snap) {
