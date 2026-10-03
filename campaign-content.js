@@ -33,6 +33,16 @@
     if (el) el.setAttribute('content', value);
   }
 
+  // A campaign without a hand-made theme (anything added after the first five) gets its page colors
+  // from its own banner picture, the same way the original themes were chosen.
+  var needsTheme = document.body.className.indexOf('theme-') === -1 && !!window.AshCampaignColors;
+  if (needsTheme) {
+    try {
+      var cached = JSON.parse(localStorage.getItem('ash-campaign-colors-v1') || '{}')[slug];
+      if (cached && typeof cached.hue === 'number') window.AshCampaignColors.applyPageTheme(cached.hue);
+    } catch (e) { /* no cached color yet */ }
+  }
+
   fetch(WORKER + '/content/public?slug=' + encodeURIComponent(slug))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
@@ -51,6 +61,7 @@
         im.hidden = false;
         var ph = document.getElementById('cc-banner-placeholder');
         if (ph) ph.hidden = true;
+        if (needsTheme) window.AshCampaignColors.learn(slug, d.bannerUrl, function (color, hue) { window.AshCampaignColors.applyPageTheme(hue); });
       }
       paragraphs(document.getElementById('cc-intro'), d.intro, true);
       paragraphs(document.getElementById('cc-world'), d.world, false);

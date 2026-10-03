@@ -725,6 +725,33 @@
         @media (max-width: 1100px) { .cal-week { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
         @media (max-width: 700px) { .cal-week { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cal-cell { min-height: 80px; } .cal-chip span { display: none; } }
         @media (prefers-reduced-motion: reduce) { .cal-orbs i, .cal-ev.is-next { animation: none; } }
+
+        /* ---- v3: no white halos, the colorful mix instead of yellow ---- */
+        .cal-stage { --mix: linear-gradient(135deg, #8f6bff 0%, #33c8ff 52%, #ff6fb0 100%); }
+        .cal-glass, .cal-next, .cal-col, .cal-cell { box-shadow: 0 14px 34px rgba(8,3,24,.35); }
+
+        /* today: a colorful glass column with a gradient edge, no glow */
+        .cal-col.today, .cal-cell.today { position: relative; border-color: transparent; background: linear-gradient(160deg, rgba(123,77,255,.34), rgba(31,184,255,.14) 55%, rgba(255,95,168,.26)); box-shadow: 0 14px 34px rgba(8,3,24,.35); }
+        .cal-col.today::before, .cal-cell.today::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: var(--mix); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+        .cal-col.today .cal-col-head strong { color: #fff; }
+        .cal-col.today .cal-col-head span.cal-today-badge, .cal-today-badge { color: #fff; background: var(--mix); box-shadow: none; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+        .cal-cell.today .cal-num { background: var(--mix); color: #fff; box-shadow: none; }
+
+        /* every former yellow button */
+        .cal-seg button.on { background: var(--mix); color: #fff; box-shadow: none; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+        .cal-next-label { background: var(--mix); color: #fff; border-color: rgba(255,255,255,.3); box-shadow: none; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
+        .cal-nav:hover, .cal-today:hover { border-color: rgba(255,255,255,.55); color: #fff; }
+
+        /* sessions: lift and a colored edge on hover, no light halo */
+        .cal-ev { box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 8px 18px rgba(8,3,24,.35); }
+        .cal-ev:hover, .cal-ev:focus-visible { border-color: color-mix(in srgb, var(--c) 40%, #fff); box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 14px 26px rgba(8,3,24,.5); }
+        .cal-chip { box-shadow: none; }
+        .cal-chip:hover, .cal-chip:focus-visible { border-color: color-mix(in srgb, var(--c) 40%, #fff); box-shadow: 0 6px 14px rgba(8,3,24,.45); }
+        .cal-ev.is-next { border: 1.5px solid #7fd99a; box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 8px 18px rgba(8,3,24,.35); animation: none; }
+        .cal-chip.is-next { border: 1.5px solid #7fd99a; box-shadow: none; }
+        .cal-countdown { box-shadow: none; }
+        .cal-countdown b { text-shadow: none; }
+        .cal-legend i { box-shadow: none; }
       </style>
       <div class="cal-stage">
         <div class="cal-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -2783,6 +2810,7 @@
   firebase.auth().onAuthStateChanged(function (user) { if (user) load(); });
 })();
 </script>
+<script src="campaign-colors.js?v=20261004a"></script>
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
@@ -2797,11 +2825,6 @@
     'crooked-moon': 'medie/daaeef05-e995-40b5-84d6-4d6f5670fa47.webp',
     'witchlight': 'medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp'
   };
-  var COLORS = {
-    'crooked-moon': '#35d0c4', 'curse-of-strahd': '#ff6b6b', 'flying-city': '#7ecbff',
-    'ravenloft-undead-survival': '#ffa24d', 'witchlight': '#b79cff', 'the-vampiric-dynasty': '#ee6aa0'
-  };
-  var SPARE = ['#f2b84f', '#7fd99a', '#ff9db0', '#9fb6ff', '#e6a8ff'];
 
   var games = [];
   var view = 'week';
@@ -2810,11 +2833,17 @@
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function slugOf(key) { return String(key).split('::')[0]; }
-  function colorOf(key) {
-    var s = slugOf(key);
-    if (COLORS[s]) return COLORS[s];
-    var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-    return SPARE[h % SPARE.length];
+  // Same color as the campaign's blog page; a campaign added later learns its color from its own banner.
+  function colorOf(key) { return window.AshCampaignColors ? window.AshCampaignColors.accent(slugOf(key)) : '#9fb6ff'; }
+  function learnColors() {
+    if (!window.AshCampaignColors) return;
+    fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/public-list')
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        ((d && d.campaigns) || []).forEach(function (c) {
+          window.AshCampaignColors.learn(c.slug, c.bannerUrl, function () { if (games.length) render(); });
+        });
+      }).catch(function () { /* the fallback colors stay */ });
   }
   function splitTitle(g) {
     var parts = String(g.title || g.key).split(', ');
@@ -3070,7 +3099,7 @@
   }
 
   var started = false;
-  function start() { if (started) return; started = true; load(); }
+  function start() { if (started) return; started = true; load(); learnColors(); }
   if (PREVIEW) {
     document.getElementById('cal-preview-note').hidden = false;
     document.getElementById('login-screen').style.display = 'none';
