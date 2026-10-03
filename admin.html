@@ -167,6 +167,13 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
+  .seat-bar { display: flex; align-items: center; gap: 1em; margin: .4em 0 1em; padding: .8em 1.1em; border: 1px solid rgba(127,217,154,.45); border-radius: 14px; background: linear-gradient(90deg, rgba(127,217,154,.14), rgba(127,217,154,.03)); }
+  .seat-bar.full { border-color: rgba(255,154,154,.5); background: linear-gradient(90deg, rgba(255,154,154,.16), rgba(255,154,154,.03)); }
+  .seat-bar-num { font-family: 'Poppins', 'Segoe UI', sans-serif; font-weight: 900; font-size: 1.8rem; line-height: 1; color: #7fd99a; }
+  .seat-bar.full .seat-bar-num { color: #ff9a9a; }
+  .seat-bar-text { display: flex; flex-direction: column; gap: .1em; }
+  .seat-bar-text strong { font-size: .95rem; }
+  .seat-bar-text span { font-size: .8rem; color: var(--text-muted); }
   /* Players & Payments: wide cover-art rows, each opening to its time slots */
   .camp-details > summary.camp-sum { position: relative; isolation: isolate; display: flex; align-items: center; gap: 1em; min-height: 156px; padding: 1.2em 1.5em; background: #1a1230 center / cover no-repeat; }
   .camp-details > summary.camp-sum::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(14,9,28,.9) 0%, rgba(14,9,28,.55) 38%, rgba(14,9,28,0) 78%), linear-gradient(0deg, rgba(14,9,28,.45), transparent 55%); }
@@ -818,7 +825,7 @@
     var groupField = field('Group label (optional)', '<input type="text" class="f-group" value="' + (slot.group || '') + '" placeholder="e.g. Group A">');
     fields.appendChild(groupField);
 
-    var filledField = field('Players NOT booked online (PayPal)', '<input type="number" class="f-filled" min="0" value="' + (slot.filled != null ? slot.filled : 0) + '">');
+    var filledField = field('Players still on PayPal (not booked on the site)', '<input type="number" class="f-filled" min="0" value="' + (slot.filled != null ? slot.filled : 0) + '">');
     fields.appendChild(filledField);
 
     var maxField = field('Max players', '<input type="number" class="f-max" min="1" value="' + (slot.max != null ? slot.max : 5) + '">');
@@ -1201,6 +1208,7 @@
   // (window.AshCampaignsData); this just slots that same form in right above
   // each group's roster box, keyed off the same g.key used everywhere else.
   var sessionBoxes = {};
+  var onlineByKey = {};
   function slugSlotFromKey(key) {
     var idx = key.indexOf('::');
     return idx === -1 ? { slug: key, slotId: 'default' } : { slug: key.slice(0, idx), slotId: key.slice(idx + 2) };
@@ -1217,6 +1225,18 @@
       box.appendChild(el('p', 'pay-muted', data == null ? 'Loading…' : 'No schedule saved yet for this group.'));
       return;
     }
+    // The big number Ash actually cares about: every seat in use, online and PayPal together.
+    var online = onlineByKey[key] || 0;
+    var onPaypal = slot.filled || 0;
+    var max = typeof slot.max === 'number' ? slot.max : 0;
+    var taken = online + onPaypal;
+    var bar = el('div', 'seat-bar' + (max && taken >= max ? ' full' : ''));
+    bar.appendChild(el('span', 'seat-bar-num', taken + ' / ' + max));
+    var txt = el('span', 'seat-bar-text');
+    txt.appendChild(el('strong', null, 'Seats taken'));
+    txt.appendChild(el('span', null, online + ' booked on the site + ' + onPaypal + ' still on PayPal'));
+    bar.appendChild(txt);
+    box.appendChild(bar);
     box.appendChild(window.AshBuildSlotRow(parts.slug, parts.slotId, slot));
   }
   window.AshOnCampaignsUpdate = function () {
@@ -1558,6 +1578,7 @@
           setup(g.key, groot)();
           gameEls[g.key] = { camp: camp, group: det, title: groups.length > 1 ? meta.title + ' \u00B7 ' + (label || g.title) : meta.title };
           sessionBoxes[g.key] = settingsBox;
+          onlineByKey[g.key] = g.online;
           renderSessionSettings(g.key);
         });
         camp.appendChild(wrap);
