@@ -597,6 +597,9 @@ p { margin: 0 0 1em; }
 .session-chip.is-full .session-chip-cta {
   color: var(--text-muted);
 }
+/* A full group disappears from the public pages; a list with nothing left in it goes too. */
+.session-chip.is-full-hidden { display: none !important; }
+.session-list:not(:has(.session-chip:not(.is-full-hidden))) { display: none; }
 
 #paypal-button-slot {
   margin-top: 1rem;

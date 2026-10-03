@@ -122,6 +122,7 @@
       if (remaining <= 0) {
         chip.classList.add('is-full'); chip.disabled = true;
         if (ctaEl) ctaEl.textContent = 'Full';
+        chip.classList.add('is-full-hidden'); // a full group is not shown to visitors at all
       }
     }
     try {
@@ -149,6 +150,7 @@
         if (subEl) subEl.textContent = 'Weekly session, shown in your time zone';
         chip.disabled = false;
         chip.classList.remove('is-full');
+        chip.classList.remove('is-full-hidden');
         onlineSeatsPromise.then(applySeats);
       }, function () { /* no live time yet; the placeholder stays as-is */ });
     } catch (e) { /* Firebase not configured yet */ }

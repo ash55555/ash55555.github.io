@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     chip.disabled = false;
     chip.classList.remove('is-full');
+    chip.classList.remove('is-full-hidden');
     if (ctaEl) ctaEl.textContent = 'Join';
 
     if (slot.enabled === false) {
@@ -95,6 +96,8 @@ document.addEventListener('DOMContentLoaded', function () {
         chip.classList.add('is-full');
         chip.disabled = true;
         if (ctaEl) ctaEl.textContent = 'Full';
+        // A full group is not shown to visitors at all (it stays in the admin as usual).
+        chip.classList.add('is-full-hidden');
       }
     }
   }
