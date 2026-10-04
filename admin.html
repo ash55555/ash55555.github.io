@@ -168,6 +168,7 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
+  .field-hidden { display: none !important; }
   .seat-bar { display: flex; align-items: center; gap: 1em; margin: .4em 0 1em; padding: .8em 1.1em; border: 1px solid rgba(127,217,154,.45); border-radius: 14px; background: linear-gradient(90deg, rgba(127,217,154,.14), rgba(127,217,154,.03)); }
   .seat-bar.full { border-color: rgba(255,154,154,.5); background: linear-gradient(90deg, rgba(255,154,154,.16), rgba(255,154,154,.03)); }
   .seat-bar-num { font-family: 'Poppins', 'Segoe UI', sans-serif; font-weight: 900; font-size: 1.8rem; line-height: 1; color: #7fd99a; }
@@ -683,8 +684,6 @@
       <h2>🔔 Notifications <span class="note-new" id="note-new" hidden></span></h2>
       <p class="note" id="note-sub">New players, players who leave, failed charges and session reminders show up here.</p>
       <button type="button" class="pay-mini" id="note-read">Mark all as read</button>
-      <button type="button" class="pay-mini" id="note-test">Send a test notification</button>
-      <span class="pay-muted" id="note-test-status"></span>
       <ul class="note-list" id="note-list"></ul>
     </div>
 
@@ -1068,15 +1067,18 @@
     fields.appendChild(timeField);
 
     var groupField = field('Group label (optional)', '<input type="text" class="f-group" value="' + (slot.group || '') + '" placeholder="e.g. Group A">');
+    groupField.classList.add('field-hidden');
     fields.appendChild(groupField);
 
     var filledField = field('Players still on PayPal (not booked on the site)', '<input type="number" class="f-filled" min="0" value="' + (slot.filled != null ? slot.filled : 0) + '">');
+    filledField.classList.add('field-hidden');
     fields.appendChild(filledField);
 
     var maxField = field('Max players', '<input type="number" class="f-max" min="1" value="' + (slot.max != null ? slot.max : 5) + '">');
     fields.appendChild(maxField);
 
     var planField = field('PayPal plan ID (optional)', '<input type="text" class="f-plan" value="' + (slot.planId || '') + '" placeholder="P-XXXXXXXX">');
+    planField.classList.add('field-hidden');
     fields.appendChild(planField);
 
     var enabledWrap = document.createElement('div');
@@ -1165,7 +1167,10 @@
 
     var holder = document.createElement('div');
     holder.style.marginTop = '0.8em';
-    var row = buildSlotRow(campaignSlug, 'new', { day: 3, hour: 18, minute: 0, offset: 1, group: '', filled: 0, max: 5, enabled: true, planId: '' });
+    var existing = window.AshCampaignsData && window.AshCampaignsData[campaignSlug] && window.AshCampaignsData[campaignSlug].slots;
+    var count = existing ? Object.keys(existing).length : 0;
+    var autoGroup = count >= 1 ? 'Group ' + String.fromCharCode(65 + Math.min(count, 25)) : '';
+    var row = buildSlotRow(campaignSlug, 'new', { day: 3, hour: 18, minute: 0, offset: 1, group: autoGroup, filled: 0, max: 5, enabled: true, planId: '' });
     row.querySelector('.btn-danger').remove();
 
     // cloneNode drops the "overwrite this slot" click handler buildSlotRow attached.
@@ -1485,7 +1490,7 @@
     bar.appendChild(el('span', 'seat-bar-num', taken + ' / ' + max));
     var txt = el('span', 'seat-bar-text');
     txt.appendChild(el('strong', null, 'Seats taken'));
-    txt.appendChild(el('span', null, online + ' booked on the site + ' + onPaypal + ' still on PayPal'));
+    txt.appendChild(el('span', null, onPaypal ? online + ' booked on the site + ' + onPaypal + ' still on PayPal' : online + ' booked on the site'));
     bar.appendChild(txt);
     box.appendChild(bar);
     box.appendChild(window.AshBuildSlotRow(parts.slug, parts.slotId, slot));
@@ -1652,7 +1657,7 @@
       var chg = { on: ['Charging: ON', 'good'], dry: ['Charging: DRY RUN (charges nothing)', 'warn'], off: ['Charging: OFF', 'bad'] }[data.charging] || ['Charging: ' + data.charging, 'warn'];
       badges.append(mode, el('span', 'pay-badge ' + chg[1], chg[0]),
         el('span', 'pay-badge', data.game.title),
-        el('span', 'pay-badge', 'Seats ' + data.seats.filled + ' of ' + data.seats.max + ' (' + data.game.legacyFilled + ' still on PayPal)'),
+        el('span', 'pay-badge', 'Seats ' + data.seats.filled + ' of ' + data.seats.max + (data.game.legacyFilled ? ' (' + data.game.legacyFilled + ' still on PayPal)' : '')),
         el('span', 'pay-badge', money(data.game.price) + ' per session'));
 
       var bar = root.querySelector('.pay-gamebar');
@@ -2272,11 +2277,6 @@
   }
   function load() { return call('admin/notifications').then(render).catch(function (err) { listEl.innerHTML = ''; var li = document.createElement('li'); li.className = 'pay-muted'; li.textContent = err.message; listEl.appendChild(li); }); }
   document.getElementById('note-read').addEventListener('click', function () { call('admin/notifications/read').then(load); });
-  document.getElementById('note-test').addEventListener('click', function () {
-    var st = document.getElementById('note-test-status');
-    st.textContent = 'Sending...';
-    call('admin/notifications/test').then(function () { st.textContent = 'Sent. Check your inbox (and Spam) in a moment.'; return load(); }).catch(function (e) { st.textContent = e.message; });
-  });
   var go = false;
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || go) return;
