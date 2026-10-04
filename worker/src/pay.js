@@ -18,7 +18,7 @@ const FIREBASE_JWKS_URL =
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
-const SKIP_CUTOFF_MS = 24 * HOUR_MS;
+const SKIP_CUTOFF_MS = 1 * HOUR_MS; // players can skip or undo a skip up to one hour before a session
 const MAX_ATTEMPTS = 3;
 const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
@@ -465,7 +465,7 @@ async function doSkip(ctx, skip) {
   const valid = upcoming(game, now, 26).some((d) => iso(d) === ts);
   if (!valid) return json({ error: 'That session is not available to change.' }, 400, corsHeaders);
   if (new Date(ts).getTime() - now.getTime() < SKIP_CUTOFF_MS) {
-    return json({ error: 'It is less than 24 hours before this session, so it is too late to change it here. Please message Ash.' }, 409, corsHeaders);
+    return json({ error: 'It is less than an hour before this session, so it is too late to change it here. Please message Ash.' }, 409, corsHeaders);
   }
   if (skip) {
     const ins = await env.DB.prepare('INSERT OR IGNORE INTO skips (mode, game, uid, session_ts, by, created_at) VALUES (?,?,?,?,?,?)')
@@ -500,7 +500,7 @@ async function doLeave(ctx) {
   const next = nextStart(game, now);
   const nextSkipped = next && await env.DB.prepare('SELECT 1 AS x FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(ctx.mode, gameKey, user.sub, iso(next)).first();
   if (next && !nextSkipped && next.getTime() - now.getTime() < SKIP_CUTOFF_MS) {
-    return json({ error: 'It is less than 24 hours before the next session, so it is too late to leave before it. Please message Ash.' }, 409, corsHeaders);
+    return json({ error: 'It is less than an hour before the next session, so it is too late to leave before it. Please message Ash.' }, 409, corsHeaders);
   }
   await env.DB.prepare("UPDATE players SET status='left', left_at=? WHERE mode=? AND game=? AND uid=?").bind(iso(now), ctx.mode, gameKey, user.sub).run();
   await notify(env, ctx.sendEmail, ctx.mode, 'left', gameKey, `${me.name || me.email} left ${game.title}`, `${me.email} left the game and will not be charged again.`);
@@ -1022,7 +1022,7 @@ export function skipEmailHtml({ name, game, ts, tz, by }) {
     : `Hi ${escapeHtml(name || 'there')}, you skipped your session on <strong style="color:#ffffff">${escapeHtml(w.day)}</strong>. Got it!`;
   const closing = byDm
     ? 'Think this is a mistake? Message Ash on Discord and it gets sorted out.'
-    : 'Changed your mind? You can undo this on your player page up to 24 hours before the session.';
+    : 'Changed your mind? You can undo this on your player page up to 1 hour before the session.';
   return `<!doctype html><html><body style="margin:0;background:#120b1c;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
    <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#1c1230;border-radius:20px;overflow:hidden;border:1px solid #3a2a5c">

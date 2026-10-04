@@ -34,6 +34,8 @@ function playerEmail({ name, game, ts, tz, msLeft }) {
         <p style="margin:0;font-size:20px;color:#f2b84f;font-weight:700">${escapeHtml(w.time)}</p>
       </td></tr></table>
       ${w.known ? '' : '<p style="margin:10px 0 0;font-size:13px;color:#b9a9d9">Times are in UTC. Your player page shows the game in your own time zone.</p>'}
+      <p style="margin:18px 0 0;font-size:14px;color:#b9a9d9">If billing is on for this game, your card is charged $${escapeHtml(String(game.price))} when the session starts. Can't make it? You can skip this session any time up to 1 hour before it starts, and you won't be charged.</p>
+      <p style="margin:16px 0 0"><a href="https://ashtabletop.com/profile.html#me-schedule" style="display:inline-block;background:#f2b84f;color:#241407;font-weight:700;text-decoration:none;padding:12px 22px;border-radius:999px">See my schedule or skip</a></p>
       <p style="margin:22px 0 0">See you at the table. Roll well!</p>
     </td></tr>
    </table>

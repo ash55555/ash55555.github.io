@@ -638,7 +638,7 @@ function renderMyGames() {
       } else if (s.skippedBy === 'admin') {
         box.appendChild(mgEl('div', 'mg-note', 'Message Ash to change this.'));
       } else {
-        box.appendChild(mgEl('div', 'mg-note', 'Under 24 hours away. Message Ash to change it.'));
+        box.appendChild(mgEl('div', 'mg-note', 'Under 1 hour away. Message Ash to change it.'));
       }
       sessions.appendChild(box);
     });
@@ -677,13 +677,13 @@ function previewGames() {
       const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, (utcHour + 24) % 24, 0));
       if (d.getUTCDay() === targetDay && d.getTime() > now.getTime()) sessions.push(d);
     }
-    return { key, title, sessions: sessions.map((d) => ({ ts: d.toISOString(), skipped: false, skippedBy: null, canChange: d.getTime() - now.getTime() >= 24 * 3600 * 1000 })) };
+    return { key, title, sessions: sessions.map((d) => ({ ts: d.toISOString(), skipped: false, skippedBy: null, canChange: d.getTime() - now.getTime() >= 3600 * 1000 })) };
   });
   // A few sample states so every look is on screen: one skipped by the player, one skipped by Ash, one too close to change.
   const by = (k) => games.find((g) => g.key === k);
   by('crooked-moon::A').sessions[1].skipped = true; by('crooked-moon::A').sessions[1].skippedBy = 'player';
   by('curse-of-strahd::B').sessions[0].skipped = true; by('curse-of-strahd::B').sessions[0].skippedBy = 'admin'; by('curse-of-strahd::B').sessions[0].canChange = false;
-  const soon = new Date(now.getTime() + 10 * 3600 * 1000).toISOString();
+  const soon = new Date(now.getTime() + 40 * 60 * 1000).toISOString();
   by('ravenloft-undead-survival').sessions[0] = { ts: soon, skipped: false, skippedBy: null, canChange: false };
   return games;
 }
