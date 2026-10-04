@@ -146,6 +146,9 @@
 .pp-trouble { margin: 1em 0 0; padding: 0.8em 1em; border: 1px dashed rgba(242, 184, 79, 0.5); border-radius: 12px; background: rgba(242, 184, 79, 0.06); font-size: 0.85rem; color: var(--text-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 0.3em 0.8em; }
 .pp-trouble { border: 1.5px solid rgba(242, 184, 79, 0.7); background: rgba(242, 184, 79, 0.1); }
 .pp-trouble > span:first-child { flex-basis: 100%; color: var(--text); font-weight: 700; font-size: 0.92rem; }
+/* Whop's card form can stretch over the area above it, so the help box sits on a higher layer to stay clickable. */
+.pp-trouble { position: relative; z-index: 5; }
+#pp-embed { position: relative; z-index: 1; }
 .pp-trouble .pp-trouble-btn { flex: 0 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: .5em; margin: 0.3em auto 0.1em; min-width: min(100%, 280px); padding: 0.8em 1.6em; font-size: 1rem; font-weight: 800; border-radius: 999px; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.35), inset 0 -2px 0 rgba(0,0,0,.18); transition: transform .12s ease, filter .12s ease; }
 .pp-trouble .pp-trouble-btn::after { content: "\2192"; font-weight: 900; }
 .pp-trouble .pp-trouble-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
