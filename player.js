@@ -669,9 +669,16 @@ async function openRealCheckout() {
   mountCardForm(run);
 }
 
+// The "stuck on the bank check?" box. Its starting content is kept so it can be put back after a message.
+const troubleBox = $('pp-trouble');
+const TROUBLE_HTML = troubleBox.innerHTML;
+const TROUBLE_BUTTON_HTML = '<button type="button" class="btn btn-primary pp-trouble-btn" id="pp-trouble-btn">Try the standard bank check</button>';
+function showTrouble(html) { troubleBox.innerHTML = html; troubleBox.hidden = false; }
+
 async function mountCardForm(run, lenient) {
   const note = $('pp-checkout-note');
-  $('pp-trouble').hidden = true;
+  if (lenient === true) showTrouble('<span>Loading the standard bank check...</span>');
+  else { troubleBox.hidden = true; troubleBox.innerHTML = TROUBLE_HTML; }
   note.hidden = false;
   note.textContent = 'Getting your secure card form ready...';
   try {
@@ -683,12 +690,14 @@ async function mountCardForm(run, lenient) {
     const element = session.create('checkout', { buyerEmail: me.email, lockBuyerEmail: true, onComplete: () => finishJoin(data.configId, run) });
     element.mount($('pp-embed'));
     note.hidden = true;
-    // Only offered on the first, strict attempt. Once the standard check is in use there is nothing lighter to offer.
-    $('pp-trouble').hidden = lenient === true;
+    // The button is only offered on the first, strict attempt. After pressing it the player is told what changed.
+    if (lenient === true) showTrouble('<span>The standard bank check is on. Please enter your card details again in the form below.</span>');
+    else troubleBox.hidden = false;
     watchForSavedCard(data.configId, run);
   } catch (err) {
     if (err.status === 403) { bookingClosed = true; closeModals(); renderAll(); return; }
     note.textContent = err.message;
+    if (lenient === true) showTrouble('<span>Sorry, the standard check could not start (' + (err.message || 'please try again') + '). You can try the button again.</span>' + TROUBLE_BUTTON_HTML);
   }
 }
 
@@ -712,7 +721,11 @@ function watchForSavedCard(configId, run) {
   }, 4000);
 }
 
-$('pp-trouble-btn').addEventListener('click', () => {
+troubleBox.addEventListener('click', (e) => {
+  if (!e.target.closest('#pp-trouble-btn')) return;
+  const btn = e.target.closest('#pp-trouble-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading...';
   const run = ++checkoutRun;
   $('pp-embed').innerHTML = '';
   mountCardForm(run, true);
