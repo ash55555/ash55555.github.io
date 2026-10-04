@@ -713,6 +713,10 @@ function showDone(text, title) {
 }
 
 let finishing = false;
+// Once a seat is saved, the player goes straight to their schedule (no refresh needed).
+let afterJoin = false;
+function goToSchedule() { (window.top || window).location.href = 'profile.html#me-schedule'; }
+
 async function finishJoin(configId, run, setupIntentId) {
   if (finishing || (run !== undefined && run !== checkoutRun)) return;
   finishing = true;
@@ -729,8 +733,11 @@ async function finishJoin(configId, run, setupIntentId) {
     applyStatus(status);
     $('pp-embed').innerHTML = '';
     $('pp-consent').hidden = true;
-    showDone('Your card is saved and your seat is confirmed. See you at the table!', "You're all set!");
+    showDone('Your card is saved and your seat is confirmed. Taking you to your schedule...', "You're all set!");
+    afterJoin = true;
+    $('pp-done-close').textContent = 'See my schedule';
     $('pp-done-close').hidden = false;
+    setTimeout(goToSchedule, 2200);
   } catch (err) {
     showDone(err.message, 'Something went wrong');
     $('pp-done-close').textContent = 'Close';
@@ -742,7 +749,7 @@ async function finishJoin(configId, run, setupIntentId) {
 
 $('pp-checkout-go').addEventListener('click', () => { markJoined(); });
 $('pp-paid-done').addEventListener('click', closeModals);
-$('pp-done-close').addEventListener('click', closeModals);
+$('pp-done-close').addEventListener('click', () => { if (afterJoin) goToSchedule(); else closeModals(); });
 $('pp-leave-btn').addEventListener('click', () => ask('Leave ' + TEST_GAME.title + '?', "You won't be charged again and your seat opens up for someone else.", async () => {
   if (realControls()) {
     try { await api('leave'); } catch (err) { toast(err.message); return; }
