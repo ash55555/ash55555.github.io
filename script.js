@@ -312,7 +312,6 @@ function setupSessionButtons() {
         minute: chip.dataset.minute || "0",
         offset: chip.dataset.offset || "1",
       });
-      if (!isMobile) params.set("embed", "1");
       if (new URLSearchParams(window.location.search).get("demo") === "1") params.set("demo", "1");
       const seatsText = (chip.querySelector(".session-seats") || {}).textContent || "";
       const seatsMatch = seatsText.match(/\((\d+)\/(\d+)\)/);
@@ -322,8 +321,7 @@ function setupSessionButtons() {
       }
       const base = window.location.pathname.includes("/blog/") ? "../player.html" : "player.html";
       const url = base + "?" + params.toString();
-      if (isMobile) window.location.href = url;
-      else openJoinPopup(url);
+      window.location.href = url; // joining is its own page now, on every screen size
     });
   });
 }

@@ -463,11 +463,28 @@ async function openDmProfile() {
   draw(await loadReviewState());
 }
 
-function openModal(id) { $(id).hidden = false; document.body.classList.add('modal-open'); }
+function openModal(id) {
+  $(id).hidden = false;
+  document.body.classList.add('modal-open');
+  if (id === 'pp-checkout') {
+    // The checkout is a page of its own. It gets its own address so the Back button comes back to the game.
+    document.body.classList.add('pp-checkout-open');
+    if (window.location.hash !== '#checkout') history.pushState(null, '', window.location.pathname + window.location.search + '#checkout');
+    window.scrollTo(0, 0);
+  }
+}
 function closeModals() {
   document.querySelectorAll('.modal').forEach((m) => { m.hidden = true; });
   document.body.classList.remove('modal-open');
+  if (document.body.classList.contains('pp-checkout-open')) {
+    document.body.classList.remove('pp-checkout-open');
+    if (window.location.hash === '#checkout') history.back();
+    window.scrollTo(0, 0);
+  }
 }
+window.addEventListener('popstate', () => {
+  if (document.body.classList.contains('pp-checkout-open') && window.location.hash !== '#checkout') closeModals();
+});
 function ask(title, text, yes) {
   $('pp-confirm-title').textContent = title;
   $('pp-confirm-text').textContent = text;

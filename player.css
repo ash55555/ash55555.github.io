@@ -177,6 +177,15 @@ body.pp-embed #pp-back { display: none; }
 body.pp-embed .pp { padding: 1.4em 1.4em 2em; }
 body.pp-embed .pp-welcome { margin-bottom: 1.2em; }
 .pp-checkout-dialog { max-width: 1020px; width: 96vw; max-height: 94vh; overflow-y: auto; }
+
+/* The checkout is its own page now, not a pop-up: same screen, but laid out like a normal page. */
+body.pp-checkout-open { overflow: auto !important; }
+body.pp-checkout-open main.pp, body.pp-checkout-open .pp-previewbar { display: none; }
+#pp-checkout.modal:not([hidden]) { position: static; inset: auto; display: block; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; padding: 1.4em 1.2em 3em; z-index: auto; }
+#pp-checkout .pp-checkout-dialog { max-width: 1120px; width: 100%; max-height: none; overflow: visible; margin: 0 auto; box-shadow: none; }
+#pp-checkout .modal-close { display: none; }
+.pp-checkout-back { display: inline-flex; align-items: center; gap: .4em; margin-bottom: .8em; font-weight: 800; font-size: .95rem; color: var(--blue-accent); }
+.pp-checkout-back:hover { color: var(--gold); }
 #pp-embed { margin-top: 1em; min-height: 0; }
 
 /* Confirm booking layout */
