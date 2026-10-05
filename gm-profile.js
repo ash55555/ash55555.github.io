@@ -42,14 +42,129 @@
   }
   function paintPictures() {
     var av = $('gm-avatar-preview');
-    if (/^(data:image\/|medie\/)/.test(p.avatar || '')) { av.style.backgroundImage = 'url("' + p.avatar + '")'; av.textContent = ''; }
-    else { av.style.backgroundImage = ''; av.textContent = '🧙'; }
+    var emoji = av.querySelector('.gm-emoji');
+    if (/^(data:image\/|medie\/)/.test(p.avatar || '')) { av.style.backgroundImage = 'url("' + p.avatar + '")'; if (emoji) emoji.hidden = true; }
+    else { av.style.backgroundImage = ''; if (emoji) emoji.hidden = false; }
     var bn = $('gm-banner-preview');
     var has = /^data:image\//.test(p.banner || '');
     bn.classList.toggle('has-img', has);
     bn.style.backgroundImage = has ? 'url("' + p.banner + '")' : '';
     $('gm-banner-remove').hidden = !has;
-    $('gm-banner-btn').textContent = has ? 'Change banner' : 'Add a banner';
+  }
+
+  // ------------------------------------------------------------------ hover to change + the adjust window
+  var CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.2-2h5.6L16 6h1.5A2.5 2.5 0 0 1 20 8.5v8A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12.6" r="3.3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+
+  function makeClickable(box, label, fileInput) {
+    var hover = el('span', 'gm-hover');
+    hover.innerHTML = CAMERA;
+    hover.appendChild(el('b', null, label));
+    box.appendChild(hover);
+    box.setAttribute('role', 'button');
+    box.tabIndex = 0;
+    box.setAttribute('aria-label', label);
+    box.addEventListener('click', function () { fileInput.click(); });
+    box.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  }
+
+  // Lets the GM move and zoom a picture inside a frame that shows exactly what will be kept.
+  // kind: 'avatar' (round frame) or 'banner' (wide frame). Resolves to the saved picture, or null if cancelled.
+  function adjustPicture(file, kind) {
+    return new Promise(function (resolve, reject) {
+      if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose a picture file.')); return; }
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That picture could not be opened.')); };
+      img.onload = function () {
+        var round = kind === 'avatar';
+        var OUT = round ? { w: 320, h: 320 } : { w: 1400, h: 400 };
+        var FRAME = round ? { w: 280, h: 280 } : { w: 560, h: 160 };
+        var STAGE = round ? { w: 380, h: 380 } : { w: 660, h: 270 };
+        var cover = Math.max(FRAME.w / img.width, FRAME.h / img.height);
+        var minScale = cover * 0.3, maxScale = cover * 5;
+        var scale = cover, ox = 0, oy = 0; // ox, oy: picture centre, measured from the frame centre
+
+        var back = el('div', 'gm-modal');
+        var box = el('div', 'gm-modal-box');
+        box.appendChild(el('h3', null, round ? 'Adjust your profile picture' : 'Adjust your banner'));
+        box.appendChild(el('p', 'gm-modal-help', 'Drag the picture to move it. Use the slider or your mouse wheel to zoom. The bright area is what people will see.'));
+        var stage = el('div', 'gm-stage');
+        stage.style.width = STAGE.w + 'px'; stage.style.height = STAGE.h + 'px';
+        var pic = document.createElement('img');
+        pic.src = url; pic.alt = ''; pic.draggable = false;
+        var frame = el('div', 'gm-frame' + (round ? ' round' : ''));
+        frame.style.width = FRAME.w + 'px'; frame.style.height = FRAME.h + 'px';
+        stage.append(pic, frame);
+        box.appendChild(stage);
+
+        var ctl = el('div', 'gm-zoom');
+        var minus = el('button', 'gm-pill', '\u2212'); minus.type = 'button';
+        var plus = el('button', 'gm-pill', '+'); plus.type = 'button';
+        var range = el('input'); range.type = 'range'; range.min = 0; range.max = 100; range.step = 0.5;
+        ctl.append(minus, range, plus);
+        box.appendChild(ctl);
+
+        var row = el('div', 'gm-modal-btns');
+        var reset = el('button', 'gm-pill gm-pill-quiet', 'Reset'); reset.type = 'button';
+        var cancel = el('button', 'gm-pill', 'Cancel'); cancel.type = 'button';
+        var ok = el('button', 'btn btn-primary', 'Use this picture'); ok.type = 'button';
+        row.append(reset, cancel, ok);
+        box.appendChild(row);
+        back.appendChild(box);
+        document.body.appendChild(back);
+        document.body.classList.add('gm-modal-open');
+
+        function toSlider() { return 100 * Math.log(scale / minScale) / Math.log(maxScale / minScale); }
+        function fromSlider(v) { return minScale * Math.pow(maxScale / minScale, v / 100); }
+        function draw() {
+          range.value = toSlider();
+          pic.style.width = img.width * scale + 'px';
+          pic.style.height = img.height * scale + 'px';
+          pic.style.left = (STAGE.w / 2 + ox - img.width * scale / 2) + 'px';
+          pic.style.top = (STAGE.h / 2 + oy - img.height * scale / 2) + 'px';
+        }
+        function zoom(next) {
+          next = Math.min(maxScale, Math.max(minScale, next));
+          var k = next / scale; // zoom around the frame centre
+          ox *= k; oy *= k; scale = next; draw();
+        }
+        function close(result) {
+          document.removeEventListener('keydown', onKey);
+          document.body.classList.remove('gm-modal-open');
+          back.remove(); URL.revokeObjectURL(url); resolve(result);
+        }
+        function onKey(e) { if (e.key === 'Escape') close(null); }
+        document.addEventListener('keydown', onKey);
+
+        var drag = null;
+        stage.addEventListener('pointerdown', function (e) { drag = { x: e.clientX, y: e.clientY, ox: ox, oy: oy }; stage.setPointerCapture(e.pointerId); stage.classList.add('dragging'); });
+        stage.addEventListener('pointermove', function (e) { if (!drag) return; ox = drag.ox + e.clientX - drag.x; oy = drag.oy + e.clientY - drag.y; draw(); });
+        function endDrag() { drag = null; stage.classList.remove('dragging'); }
+        stage.addEventListener('pointerup', endDrag);
+        stage.addEventListener('pointercancel', endDrag);
+        stage.addEventListener('wheel', function (e) { e.preventDefault(); zoom(scale * (e.deltaY < 0 ? 1.08 : 1 / 1.08)); }, { passive: false });
+        range.addEventListener('input', function () { zoom(fromSlider(parseFloat(range.value))); });
+        minus.addEventListener('click', function () { zoom(scale / 1.15); });
+        plus.addEventListener('click', function () { zoom(scale * 1.15); });
+        reset.addEventListener('click', function () { scale = cover; ox = 0; oy = 0; draw(); });
+        cancel.addEventListener('click', function () { close(null); });
+        back.addEventListener('mousedown', function (e) { if (e.target === back) close(null); });
+        ok.addEventListener('click', function () {
+          // draw exactly what the frame shows, at the saved size
+          var canvas = document.createElement('canvas');
+          canvas.width = OUT.w; canvas.height = OUT.h;
+          var ctx = canvas.getContext('2d');
+          if (!round) { ctx.fillStyle = '#170e2b'; ctx.fillRect(0, 0, OUT.w, OUT.h); }
+          var k = OUT.w / FRAME.w;
+          ctx.drawImage(img, (FRAME.w / 2 + ox - img.width * scale / 2) * k, (FRAME.h / 2 + oy - img.height * scale / 2) * k, img.width * scale * k, img.height * scale * k);
+          var data = round ? canvas.toDataURL('image/webp', 0.9) : canvas.toDataURL('image/jpeg', 0.82);
+          if (round && data.indexOf('data:image/webp') !== 0) data = canvas.toDataURL('image/jpeg', 0.9);
+          close(data);
+        });
+        draw();
+      };
+      img.src = url;
+    });
   }
 
   // ------------------------------------------------------------------ tools
@@ -166,6 +281,8 @@
     $('gm-bio').value = p.bio || '';
     $('gm-bio-count').textContent = (p.bio || '').length + ' / 900';
     $('gm-discord').value = p.discord || '';
+    var av0 = $('gm-avatar-preview');
+    if (!av0.querySelector('.gm-emoji')) av0.insertBefore(el('span', 'gm-emoji', '\uD83E\uDDD9'), av0.firstChild);
     paintPictures();
     renderTools();
     renderQualities();
@@ -187,16 +304,18 @@
 
   function bind() {
     $('gm-bio').addEventListener('input', function () { $('gm-bio-count').textContent = $('gm-bio').value.length + ' / 900'; });
-    $('gm-avatar-btn').addEventListener('click', function () { $('gm-avatar-file').click(); });
-    $('gm-banner-btn').addEventListener('click', function () { $('gm-banner-file').click(); });
+    makeClickable($('gm-avatar-preview'), 'Change picture', $('gm-avatar-file'));
+    makeClickable($('gm-banner-preview'), 'Change banner', $('gm-banner-file'));
+    var avBtn = $('gm-avatar-btn'); if (avBtn) avBtn.hidden = true;
+    var bnBtn = $('gm-banner-btn'); if (bnBtn) bnBtn.hidden = true;
     $('gm-banner-remove').addEventListener('click', function () { p.banner = ''; paintPictures(); });
     $('gm-avatar-file').addEventListener('change', function (e) {
-      pictureFromFile(e.target.files[0], 320, 320, 0.9, true).then(function (d) { p.avatar = d; paintPictures(); status('', ''); })
+      adjustPicture(e.target.files[0], 'avatar').then(function (d) { if (d) { p.avatar = d; paintPictures(); status('', ''); } })
         .catch(function (err) { status(err.message, 'err'); });
       e.target.value = '';
     });
     $('gm-banner-file').addEventListener('change', function (e) {
-      pictureFromFile(e.target.files[0], 1400, 400, 0.8).then(function (d) { p.banner = d; paintPictures(); status('', ''); })
+      adjustPicture(e.target.files[0], 'banner').then(function (d) { if (d) { p.banner = d; paintPictures(); status('', ''); } })
         .catch(function (err) { status(err.message, 'err'); });
       e.target.value = '';
     });

@@ -75,7 +75,6 @@
 .gm-banner-col { display: flex; flex-direction: column; gap: 0.8em; }
 .gm-banner { height: 130px; border-radius: 18px; border: 1px dashed rgba(255, 255, 255, 0.35); background: linear-gradient(135deg, #2a1a4d, #170e2b) center / cover no-repeat; display: grid; place-items: center; color: var(--text-muted); font-weight: 700; font-size: 0.85rem; overflow: hidden; }
 .gm-banner.has-img { border-style: solid; }
-.gm-banner.has-img span { display: none; }
 
 .gm-chips { display: flex; flex-wrap: wrap; gap: 0.5em; }
 .gm-chip {
@@ -127,3 +126,35 @@
   .gm-grid2, .gm-socials { grid-template-columns: 1fr; }
   .gm-card { padding: 1.2em 1.1em 1.3em; }
 }
+
+/* hover to change a picture */
+.gm-avatar, .gm-banner { position: relative; cursor: pointer; }
+.gm-hover {
+  position: absolute; inset: 0; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35em;
+  background: rgba(20, 14, 38, 0.62); color: #fff;
+  opacity: 0; transition: opacity 0.18s ease;
+  backdrop-filter: grayscale(0.8) blur(1px);
+}
+.gm-hover svg { width: 34px; height: 34px; }
+.gm-hover b { font-size: 0.78rem; letter-spacing: 0.04em; }
+.gm-avatar:hover .gm-hover, .gm-avatar:focus-visible .gm-hover, .gm-banner:hover .gm-hover, .gm-banner:focus-visible .gm-hover { opacity: 1; }
+.gm-avatar:focus-visible, .gm-banner:focus-visible { outline: 3px solid var(--gold); outline-offset: 4px; }
+.gm-emoji { font-size: 3rem; }
+.gm-banner.has-img span:not(.gm-hover) { display: none; }
+
+/* the adjust window */
+body.gm-modal-open { overflow: hidden; }
+.gm-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1em; background: rgba(8, 4, 20, 0.72); backdrop-filter: blur(6px); }
+.gm-modal-box { width: min(720px, 100%); max-height: 94vh; overflow: auto; padding: 1.4em 1.6em 1.5em; border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.28); background: linear-gradient(135deg, rgba(60, 40, 110, 0.92), rgba(24, 14, 50, 0.95)); box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.4), 0 30px 80px rgba(0, 0, 0, 0.6); color: var(--text); text-align: center; }
+.gm-modal-box h3 { margin: 0 0 0.3em; font-size: 1.3rem; font-weight: 900; }
+.gm-modal-help { margin: 0 0 1em; font-size: 0.86rem; color: rgba(255, 255, 255, 0.78); }
+.gm-stage { position: relative; margin: 0 auto; overflow: hidden; border-radius: 14px; background: #0c0718; cursor: grab; touch-action: none; user-select: none; }
+.gm-stage.dragging { cursor: grabbing; }
+.gm-stage img { position: absolute; max-width: none; pointer-events: none; }
+.gm-frame { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 2px solid var(--gold); box-shadow: 0 0 0 9999px rgba(10, 6, 24, 0.68); pointer-events: none; }
+.gm-frame.round { border-radius: 50%; }
+.gm-zoom { display: flex; align-items: center; justify-content: center; gap: 0.7em; margin: 1.1em auto 0; max-width: 460px; }
+.gm-zoom input[type=range] { flex: 1; accent-color: var(--gold); }
+.gm-zoom .gm-pill { width: 38px; padding: 0.35em 0; font-size: 1.1rem; line-height: 1; }
+.gm-modal-btns { display: flex; justify-content: center; align-items: center; gap: 0.7em; flex-wrap: wrap; margin-top: 1.2em; }
