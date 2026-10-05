@@ -1,0 +1,226 @@
+/* A DM's own profile page (ash.html). The website's home page keeps its own look; this is only the personal header. */
+
+.profile-hero {
+  position: relative;
+  max-width: 1440px; /* the same width as the sections below, so everything lines up */
+  margin: 0 auto;
+  padding: 1.6em 1.5em 0.4em;
+}
+
+/* a soft cover banner behind the card, like a social profile */
+.profile-cover {
+  height: 230px;
+  border-radius: 26px 26px 0 0;
+  background:
+    radial-gradient(60% 140% at 15% 0%, rgba(155, 109, 255, 0.55), transparent 62%),
+    radial-gradient(50% 120% at 85% 10%, rgba(126, 203, 255, 0.4), transparent 60%),
+    radial-gradient(40% 100% at 55% 100%, rgba(242, 184, 79, 0.28), transparent 70%),
+    linear-gradient(135deg, #2a1a4d, #170e2b);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  position: relative;
+  overflow: hidden;
+}
+.profile-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1.4px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 85%);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.6), transparent 85%);
+}
+
+.profile-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 3em;
+  padding: 0 3em 3em;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 26px 26px;
+  box-shadow: var(--shadow);
+}
+
+.profile-avatar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.9em;
+  margin-top: -130px;
+}
+.profile-avatar { position: relative; width: 260px; }
+.profile-avatar .hero-glow { position: absolute; inset: -30%; z-index: 0; }
+.profile-avatar .hero-token {
+  position: relative;
+  z-index: 1;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  border: 6px solid var(--bg-panel);
+  box-shadow: 0 0 0 2px var(--gold), 0 18px 40px rgba(6, 2, 15, 0.55), 0 0 60px rgba(155, 109, 255, 0.4);
+  object-fit: cover;
+  max-width: none;
+}
+.profile-role {
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #1a1230;
+  background: var(--gold);
+  border-radius: 999px;
+  padding: 0.3em 1.1em;
+  box-shadow: 0 0 20px rgba(242, 184, 79, 0.4);
+}
+
+.profile-main { padding-top: 1.6em; min-width: 0; }
+.profile-namerow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.3em 0.9em; }
+.profile-name {
+  margin: 0;
+  font-weight: 900;
+  font-size: clamp(2.4rem, 5vw, 3.8rem);
+  line-height: 1.05;
+  color: var(--text);
+}
+.profile-pronouns {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15em 0.8em;
+}
+
+/* the slogan lives on as the profile's tagline */
+.profile-tagline {
+  margin: 0.5em 0 0.35em;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(1.15rem, 2.2vw, 1.6rem);
+  line-height: 1.25;
+  background: linear-gradient(90deg, var(--gold), #ff9db0 55%, var(--purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.profile-platforms {
+  margin: 0 0 1.1em;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--blue-accent);
+}
+.profile-main .hero-sub { max-width: 70ch; font-size: 1.12rem; }
+.profile-main .hero-tables-block { margin-top: 1.5em; }
+.profile-main .hero-actions { margin-top: 1.5em; }
+
+@media (max-width: 860px) {
+  .profile-card { grid-template-columns: 1fr; gap: 0.6em; padding: 0 1.4em 2em; }
+  .profile-avatar-col { margin-top: -90px; }
+  .profile-avatar, .profile-avatar .hero-token { width: 190px; height: 190px; }
+  .profile-main { padding-top: 0.4em; text-align: center; }
+  .profile-namerow, .profile-main .hero-actions { justify-content: center; }
+  .profile-main .hero-sub { margin-left: auto; margin-right: auto; text-align: left; }
+  .profile-cover { height: 150px; }
+}
+
+/* breathing room between the profile card and the boxes below it */
+.profile-hero { padding-bottom: 3.2em; }
+
+/* the three "about" boxes in liquid glass: see-through panels over soft drifting color */
+.info-strip { position: relative; isolation: isolate; margin-top: 0; }
+.info-strip::before {
+  content: '';
+  position: absolute;
+  inset: -70px -30px -70px -30px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(34% 70% at 12% 30%, rgba(123, 77, 255, 0.75), transparent 70%),
+    radial-gradient(30% 70% at 42% 78%, rgba(255, 95, 168, 0.55), transparent 70%),
+    radial-gradient(32% 70% at 70% 25%, rgba(44, 198, 255, 0.6), transparent 70%),
+    radial-gradient(28% 65% at 92% 75%, rgba(242, 184, 79, 0.5), transparent 70%);
+  filter: blur(34px);
+  animation: dmdrift 18s ease-in-out infinite alternate;
+}
+@keyframes dmdrift { from { transform: translate3d(-2%, 0, 0) scale(1); } to { transform: translate3d(2%, 3%, 0) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .info-strip::before { animation: none; } }
+
+.info-tile {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 26px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(255, 255, 255, 0.12) 100%);
+  backdrop-filter: blur(24px) saturate(185%);
+  -webkit-backdrop-filter: blur(24px) saturate(185%);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.55), inset 0 -1px 0 rgba(255, 255, 255, 0.1), inset 1px 0 0 rgba(255, 255, 255, 0.18), 0 22px 55px rgba(8, 3, 24, 0.45);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+}
+/* the bright sweep across the top-left corner of the glass */
+.info-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(120% 60% at 12% -10%, rgba(255, 255, 255, 0.32), transparent 55%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+.info-tile > * { position: relative; }
+.info-tile:hover { transform: translateY(-6px); box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.12), 0 30px 70px rgba(8, 3, 24, 0.55), 0 0 40px rgba(155, 109, 255, 0.28); }
+.info-tile:nth-child(1) { --tc1: #b69cff; --tc2: #ff9bd0; }
+.info-tile:nth-child(2) { --tc1: #8fe0ff; --tc2: #9aa8ff; }
+.info-tile:nth-child(3) { --tc1: #ffd27a; --tc2: #ffa07a; }
+.info-tile .info-title {
+  font-weight: 900;
+  font-size: 1.15rem;
+  color: #fff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+.info-tile .info-title::before {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 4px;
+  margin-bottom: 0.7em;
+  background: linear-gradient(90deg, var(--tc1), var(--tc2));
+  box-shadow: 0 0 14px var(--tc1);
+}
+.info-tile .info-sub { color: rgba(255, 255, 255, 0.86); }
+
+/* reviews: five gold stars next to each picture */
+.review-head { display: flex; align-items: center; gap: 0.85em; margin-bottom: 0.8em; }
+.review-head .review-avatar { margin: 0; flex: none; }
+.review-head .review-stars { margin: 0; font-size: 1.25rem; letter-spacing: 0.12em; text-shadow: 0 0 12px rgba(242, 184, 79, 0.55); }
+
+/* social links: round glass buttons under the main buttons */
+.profile-socials { margin-top: 1.8em; padding-top: 1.4em; border-top: 1px solid var(--border); }
+.profile-socials-title { margin: 0 0 0.8em; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+.profile-socials-row { display: flex; flex-wrap: wrap; gap: 0.7em; }
+.social-btn {
+  --sc: #fff;
+  display: inline-flex; align-items: center; gap: 0.55em;
+  padding: 0.55em 1.05em 0.55em 0.8em;
+  border-radius: 999px;
+  color: var(--text);
+  font-weight: 800; font-size: 0.88rem; text-decoration: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 22px rgba(8, 3, 24, 0.3);
+  backdrop-filter: blur(14px) saturate(170%);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+.social-btn svg { width: 20px; height: 20px; flex: none; color: var(--sc); transition: transform 0.2s ease; }
+.social-btn:hover, .social-btn:focus-visible { transform: translateY(-3px); border-color: var(--sc); background: linear-gradient(135deg, color-mix(in srgb, var(--sc) 30%, transparent), rgba(255, 255, 255, 0.06)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 12px 28px rgba(8, 3, 24, 0.4), 0 0 24px color-mix(in srgb, var(--sc) 45%, transparent); }
+.social-btn:hover svg { transform: scale(1.12); }
+.social-youtube { --sc: #ff4b4b; }
+.social-instagram { --sc: #ff7ab6; }
+.social-x { --sc: #e8e8f0; }
+.social-bluesky { --sc: #4aa8ff; }
+.social-patreon { --sc: #ff7a5c; }
+@media (max-width: 860px) { .profile-socials-row { justify-content: center; } .profile-socials-title { text-align: center; } }
