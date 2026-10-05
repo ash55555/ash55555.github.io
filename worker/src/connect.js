@@ -57,7 +57,7 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
     if (!row) return json({ state: 'none' }, 200, corsHeaders);
     // Reading an account's verification and payout capabilities needs the "read balance" permission, which
     // lives on its own read-only key (the key that moves money is never used for this).
-    const key = env.WHOP_BALANCE_API_KEY;
+    const key = env.WHOP_CONNECT_API_KEY || env.WHOP_BALANCE_API_KEY;
     let r = null;
     if (key) {
       const res = await fetch(`https://api.whop.com/api/v1/accounts/${encodeURIComponent(row.account_id)}`, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
@@ -77,7 +77,8 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
       const res = await fetch('https://api.whop.com/api/v1/account_links', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: payload });
       return { ok: res.ok, data: await res.json().catch(() => ({})) };
     };
-    let r = env.WHOP_BALANCE_API_KEY ? await tryWith(env.WHOP_BALANCE_API_KEY) : null;
+    // The dedicated GM-setup key comes first; the older read-only key is only a fallback.
+    let r = env.WHOP_CONNECT_API_KEY ? await tryWith(env.WHOP_CONNECT_API_KEY) : (env.WHOP_BALANCE_API_KEY ? await tryWith(env.WHOP_BALANCE_API_KEY) : null);
     if (!r || !r.ok || !r.data.url) {
       const first = r;
       r = await whop(env, '/account_links', { method: 'POST', body: payload });
