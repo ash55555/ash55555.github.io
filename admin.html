@@ -3052,7 +3052,11 @@
   // Open the conversations the first time the Messages tab is shown (a click, or a link ending in #tab=messages).
   new MutationObserver(function () { if (!panel.hidden) show(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   if (Messages.preview) { show(); return; }
-  firebase.auth().onAuthStateChanged(function (user) { if (user) Messages.pollUnread(getToken, setBadge); });
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user) return;
+    Messages.pollUnread(getToken, setBadge);
+    if (!panel.hidden) show(); // the tab was already open (a link ending in #tab=messages)
+  });
 })();
 </script>
 <script>

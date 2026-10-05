@@ -241,6 +241,7 @@
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user) return;
     Messages.pollUnread(getToken, setBadge);
+    if (!panel.hidden) show();
     if (window.location.hash === '#me-messages') { var b = document.querySelector('.me-rail-btn[data-tab="messages"]'); if (b) b.click(); }
   });
   window.addEventListener('hashchange', function () {
