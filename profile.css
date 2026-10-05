@@ -228,3 +228,8 @@
   .mg-title { font-size: 1.15rem; }
 }
 .me-preview-bar { background: #3a2a10; color: var(--gold); text-align: center; font-size: 0.82rem; font-weight: 700; padding: 0.5em 1em; border-bottom: 1px solid rgba(242, 184, 79, 0.4); }
+
+/* The footer stays at the bottom of the window, even when a tab is short (like Messages). */
+body { min-height: 100vh; display: flex; flex-direction: column; }
+body > main.me { flex: 1 0 auto; }
+body > .site-footer { margin-top: auto; }
