@@ -80,7 +80,7 @@
     ],
     socials: {},
     discord: 'https://discord.com/users/1137869041495724094',
-    avatar: '',
+    avatar: 'medie/ash-token.png',
     banner: ''
   };
 

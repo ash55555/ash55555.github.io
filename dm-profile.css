@@ -59,8 +59,8 @@
   width: 260px;
   height: 260px;
   border-radius: 50%;
-  border: 6px solid var(--bg-panel);
-  box-shadow: 0 0 0 2px var(--gold), 0 18px 40px rgba(6, 2, 15, 0.55), 0 0 60px rgba(155, 109, 255, 0.4);
+  border: 0; /* the ring is drawn outside the picture so round artwork is never trimmed */
+  box-shadow: 0 0 0 6px var(--bg-panel), 0 0 0 8px var(--gold), 0 18px 40px rgba(6, 2, 15, 0.55), 0 0 60px rgba(155, 109, 255, 0.4);
   object-fit: cover;
   max-width: none;
 }

@@ -18,7 +18,8 @@
   function status(msg, kind) { var s = $('gm-status'); s.textContent = msg || ''; s.className = 'gm-status' + (kind ? ' ' + kind : ''); }
 
   // ------------------------------------------------------------------ pictures
-  function pictureFromFile(file, w, h, quality) {
+  // keepAlpha keeps transparent parts transparent (round artwork stays round, no black corners).
+  function pictureFromFile(file, w, h, quality, keepAlpha) {
     return new Promise(function (resolve, reject) {
       if (!file || !/^image\//.test(file.type)) { reject(new Error('Please choose a picture file.')); return; }
       var url = URL.createObjectURL(file);
@@ -32,7 +33,8 @@
         var sw = w / scale, sh = h / scale;
         ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, w, h);
         URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        var alpha = keepAlpha ? canvas.toDataURL('image/webp', quality) : '';
+        resolve(alpha.indexOf('data:image/webp') === 0 ? alpha : canvas.toDataURL('image/jpeg', quality));
       };
       img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That picture could not be opened.')); };
       img.src = url;
@@ -40,7 +42,7 @@
   }
   function paintPictures() {
     var av = $('gm-avatar-preview');
-    if (/^data:image\//.test(p.avatar || '')) { av.style.backgroundImage = 'url("' + p.avatar + '")'; av.textContent = ''; }
+    if (/^(data:image\/|medie\/)/.test(p.avatar || '')) { av.style.backgroundImage = 'url("' + p.avatar + '")'; av.textContent = ''; }
     else { av.style.backgroundImage = ''; av.textContent = '🧙'; }
     var bn = $('gm-banner-preview');
     var has = /^data:image\//.test(p.banner || '');
@@ -189,7 +191,7 @@
     $('gm-banner-btn').addEventListener('click', function () { $('gm-banner-file').click(); });
     $('gm-banner-remove').addEventListener('click', function () { p.banner = ''; paintPictures(); });
     $('gm-avatar-file').addEventListener('change', function (e) {
-      pictureFromFile(e.target.files[0], 320, 320, 0.85).then(function (d) { p.avatar = d; paintPictures(); status('', ''); })
+      pictureFromFile(e.target.files[0], 320, 320, 0.9, true).then(function (d) { p.avatar = d; paintPictures(); status('', ''); })
         .catch(function (err) { status(err.message, 'err'); });
       e.target.value = '';
     });
@@ -222,6 +224,16 @@
     });
   }
 
+  // A picture that is still just a file on the site (the default token) is turned into a saved picture,
+  // so it is stored with the profile like any other upload.
+  function embedAvatar(profile) {
+    var src = profile.avatar || '';
+    if (!src || /^data:/.test(src)) return Promise.resolve(profile);
+    return fetch(src).then(function (r) { return r.blob(); }).then(function (blob) {
+      return pictureFromFile(blob, 320, 320, 0.9, true);
+    }).then(function (d) { profile.avatar = d; return profile; }).catch(function () { profile.avatar = ''; return profile; });
+  }
+
   function open(profile) {
     p = clone(profile);
     $('gm-gate').hidden = true;
@@ -238,7 +250,7 @@
 
   bind();
   if (Store.preview) {
-    Store.loadMine().then(function (r) { open(r.profile); });
+    Store.loadMine().then(function (r) { return embedAvatar(clone(r.profile)); }).then(open);
     return;
   }
   if (typeof firebase === 'undefined' || !firebase.auth) { gate('Please sign in to edit your GM profile.'); return; }
@@ -247,7 +259,10 @@
     getToken = function () { return user.getIdToken(); };
     Store.loadMine(getToken).then(function (r) {
       if (!r.isGm) { gate('GM profiles are for Game Masters. If you would like to host games here, message Ash.'); return; }
-      open(r.profile || (r.isAdmin ? C.ASH_DEFAULT : { name: r.name || '', pronouns: '', tagline: '', tools: [], bio: '', qualities: [], questions: [], socials: {}, discord: '', avatar: '', banner: '' }));
+      var prof = clone(r.profile || (r.isAdmin ? C.ASH_DEFAULT : { name: r.name || '', pronouns: '', tagline: '', tools: [], bio: '', qualities: [], questions: [], socials: {}, discord: '', avatar: '', banner: '' }));
+      // Ash's own profile starts with the picture visitors already see on her page.
+      if (!prof.avatar && r.isAdmin) prof.avatar = C.ASH_DEFAULT.avatar;
+      return embedAvatar(prof).then(open);
     }).catch(function (err) { gate(err.message); });
   });
 })();

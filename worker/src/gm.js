@@ -9,7 +9,7 @@ import { verifyUser } from './pay.js';
 const QUALITY_IDS = ['welcoming', 'rulecool', 'prepped', 'lowpressure', 'beginner', 'story', 'roleplay', 'combat', 'humor', 'dark', 'cozy', 'puzzles', 'sandbox', 'safety', 'lgbtq', 'voices'];
 const QUESTION_IDS = ['became', 'comfort', 'newplayer', 'style', 'expect', 'session0', 'why', 'prep'];
 const SOCIAL_IDS = ['youtube', 'instagram', 'x', 'bluesky', 'patreon', 'twitch', 'tiktok', 'website'];
-const MAX_AVATAR_CHARS = 90000;
+const MAX_AVATAR_CHARS = 140000;
 const MAX_BANNER_CHARS = 330000;
 
 function json(data, status, corsHeaders, extra) {

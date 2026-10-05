@@ -71,7 +71,7 @@
 
 .gm-look { display: grid; grid-template-columns: 190px 1fr; gap: 1.6em; align-items: center; margin-bottom: 0.4em; }
 .gm-avatar-col { display: flex; flex-direction: column; align-items: center; gap: 0.8em; }
-.gm-avatar { width: 150px; height: 150px; border-radius: 50%; overflow: hidden; border: 4px solid rgba(255, 255, 255, 0.25); box-shadow: 0 0 0 2px var(--gold), 0 14px 34px rgba(8, 3, 24, 0.5); background: #2a1a4d center / cover no-repeat; display: grid; place-items: center; font-size: 3rem; }
+.gm-avatar { width: 150px; height: 150px; border-radius: 50%; overflow: hidden; border: 0; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25), 0 0 0 6px var(--gold), 0 14px 34px rgba(8, 3, 24, 0.5); background: #2a1a4d center / cover no-repeat; display: grid; place-items: center; font-size: 3rem; }
 .gm-banner-col { display: flex; flex-direction: column; gap: 0.8em; }
 .gm-banner { height: 130px; border-radius: 18px; border: 1px dashed rgba(255, 255, 255, 0.35); background: linear-gradient(135deg, #2a1a4d, #170e2b) center / cover no-repeat; display: grid; place-items: center; color: var(--text-muted); font-weight: 700; font-size: 0.85rem; overflow: hidden; }
 .gm-banner.has-img { border-style: solid; }
