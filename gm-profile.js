@@ -376,9 +376,12 @@
     getToken = function () { return user.getIdToken(); };
     Store.loadMine(getToken).then(function (r) {
       if (!r.isGm) { gate('GM profiles are for Game Masters. If you would like to host games here, message Ash.'); return; }
-      var prof = clone(r.profile || (r.isAdmin ? C.ASH_DEFAULT : { name: r.name || '', pronouns: '', tagline: '', tools: [], bio: '', qualities: [], questions: [], socials: {}, discord: '', avatar: '', banner: '' }));
+      // A new GM starts from the name, pronouns and picture already on their ordinary site profile.
+      var acct = r.account || {};
+      var prof = clone(r.profile || (r.isAdmin ? C.ASH_DEFAULT : { name: acct.name || r.name || '', pronouns: acct.pronouns || '', tagline: '', tools: [], bio: '', qualities: [], questions: [], socials: {}, discord: '', avatar: '', banner: '' }));
       // Ash's own profile starts with the picture visitors already see on her page.
       if (!prof.avatar && r.isAdmin) prof.avatar = C.ASH_DEFAULT.avatar;
+      else if (!prof.avatar && acct.avatar) prof.avatar = acct.avatar;
       return embedAvatar(prof).then(function (pp) { open(pp, r.slug); });
     }).catch(function (err) { gate(err.message); });
   });

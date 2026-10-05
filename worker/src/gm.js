@@ -111,7 +111,13 @@ export async function handleGm(request, env, corsHeaders, origin, action, verify
     const row = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(user.sub).first();
     let profile = null;
     try { profile = row ? JSON.parse(row.data) : null; } catch { profile = null; }
-    return json({ isGm: true, isAdmin: status.isAdmin, name: text(user.name || (user.email || '').split('@')[0], 40), slug: row ? row.slug : slugFor(env, user), profile }, 200, corsHeaders);
+    // The person's ordinary site profile (name, pronouns, picture) is where a new GM profile starts from.
+    const acct = await env.DB.prepare('SELECT name, pronouns, avatar_id FROM profiles WHERE uid=?').bind(user.sub).first();
+    const account = acct ? {
+      name: text(acct.name, 40), pronouns: text(acct.pronouns, 40),
+      avatar: acct.avatar_id ? `${new URL(request.url).origin}/profile/avatar/${acct.avatar_id}` : '',
+    } : null;
+    return json({ isGm: true, isAdmin: status.isAdmin, name: text(user.name || (user.email || '').split('@')[0], 40), account, slug: row ? row.slug : slugFor(env, user), profile }, 200, corsHeaders);
   }
 
   if (action === 'save') {
