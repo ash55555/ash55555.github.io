@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="kAa0jL8-FPzYeF_0wwZskvH-JwqpMA5cIIhSZbUf2FE" />
-<title>Ash | Dungeon Master | Ash Tabletop</title>
-<meta name="description" content="Ash is a Dungeon Master at Ash Tabletop. Gothic horror, feywild chaos, political intrigue and undead survival D&D 5e campaigns.">
+<title>Ash | Game Master | Ash Tabletop</title>
+<meta name="description" content="Ash is a Game Master at Ash Tabletop. Gothic horror, feywild chaos, political intrigue and undead survival D&D 5e campaigns.">
 <link rel="canonical" href="https://ashtabletop.com/ash.html">
 <meta name="robots" content="noindex">
 <link rel="icon" href="medie/ash-token.png">
@@ -27,7 +27,7 @@
 <link rel="stylesheet" href="style.css?v=20261003e">
 <link rel="stylesheet" href="dm-profile.css?v=20261005a">
 </head>
-<body>
+<body data-gm-slug="ash">
 
 <!-- ================= ICON SPRITE ================= -->
 <svg style="display:none">
@@ -81,7 +81,7 @@
           <div class="hero-glow" aria-hidden="true"></div>
           <img class="hero-token" src="medie/ash-token.png" alt="Ash's character token, a grinning blue, fanged, pointy-eared figure in a shirt and vest" width="480" height="480" loading="eager">
         </div>
-        <span class="profile-role">Dungeon Master</span>
+        <span class="profile-role">Game Master</span>
       </div>
       <div class="profile-main">
         <div class="profile-namerow">
@@ -107,7 +107,7 @@
           </a>
           <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord">
             <svg class="icon"><use href="#icon-discord"/></svg>
-            Chat with Ash
+            <span class="chat-label">Chat with Ash</span>
           </a>
         </div>
         <div class="profile-socials" data-field="socials">
@@ -582,7 +582,7 @@
 </footer>
 
 <script src="tz.js?v=20260927a"></script>
-<script src="nav-user.js?v=20261003d"></script>
+<script src="nav-user.js?v=20261005a"></script>
 <script src="script.js?v=20261004a"></script>
 <!-- Optional: quietly syncs live seat counts / paused games from Firebase
      onto the buttons above once Ash finishes Firebase setup. Does nothing
@@ -596,6 +596,8 @@
 <script src="campaigns-data.js?v=20261003b"></script>
 <script src="dynamic-campaigns.js?v=20261003b"></script>
 
+<script src="gm-catalog.js?v=20261005a"></script>
+<script src="gm-render.js?v=20261005a"></script>
 <script>
 // Social buttons without a real link yet are not shown to visitors.
 document.querySelectorAll('.social-btn').forEach(function (a) { if (a.getAttribute('href') === '#') a.remove(); });

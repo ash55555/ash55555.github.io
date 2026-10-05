@@ -112,7 +112,7 @@ var AshNav = (function () {
         adminLink = document.createElement('a');
         adminLink.className = 'nu-menu-item nu-menu-admin';
         adminLink.href = 'admin.html';
-        adminLink.innerHTML = ICON.admin + '<span>DM Dashboard</span>';
+        adminLink.innerHTML = ICON.admin + '<span>GM Dashboard</span>';
         menu.insertBefore(adminLink, menu.querySelector('.nu-logout'));
       } else if (!profile.isAdmin && adminLink) {
         adminLink.remove();

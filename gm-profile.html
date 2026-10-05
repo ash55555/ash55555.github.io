@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>My GM Profile | Ash Tabletop</title>
+<link rel="icon" href="medie/ash-token.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20261003e">
+<link rel="stylesheet" href="gm-profile.css?v=20261005b">
+<style>body { background: #0b0716; position: relative; } .gm { padding: 2.4em 1.2em 7em; }</style>
+</head>
+<body>
+
+<div class="gm-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="Ash's character token" width="44" height="44">
+      <span class="brand-name">Ash Tabletop</span>
+    </a>
+    <div class="nav-links">
+      <a href="index.html#campaigns">Campaigns</a>
+      <div class="nu-mount" id="me-pill" hidden></div>
+    </div>
+  </nav>
+</header>
+
+<main class="gm">
+
+  <section class="gm-card gm-gate" id="gm-gate" hidden>
+    <h1>Your GM profile</h1>
+    <p id="gm-gate-text">Please sign in to edit your GM profile.</p>
+    <a class="btn btn-primary" href="index.html">Go to the home page</a>
+  </section>
+
+  <div id="gm-editor" hidden>
+    <div class="gm-top">
+      <div>
+        <p class="eyebrow">GM tools</p>
+        <h1>Your GM profile</h1>
+        <p class="gm-lead">This is everything visitors see on your page. Change what you like, then press <strong>That's it</strong> at the bottom.</p>
+      </div>
+      <a class="btn btn-ghost" id="gm-view" href="ash.html" target="_blank" rel="noopener">See my page ›</a>
+    </div>
+
+    <p class="gm-preview-note" id="gm-preview-note" hidden>PREVIEW: saved only in this browser on your computer. Nothing on the live site changes.</p>
+
+    <!-- 1 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">1</span> Your look</h2>
+      <p class="gm-help">Your picture and banner are the first things people see. A banner is the wide picture behind your profile card.</p>
+      <div class="gm-look">
+        <div class="gm-avatar-col">
+          <div class="gm-avatar" id="gm-avatar-preview"></div>
+          <input type="file" id="gm-avatar-file" accept="image/*" hidden>
+          <button type="button" class="gm-pill" id="gm-avatar-btn">Change profile picture</button>
+        </div>
+        <div class="gm-banner-col">
+          <div class="gm-banner" id="gm-banner-preview"><span>No banner yet</span></div>
+          <input type="file" id="gm-banner-file" accept="image/*" hidden>
+          <div class="gm-row-btns">
+            <button type="button" class="gm-pill" id="gm-banner-btn">Add a banner</button>
+            <button type="button" class="gm-pill gm-pill-quiet" id="gm-banner-remove" hidden>Remove banner</button>
+          </div>
+        </div>
+      </div>
+      <div class="gm-grid2">
+        <label class="gm-field"><span>Your name <em>(what your table calls you)</em></span><input id="gm-name" type="text" maxlength="40" placeholder="Your name"></label>
+        <label class="gm-field"><span>Your pronouns <em>(optional)</em></span><input id="gm-pronouns" type="text" maxlength="30" placeholder="she/her, he/him, they/them"></label>
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">2</span> Your tagline</h2>
+      <p class="gm-help">One bold line under your name. Think of it as your motto.</p>
+      <label class="gm-field"><input id="gm-tagline" type="text" maxlength="90" placeholder="Every story needs a party. Come build one with us."></label>
+    </section>
+
+    <!-- 3 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">3</span> Tools and games you run</h2>
+      <p class="gm-help">Click the ones you use. You can add your own at the end.</p>
+      <div class="gm-chips" id="gm-tools"></div>
+      <div class="gm-add">
+        <input id="gm-tool-custom" type="text" maxlength="30" placeholder="Something else? Type it here">
+        <button type="button" class="gm-pill" id="gm-tool-add">Add</button>
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">4</span> About you</h2>
+      <p class="gm-help">A few lines about who you are and how you run your games.</p>
+      <label class="gm-field"><textarea id="gm-bio" rows="6" maxlength="900" placeholder="Hello! I'm..."></textarea><small id="gm-bio-count">0 / 900</small></label>
+    </section>
+
+    <!-- 5 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">5</span> My tables are...</h2>
+      <p class="gm-help">Describe your table. Pick up to <strong>four</strong> qualities from the list.</p>
+      <div class="gm-quality-pick">
+        <select id="gm-quality-select" aria-label="Add a quality"></select>
+        <button type="button" class="gm-pill" id="gm-quality-add">Add</button>
+        <span class="gm-count" id="gm-quality-count">0 / 4</span>
+      </div>
+      <ul class="gm-quality-list" id="gm-quality-list"></ul>
+    </section>
+
+    <!-- 6 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">6</span> Questions for your visitors</h2>
+      <p class="gm-help">Choose up to <strong>three</strong> questions and answer them. They appear as boxes under your profile card.</p>
+      <div id="gm-questions"></div>
+    </section>
+
+    <!-- 7 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">7</span> Find me online</h2>
+      <p class="gm-help">Add the links you have. Only the ones you fill in will show on your page.</p>
+      <div class="gm-socials" id="gm-socials"></div>
+    </section>
+
+    <!-- 8 -->
+    <section class="gm-card">
+      <h2><span class="gm-step">8</span> Chat button</h2>
+      <p class="gm-help">The button on your profile that lets people talk to you. For now it opens your Discord. Later it will open a chat right here on the site.</p>
+      <label class="gm-field"><span>Your Discord link</span><input id="gm-discord" type="url" placeholder="https://discord.com/users/..."></label>
+    </section>
+
+    <div class="gm-savebar">
+      <span class="gm-status" id="gm-status" role="status" aria-live="polite"></span>
+      <button type="button" class="btn btn-primary btn-large" id="gm-save">That's it, save my profile</button>
+    </div>
+  </div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-init.js?v=20260926b"></script>
+<script src="tz.js?v=20260927a"></script>
+<script src="nav-user.js?v=20261005a"></script>
+<script src="gm-catalog.js?v=20261005a"></script>
+<script src="gm-render.js?v=20261005a"></script>
+<script src="gm-profile.js?v=20261005a"></script>
+</body>
+</html>

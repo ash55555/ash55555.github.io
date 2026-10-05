@@ -126,3 +126,11 @@ CREATE TABLE IF NOT EXISTS accounts_seen (
   email TEXT,
   seen_at TEXT NOT NULL
 );
+
+-- Game Master profiles (the page a GM fills in about themselves). One row per GM.
+CREATE TABLE IF NOT EXISTS gm_profiles (
+  uid TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  data TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

@@ -224,3 +224,12 @@
 .social-bluesky { --sc: #4aa8ff; }
 .social-patreon { --sc: #ff7a5c; }
 @media (max-width: 860px) { .profile-socials-row { justify-content: center; } .profile-socials-title { text-align: center; } }
+
+/* a banner picture chosen by the GM */
+.profile-cover[data-has-img] {
+  background-image: linear-gradient(180deg, rgba(14, 9, 28, 0) 45%, rgba(14, 9, 28, 0.55)), var(--cover-img);
+  background-size: cover;
+  background-position: center;
+}
+.profile-cover[data-has-img]::after { display: none; }
+.info-tile .info-note { display: block; margin-top: 0.3em; font-weight: 600; font-style: italic; font-size: 0.82rem; color: rgba(255, 255, 255, 0.78); text-shadow: none; }

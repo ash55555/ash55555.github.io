@@ -12,6 +12,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
+import { handleGm } from './gm.js';
 import { runReminders } from './reminders.js';
 import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
 import { noteAccount } from './accounts.js';
@@ -48,6 +49,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length), sendEmail);
+    }
+    if (url.pathname.startsWith('/gm/')) {
+      return handleGm(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/gm/'.length));
     }
     if (url.pathname === '/review/public' && request.method === 'GET') {
       return handleReviewsPublic(request, env, corsHeaders);
