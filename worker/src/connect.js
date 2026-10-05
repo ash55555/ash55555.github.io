@@ -55,8 +55,17 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
 
   if (action === 'status') {
     if (!row) return json({ state: 'none' }, 200, corsHeaders);
-    const r = await whop(env, `/accounts/${encodeURIComponent(row.account_id)}`);
-    if (!r.ok) return json({ error: nice(r.data) }, 502, corsHeaders);
+    // Reading an account's verification and payout capabilities needs the "read balance" permission, which
+    // lives on its own read-only key (the key that moves money is never used for this).
+    const key = env.WHOP_BALANCE_API_KEY;
+    let r = null;
+    if (key) {
+      const res = await fetch(`https://api.whop.com/api/v1/accounts/${encodeURIComponent(row.account_id)}`, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+      r = { ok: res.ok, data: await res.json().catch(() => ({})) };
+    }
+    // If Whop will not tell us (a missing permission or a hiccup), the GM is not blocked: they can still
+    // continue on Whop or open their payouts, and we say plainly that we could not check.
+    if (!r || !r.ok) return json({ state: 'unknown' }, 200, corsHeaders);
     return json({ state: stateFrom(r.data), verification: r.data.verification || null }, 200, corsHeaders);
   }
 

@@ -3208,6 +3208,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     var badge = el('span', 'gmf-badge ' + state);
     var title = el('h3'), text = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
     var primary = el('button', 'btn btn-primary'); primary.type = 'button';
+    var extra = null;
     if (state === 'ready') {
       badge.textContent = 'Ready';
       title.textContent = 'You are set up to get paid';
@@ -3226,6 +3227,15 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       text.textContent = 'Please message Ash and we will help you sort it out.';
       primary.textContent = 'Try again';
       primary.addEventListener('click', function () { go('start', primary); });
+    } else if (state === 'unknown') {
+      badge.textContent = 'Account created';
+      title.textContent = 'Your payout account is created';
+      text.textContent = 'We could not check how far along it is just now. Continue on Whop to finish or check your verification, or open your payouts if you have already finished.';
+      primary.textContent = 'Continue on Whop';
+      primary.addEventListener('click', function () { go('start', primary); });
+      var second = el('button', 'btn btn-ghost'); second.type = 'button'; second.textContent = 'Open my payouts';
+      second.addEventListener('click', function () { go('portal', second); });
+      extra = second;
     } else if (state === 'owner') {
       badge.textContent = 'Owner';
       title.textContent = 'Your own Whop account';
@@ -3239,6 +3249,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       primary.addEventListener('click', function () { go('start', primary); });
     }
     btns.appendChild(primary);
+    if (extra) btns.appendChild(extra);
     card.append(badge, title, text, btns);
   }
   function load() {
