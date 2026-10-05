@@ -103,7 +103,6 @@
         if (!q || !String(qa.answer || '').trim()) return;
         var tile = el('div', 'info-tile');
         var title = el('p', 'info-title', q.title);
-        if (q.note) title.appendChild(el('span', 'info-note', ' ' + q.note));
         tile.appendChild(title);
         tile.appendChild(el('p', 'info-sub', qa.answer));
         strip.appendChild(tile);
