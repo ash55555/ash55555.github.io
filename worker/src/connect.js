@@ -69,11 +69,20 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
     return json({ state: stateFrom(r.data), verification: r.data.verification || null }, 200, corsHeaders);
   }
 
+  // Whop asks for the "read balance" permission on the key that opens a GM's verification or payouts page.
+  // That permission lives on the read-only key, so it is the one used here (it cannot move money).
   const link = async (accountId, useCase) => {
-    const r = await whop(env, '/account_links', {
-      method: 'POST',
-      body: JSON.stringify({ account_id: accountId, use_case: useCase, refresh_url: `${SITE}/admin.html#tab=gmfinance`, return_url: `${SITE}/admin.html#tab=gmfinance` }),
-    });
+    const payload = JSON.stringify({ account_id: accountId, use_case: useCase, refresh_url: `${SITE}/admin.html#tab=gmfinance`, return_url: `${SITE}/admin.html#tab=gmfinance` });
+    const tryWith = async (key) => {
+      const res = await fetch('https://api.whop.com/api/v1/account_links', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: payload });
+      return { ok: res.ok, data: await res.json().catch(() => ({})) };
+    };
+    let r = env.WHOP_BALANCE_API_KEY ? await tryWith(env.WHOP_BALANCE_API_KEY) : null;
+    if (!r || !r.ok || !r.data.url) {
+      const first = r;
+      r = await whop(env, '/account_links', { method: 'POST', body: payload });
+      if ((!r.ok || !r.data.url) && first) return { error: nice(first.data) + ' / ' + nice(r.data) };
+    }
     if (!r.ok || !r.data.url) return { error: nice(r.data) };
     return { url: r.data.url };
   };
