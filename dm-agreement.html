@@ -65,7 +65,6 @@
     <p class="ag-help" id="ag-done-mail"></p>
     <div class="ag-done-btns">
       <a class="btn btn-primary" id="ag-pdf" href="#" target="_blank" rel="noopener">Download my PDF</a>
-      <button type="button" class="btn btn-ghost" id="ag-print">Print</button>
     </div>
 
     <div class="ag-account" id="ag-linked" hidden>
@@ -137,7 +136,6 @@ if (doc && key) {
   $('ag-done-expiry').textContent = '';
   document.querySelectorAll('#ag-done .ag-term').forEach((t) => { t.hidden = true; });
   $('ag-pdf').href = WORKER + '/dmagree/pdf?id=' + encodeURIComponent(doc) + '&k=' + encodeURIComponent(key);
-  $('ag-print').hidden = true;
   showAccountStep(doc, key, '');
 }
 
@@ -176,7 +174,6 @@ $('ag-form').addEventListener('submit', async (e) => {
     status.textContent = err.message; status.classList.add('err'); btn.disabled = false;
   }
 });
-$('ag-print').addEventListener('click', () => window.print());
 
 // ---- the GM account: create it (or sign in), link it to this agreement, then open the dashboard
 function showAccountStep(id, key, email) {
