@@ -672,12 +672,12 @@ async function openRealCheckout() {
 // The "stuck on the bank check?" box. Its starting content is kept so it can be put back after a message.
 const troubleBox = $('pp-trouble');
 const TROUBLE_HTML = troubleBox.innerHTML;
-const TROUBLE_BUTTON_HTML = '<button type="button" class="btn btn-primary pp-trouble-btn" id="pp-trouble-btn">Try the standard bank check</button>';
+const TROUBLE_BUTTON_HTML = '<button type="button" class="btn btn-primary pp-trouble-btn" id="pp-trouble-btn">Reload the card form</button>';
 function showTrouble(html) { troubleBox.innerHTML = html; troubleBox.hidden = false; }
 
 async function mountCardForm(run, lenient) {
   const note = $('pp-checkout-note');
-  if (lenient === true) showTrouble('<span>Loading the standard bank check...</span>');
+  if (lenient === true) showTrouble('<span>Reloading the card form...</span>');
   else { troubleBox.hidden = true; troubleBox.innerHTML = TROUBLE_HTML; }
   note.hidden = false;
   note.textContent = 'Getting your secure card form ready...';
@@ -691,13 +691,13 @@ async function mountCardForm(run, lenient) {
     element.mount($('pp-embed'));
     note.hidden = true;
     // The button is only offered on the first, strict attempt. After pressing it the player is told what changed.
-    if (lenient === true) showTrouble('<span>The standard bank check is on. Please enter your card details again in the form below.</span>');
+    if (lenient === true) showTrouble('<span>The card form was reloaded. Please enter your card details again below. If it still fails, try another card or open this page in Chrome or Safari.</span>');
     else troubleBox.hidden = false;
     watchForSavedCard(data.configId, run);
   } catch (err) {
     if (err.status === 403) { bookingClosed = true; closeModals(); renderAll(); return; }
     note.textContent = err.message;
-    if (lenient === true) showTrouble('<span>Sorry, the standard check could not start (' + (err.message || 'please try again') + '). You can try the button again.</span>' + TROUBLE_BUTTON_HTML);
+    if (lenient === true) showTrouble('<span>Sorry, the card form could not reload (' + (err.message || 'please try again') + '). You can try the button again.</span>' + TROUBLE_BUTTON_HTML);
   }
 }
 

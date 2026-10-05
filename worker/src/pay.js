@@ -334,8 +334,8 @@ async function doSetup(ctx) {
       account_id: c.company,
       currency: 'usd',
       payment_method_configuration: { enabled: ['card'], disabled: [], include_platform_defaults: false },
-      // Strict bank verification is the default. A player who is stuck can ask for the standard check, which leaves this out.
-      ...(ctx.body.lenient === true ? {} : { three_ds_level: 'mandate_challenge' }),
+      // The standard bank check is the default: the bank only asks the player to verify when it decides to.
+      // A forced challenge on every card made some banks fail, so it is no longer requested.
       metadata: { uid: user.sub, email: (user.email || '').toLowerCase(), game: gameKey },
     }),
   });
