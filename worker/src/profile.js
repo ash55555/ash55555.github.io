@@ -83,7 +83,7 @@ export async function handleProfile(request, env, corsHeaders, origin, action, s
       const v = view(row, self);
       if (!v.name) v.name = clean(user.name || (user.email || '').split('@')[0], 30);
       v.isAdmin = user.sub === env.ADMIN_UID;
-      v.isGm = (await gmStatus(env, user.sub)).isGm;
+      v.isGm = (await gmStatus(env, user.sub, user)).isGm;
       return json(v, 200, corsHeaders);
     }
 

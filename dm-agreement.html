@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20261005e">
-<link rel="stylesheet" href="dm-agreement.css?v=20261005b">
+<link rel="stylesheet" href="dm-agreement.css?v=20261005c">
 </head>
 <body>
 
@@ -68,6 +68,13 @@
       <button type="button" class="btn btn-ghost" id="ag-print">Print</button>
     </div>
 
+    <div class="ag-account" id="ag-linked" hidden>
+      <h2>You are signed in</h2>
+      <p class="ag-help" id="ag-linked-text"></p>
+      <p class="ag-status" id="ag-linked-status" role="status" aria-live="polite"></p>
+      <button type="button" class="btn btn-primary btn-large" id="ag-linked-btn">Link this agreement to my account</button>
+    </div>
+
     <form class="ag-account" id="ag-account" novalidate hidden>
       <h2>Next: create your GM account</h2>
       <p class="ag-help">Your GM Dashboard is where you run your games, read your messages and set up how you get paid. Use the email you signed with, and choose a password.</p>
@@ -96,6 +103,7 @@ const local = ['localhost', '127.0.0.1'].includes(location.hostname);
 const params = new URLSearchParams(location.search);
 const preview = local && params.get('preview') === '1';
 const $ = (id) => document.getElementById(id);
+let claim = null; // the signed agreement (number and private key) waiting to be linked to an account
 
 function longDate(d) { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); }
 // One year from today (the server works out the official date; this is the same rule).
@@ -171,12 +179,34 @@ $('ag-form').addEventListener('submit', async (e) => {
 $('ag-print').addEventListener('click', () => window.print());
 
 // ---- the GM account: create it (or sign in), link it to this agreement, then open the dashboard
-let claim = null;
 function showAccountStep(id, key, email) {
   claim = { id, key };
-  $('ag-account').hidden = false;
   if (email) $('ag-acc-email').value = email;
+  const user = !preview && typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+  if (user) showLinked(user); else { $('ag-account').hidden = false; waitForSignIn(); }
 }
+// Already signed in on the site? Then one click links this agreement to that account.
+function showLinked(user) {
+  $('ag-account').hidden = true;
+  $('ag-linked').hidden = false;
+  $('ag-linked-text').textContent = 'You are signed in as ' + (user.email || 'your account') + '. Link this agreement to it and your GM Dashboard will appear in your account menu.';
+}
+function waitForSignIn() {
+  if (typeof firebase === 'undefined' || !firebase.auth) return;
+  const off = firebase.auth().onAuthStateChanged((u) => { if (u && claim) { off(); showLinked(u); } });
+}
+$('ag-linked-btn').addEventListener('click', async () => {
+  const st = $('ag-linked-status'), btn = $('ag-linked-btn');
+  st.className = 'ag-status'; btn.disabled = true; st.textContent = 'Linking...';
+  try {
+    const idToken = await firebase.auth().currentUser.getIdToken();
+    const r = await fetch(WORKER + '/dmagree/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken, id: claim.id, key: claim.key }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Could not link your account.');
+    st.textContent = 'Done! Taking you back to the site...';
+    window.location.href = 'index.html';
+  } catch (err) { st.textContent = err.message; st.classList.add('err'); btn.disabled = false; }
+});
 $('ag-account').addEventListener('submit', async (e) => {
   e.preventDefault();
   const st = $('ag-acc-status'), btn = $('ag-acc-btn');
@@ -199,8 +229,8 @@ $('ag-account').addEventListener('submit', async (e) => {
     const r = await fetch(WORKER + '/dmagree/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken, id: claim.id, key: claim.key }) });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(d.error || 'Could not link your account.');
-    st.textContent = 'All set! Opening your dashboard...';
-    window.location.href = 'admin.html';
+    st.textContent = 'All set! Taking you back to the site...';
+    window.location.href = 'index.html';
   } catch (err) {
     const msg = { 'auth/wrong-password': 'That email already has an account, and that password is not right.', 'auth/invalid-credential': 'That email already has an account, and that password is not right.', 'auth/weak-password': 'Please choose a stronger password.' }[err.code] || err.message || 'Something went wrong. Please try again.';
     st.textContent = msg; st.classList.add('err'); btn.disabled = false;

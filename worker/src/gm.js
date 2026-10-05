@@ -33,11 +33,21 @@ function picture(v, max) {
 
 // Who is a Game Master: Ash herself, anyone listed in GM_UIDS, and anyone who signed the Game Master
 // Agreement and linked their account to it, for as long as that agreement has not expired.
-export async function gmStatus(env, uid) {
+//
+// Pass the signed-in user's token details as the third argument and an account whose email is VERIFIED
+// (for example a Google sign-in) is linked automatically to an unlinked agreement signed with that same email.
+// Accounts whose email is not verified have to link with the private key from the agreement page.
+export async function gmStatus(env, uid, user) {
   if (!uid) return { isGm: false, isAdmin: false };
   if (uid === env.ADMIN_UID) return { isGm: true, isAdmin: true };
   if (String(env.GM_UIDS || '').split(',').map((x) => x.trim()).filter(Boolean).includes(uid)) return { isGm: true, isAdmin: false };
-  const row = await env.DB.prepare('SELECT 1 AS x FROM dm_agreements WHERE uid=? AND expires_at > ? LIMIT 1').bind(uid, new Date().toISOString()).first();
+  const nowIso = new Date().toISOString();
+  let row = await env.DB.prepare('SELECT 1 AS x FROM dm_agreements WHERE uid=? AND expires_at > ? LIMIT 1').bind(uid, nowIso).first();
+  if (!row && user && user.email_verified === true && user.email) {
+    const email = String(user.email).toLowerCase();
+    const res = await env.DB.prepare('UPDATE dm_agreements SET uid=? WHERE email=? AND uid IS NULL AND expires_at > ?').bind(uid, email, nowIso).run();
+    if (res.meta && res.meta.changes > 0) row = { x: 1 };
+  }
   return { isGm: !!row, isAdmin: false };
 }
 
@@ -94,7 +104,7 @@ export async function handleGm(request, env, corsHeaders, origin, action, verify
   let user;
   try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
 
-  const status = await gmStatus(env, user.sub);
+  const status = await gmStatus(env, user.sub, user);
   const gm = status.isGm;
   if (action === 'get') {
     if (!gm) return json({ isGm: false }, 200, corsHeaders);
