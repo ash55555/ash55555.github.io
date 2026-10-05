@@ -1,0 +1,66 @@
+/* The Game Master Agreement page: calm, readable, in the site's glass style. */
+body { background: #0b0716; position: relative; }
+
+.ag-orbs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.ag-orbs i { position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.6; }
+.ag-orbs i:nth-child(1) { width: 46vw; height: 46vw; left: -12vw; top: -12vw; background: radial-gradient(circle, #7b4dff, transparent 68%); }
+.ag-orbs i:nth-child(2) { width: 40vw; height: 40vw; right: -10vw; top: 12vh; background: radial-gradient(circle, #2cc6ff, transparent 68%); }
+.ag-orbs i:nth-child(3) { width: 36vw; height: 36vw; left: 18vw; bottom: -14vw; background: radial-gradient(circle, #ff5fa8, transparent 68%); opacity: 0.45; }
+.ag-orbs i:nth-child(4) { width: 26vw; height: 26vw; right: 8vw; bottom: 6vh; background: radial-gradient(circle, #f2b84f, transparent 70%); opacity: 0.3; }
+
+body { display: flex; flex-direction: column; min-height: 100vh; }
+.ag { flex: 1 0 auto; width: 100%; max-width: 860px; margin: 0 auto; padding: 2.4em 1.2em 4em; }
+.ag h1 { margin: 0.1em 0 0.25em; font-weight: 900; font-size: clamp(2rem, 4.5vw, 2.9rem); }
+.ag-lead { margin: 0 0 1.4em; color: var(--text-muted); max-width: 60ch; }
+
+.ag-term { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8em; margin: 0 0 1.4em; }
+.ag-term > div { padding: 0.9em 1.05em; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.22); background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04)); backdrop-filter: blur(16px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+.ag-term span { display: block; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.25em; }
+.ag-term b { font-size: 1.05rem; }
+
+.ag-preview-note { margin: 0 0 1em; padding: 0.6em 1em; border-radius: 12px; border: 1px dashed rgba(242, 184, 79, 0.6); background: rgba(242, 184, 79, 0.08); color: var(--gold); font-weight: 800; font-size: 0.85rem; }
+
+.ag-card {
+  position: relative; margin-bottom: 1.3em; padding: 1.6em 1.8em;
+  border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.24);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04) 55%, rgba(255, 255, 255, 0.09));
+  backdrop-filter: blur(22px) saturate(170%);
+  box-shadow: inset 0 1.5px 0 rgba(255, 255, 255, 0.45), 0 20px 50px rgba(8, 3, 24, 0.4);
+}
+.ag-text { line-height: 1.65; }
+.ag-intro { margin: 0 0 1.2em; font-size: 1.05rem; color: #fff; }
+.ag-sec h3 { margin: 1.5em 0 0.4em; font-size: 1.12rem; font-weight: 900; color: var(--gold); }
+.ag-sec p { margin: 0 0 0.7em; color: rgba(255, 255, 255, 0.9); }
+
+.ag-form h2 { margin: 0 0 0.2em; font-size: 1.4rem; font-weight: 900; }
+.ag-help { margin: 0 0 1.1em; color: var(--text-muted); font-size: 0.9rem; }
+.ag-field { display: flex; flex-direction: column; gap: 0.4em; margin-bottom: 1em; }
+.ag-field > span { font-size: 0.8rem; font-weight: 800; }
+.ag-field > span em { font-style: normal; font-weight: 600; color: var(--text-muted); }
+.ag-form input[type="text"], .ag-form input[type="email"] {
+  width: 100%; font: inherit; color: var(--text); padding: 0.8em 1em; border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.26); background: rgba(10, 6, 24, 0.5);
+}
+.ag-form input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242, 184, 79, 0.2); }
+.ag-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.ag-check { display: flex; gap: 0.7em; align-items: flex-start; margin: 0.4em 0 1em; padding: 0.9em 1em; border-radius: 14px; border: 1px solid rgba(242, 184, 79, 0.45); background: rgba(242, 184, 79, 0.07); cursor: pointer; font-weight: 700; line-height: 1.45; }
+.ag-check input { width: 22px; height: 22px; margin-top: 0.1em; flex: none; accent-color: var(--gold); }
+.ag-status { min-height: 1.3em; margin: 0 0 0.8em; font-weight: 800; font-size: 0.9rem; color: var(--text-muted); }
+.ag-status.err { color: #ff9db0; }
+.ag-form .btn { width: 100%; justify-content: center; }
+
+.ag-done { text-align: center; margin-top: 1.6em; }
+.ag-check-big { width: 74px; height: 74px; margin: 0 auto 0.6em; display: grid; place-items: center; border-radius: 50%; font-size: 2.2rem; font-weight: 900; color: #0f2a1a; background: #7fd99a; box-shadow: 0 0 40px rgba(127, 217, 154, 0.55); }
+.ag-done .ag-term { text-align: left; max-width: 620px; margin-left: auto; margin-right: auto; }
+.ag-done-btns { display: flex; gap: 0.8em; justify-content: center; flex-wrap: wrap; margin-top: 1em; }
+
+@media (max-width: 600px) { .ag-card { padding: 1.2em 1.1em; } }
+
+/* Printing the agreement: plain black on white */
+@media print {
+  body { background: #fff !important; color: #000 !important; }
+  .ag-orbs, .site-header, .site-footer, .ag-form, .ag-term, .ag-preview-note, .ag-done-btns, .ag-lead, .eyebrow { display: none !important; }
+  .ag-card { background: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; padding: 0 !important; }
+  .ag-sec h3, .ag h1 { color: #000 !important; }
+  .ag-intro, .ag-sec p { color: #000 !important; }
+}

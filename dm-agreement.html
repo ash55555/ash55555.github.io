@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Game Master Agreement | Ash Tabletop</title>
+<link rel="icon" href="medie/ash-token.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20261005e">
+<link rel="stylesheet" href="dm-agreement.css?v=20261005a">
+</head>
+<body>
+
+<div class="ag-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="Ash's character token" width="44" height="44">
+      <span class="brand-name">Ash Tabletop</span>
+    </a>
+  </nav>
+</header>
+
+<main class="ag">
+
+  <div id="ag-sign">
+    <p class="eyebrow">Become a Game Master</p>
+    <h1>Game Master Agreement</h1>
+    <p class="ag-lead">Read the agreement below. When you are ready, sign at the bottom. You and Ash both get a copy by email as a PDF, and the site keeps a record.</p>
+
+    <div class="ag-term">
+      <div><span>Lasts</span><b>1 year</b></div>
+      <div><span>If you sign today, it runs until</span><b id="ag-expiry">...</b></div>
+      <div><span>Renewing</span><b>Sign again with this same link</b></div>
+    </div>
+
+    <p class="ag-preview-note" id="ag-preview-note" hidden>PREVIEW: nothing is sent or saved. This is how the page looks and works.</p>
+
+    <article class="ag-card ag-text" id="ag-text"></article>
+
+    <form class="ag-card ag-form" id="ag-form" novalidate>
+      <h2>Sign the agreement</h2>
+      <p class="ag-help">Typing your full name and ticking the box counts as your signature.</p>
+      <label class="ag-field"><span>Your full name</span><input id="ag-name" type="text" maxlength="80" autocomplete="name" placeholder="First and last name" required></label>
+      <label class="ag-field"><span>Your email <em>(your signed copy is sent here)</em></span><input id="ag-email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required></label>
+      <label class="ag-field ag-trap" aria-hidden="true">Website <input id="ag-website" type="text" tabindex="-1" autocomplete="off"></label>
+      <label class="ag-check"><input id="ag-agree" type="checkbox"><span>I have read the whole agreement and I agree to it. I understand I am responsible for the refunds, disputes and fees described in it.</span></label>
+      <p class="ag-status" id="ag-status" role="status" aria-live="polite"></p>
+      <button type="submit" class="btn btn-primary btn-large" id="ag-submit">Sign the agreement</button>
+    </form>
+  </div>
+
+  <section class="ag-card ag-done" id="ag-done" hidden>
+    <div class="ag-check-big">&#10003;</div>
+    <h1>You're signed. Welcome!</h1>
+    <p id="ag-done-text"></p>
+    <div class="ag-term">
+      <div><span>Signed on</span><b id="ag-done-signed"></b></div>
+      <div><span>Runs until</span><b id="ag-done-expiry"></b></div>
+    </div>
+    <p class="ag-help" id="ag-done-mail"></p>
+    <div class="ag-done-btns">
+      <a class="btn btn-primary" id="ag-pdf" href="#" target="_blank" rel="noopener">Download my PDF</a>
+      <button type="button" class="btn btn-ghost" id="ag-print">Print</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32">
+  <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
+</footer>
+
+<script type="module">
+import { AGREEMENT } from './dm-agreement-text.js';
+
+const WORKER = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';
+const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+const params = new URLSearchParams(location.search);
+const preview = local && params.get('preview') === '1';
+const $ = (id) => document.getElementById(id);
+
+function longDate(d) { return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); }
+// One year from today (the server works out the official date; this is the same rule).
+function expiryFromToday() {
+  const n = new Date();
+  const y = n.getFullYear() + AGREEMENT.termMonths / 12, m = n.getMonth(), d = n.getDate();
+  const out = new Date(y, m, d);
+  return out.getMonth() !== m ? new Date(y, m + 1, 0) : out;
+}
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+// ---- the agreement text
+const box = $('ag-text');
+box.appendChild(el('p', 'ag-intro', AGREEMENT.intro));
+AGREEMENT.sections.forEach((s, i) => {
+  const sec = el('section', 'ag-sec');
+  sec.appendChild(el('h3', null, (i + 1) + '. ' + s.title));
+  s.body.forEach((b) => sec.appendChild(el('p', null, b)));
+  box.appendChild(sec);
+});
+$('ag-expiry').textContent = longDate(expiryFromToday());
+if (preview) $('ag-preview-note').hidden = false;
+
+// ---- coming back from the email link: show the signed copy
+const doc = params.get('doc'), key = params.get('k');
+if (doc && key) {
+  $('ag-sign').hidden = true;
+  $('ag-done').hidden = false;
+  $('ag-done-text').textContent = 'This is your signed Game Master Agreement.';
+  $('ag-done-signed').textContent = '';
+  $('ag-done-expiry').textContent = '';
+  document.querySelectorAll('#ag-done .ag-term').forEach((t) => { t.hidden = true; });
+  $('ag-pdf').href = WORKER + '/dmagree/pdf?id=' + encodeURIComponent(doc) + '&k=' + encodeURIComponent(key);
+  $('ag-print').hidden = true;
+}
+
+// ---- signing
+$('ag-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = $('ag-status'), btn = $('ag-submit');
+  status.className = 'ag-status';
+  const name = $('ag-name').value.trim(), email = $('ag-email').value.trim();
+  if (name.length < 3 || !/\s/.test(name)) { status.textContent = 'Please type your full name (first and last).'; status.classList.add('err'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { status.textContent = 'Please enter a valid email address.'; status.classList.add('err'); return; }
+  if (!$('ag-agree').checked) { status.textContent = 'Please tick the box to say you agree.'; status.classList.add('err'); return; }
+  btn.disabled = true; status.textContent = 'Signing...';
+  try {
+    let data;
+    if (preview) {
+      const now = new Date();
+      data = { ok: true, id: 'preview', key: 'preview', signedAt: now.toISOString(), expiresAt: expiryFromToday().toISOString(), emailed: true, renewal: false };
+    } else {
+      const r = await fetch(WORKER + '/dmagree/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, agree: true, website: $('ag-website').value }) });
+      data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+    }
+    $('ag-sign').hidden = true;
+    $('ag-done').hidden = false;
+    $('ag-done-text').textContent = 'Thank you, ' + name + '. Your agreement is saved.';
+    $('ag-done-signed').textContent = longDate(data.signedAt);
+    $('ag-done-expiry').textContent = longDate(data.expiresAt);
+    $('ag-done-mail').textContent = data.emailed
+      ? 'A copy was sent to ' + email + ' as a PDF, and Ash got a copy too. Keep it somewhere safe. We will remind you about 30 days before it expires.'
+      : 'Your agreement is saved and Ash has been told, but we could not email your copy. Please download it below.';
+    $('ag-pdf').href = preview ? '#' : WORKER + '/dmagree/pdf?id=' + data.id + '&k=' + data.key;
+    window.scrollTo(0, 0);
+  } catch (err) {
+    status.textContent = err.message; status.classList.add('err'); btn.disabled = false;
+  }
+});
+$('ag-print').addEventListener('click', () => window.print());
+</script>
+</body>
+</html>

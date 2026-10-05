@@ -153,3 +153,21 @@ CREATE TABLE IF NOT EXISTS message_emails (
   last_at TEXT NOT NULL,
   PRIMARY KEY (conv, to_uid)
 );
+
+-- Signed Game Master Agreements (one row per signature; renewing adds a new row).
+CREATE TABLE IF NOT EXISTS dm_agreements (
+  id TEXT PRIMARY KEY,
+  access_key TEXT NOT NULL,
+  version TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  signed_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  text_hash TEXT NOT NULL,
+  ip_hash TEXT,
+  user_agent TEXT,
+  text TEXT NOT NULL,
+  emailed_at TEXT,
+  reminded_at TEXT
+);
+CREATE INDEX IF NOT EXISTS dm_agreements_email ON dm_agreements (email);

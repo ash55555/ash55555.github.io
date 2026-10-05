@@ -168,6 +168,19 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
+  .ag-link-row { display: flex; gap: .6em; flex-wrap: wrap; align-items: center; margin-top: .8em; }
+  .ag-link-row input { flex: 1 1 280px; font: inherit; color: var(--text); padding: .7em .95em; border-radius: 12px; border: 1px solid rgba(255,255,255,.24); background: rgba(10,6,24,.45); }
+  .ag-list { display: grid; gap: .7em; }
+  .ag-row { display: flex; align-items: center; gap: .9em 1.2em; flex-wrap: wrap; padding: .85em 1.05em; border-radius: 16px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.05); }
+  .ag-row-who { flex: 1 1 220px; min-width: 0; }
+  .ag-row-who b { display: block; font-size: 1rem; }
+  .ag-row-who span { font-size: .82rem; color: var(--text-muted); overflow-wrap: anywhere; }
+  .ag-row-dates { font-size: .82rem; color: var(--text-muted); line-height: 1.5; }
+  .ag-row-dates b { color: var(--text); }
+  .ag-pill { font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; border-radius: 999px; padding: .3em .85em; border: 1px solid; }
+  .ag-pill.active { color: #7fd99a; border-color: rgba(127,217,154,.6); background: rgba(127,217,154,.12); }
+  .ag-pill.soon { color: var(--gold); border-color: rgba(242,184,79,.6); background: rgba(242,184,79,.12); }
+  .ag-pill.expired { color: #ff9db0; border-color: rgba(255,157,176,.6); background: rgba(255,157,176,.12); }
   .field-hidden { display: none !important; }
   .seat-bar { display: flex; align-items: center; gap: 1em; margin: .4em 0 1em; padding: .8em 1.1em; border: 1px solid rgba(127,217,154,.45); border-radius: 14px; background: linear-gradient(90deg, rgba(127,217,154,.14), rgba(127,217,154,.03)); }
   .seat-bar.full { border-color: rgba(255,154,154,.5); background: linear-gradient(90deg, rgba(255,154,154,.16), rgba(255,154,154,.03)); }
@@ -683,6 +696,10 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H18a1 1 0 0 1 1 1v15.5a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 18V5.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 18a2.5 2.5 0 0 1 2.5-2.5H19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         <span>Campaigns &amp; Players</span>
       </button>
+      <button type="button" class="me-rail-btn" data-tab="agreements" aria-current="false" aria-label="GM agreements">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 3.5h8.5L19 8v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3.8V8.5h4.8M8.5 13h7M8.5 16.5h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>GM Agreements</span>
+      </button>
       <button type="button" class="me-rail-btn" data-tab="gmprofile" aria-current="false" aria-label="My GM profile">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="8.5" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c1.2-3.6 3.9-5.4 7-5.4s5.8 1.8 7 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="2.5" y="2.5" width="19" height="19" rx="4" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".55"/></svg>
         <span>My GM Profile</span>
@@ -690,6 +707,23 @@
      </nav>
 
      <div class="me-panels">
+
+    <div class="me-panel" data-panel="agreements" hidden>
+      <div class="pay-box" style="margin-bottom:1.4em;">
+        <h2>📜 Game Master Agreements</h2>
+        <p class="note">Send this link to anyone who wants to become a Game Master. When they sign, they and you each get a PDF copy by email, and it is saved here. An agreement lasts one year; to renew, they sign again with the same link.</p>
+        <div class="ag-link-row">
+          <input type="text" id="ag-link" readonly value="https://ashtabletop.com/dm-agreement.html">
+          <button type="button" class="btn btn-primary" id="ag-copy">Copy link</button>
+          <a class="btn btn-ghost" href="dm-agreement.html" target="_blank" rel="noopener">Open it</a>
+        </div>
+      </div>
+      <div class="pay-box">
+        <h2>Signed agreements</h2>
+        <p class="slot-status" id="ag-list-status"></p>
+        <div id="ag-list" class="ag-list"></div>
+      </div>
+    </div>
 
     <div class="me-panel" data-panel="messages" hidden>
       <div id="admin-messages"></div>
@@ -2334,7 +2368,7 @@
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var LABELS = { report: 'Report', joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
+  var LABELS = { agreement: 'Agreement', report: 'Report', joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
   var listEl = document.getElementById('note-list');
 
   function call(action, extra) {
@@ -3037,6 +3071,53 @@
 <script src="gm-render.js?v=20261005g"></script>
 <script src="gm-profile.js?v=20261005e"></script>
 <script src="messages-ui.js?v=20261005c"></script>
+<script>
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="agreements"]');
+  if (!panel) return;
+  var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/dmagree/';
+  function longDate(iso) { return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }); }
+  function load() {
+    var status = document.getElementById('ag-list-status');
+    var list = document.getElementById('ag-list');
+    var user = firebase.auth().currentUser;
+    if (!user) return;
+    status.textContent = 'Loading...';
+    user.getIdToken().then(function (idToken) {
+      return fetch(URL_BASE + 'admin/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Could not load.'); return d; }); })
+      .then(function (d) {
+        status.textContent = '';
+        list.innerHTML = '';
+        if (!d.agreements.length) { var p = document.createElement('p'); p.className = 'pay-muted'; p.textContent = 'Nobody has signed yet. Send them the link above.'; list.appendChild(p); return; }
+        d.agreements.forEach(function (a) {
+          var row = document.createElement('div'); row.className = 'ag-row';
+          var who = document.createElement('div'); who.className = 'ag-row-who';
+          var b = document.createElement('b'); b.textContent = a.name;
+          var s = document.createElement('span'); s.textContent = a.email;
+          who.append(b, s);
+          var dates = document.createElement('div'); dates.className = 'ag-row-dates';
+          dates.innerHTML = 'Signed <b></b><br>Runs until <b></b>';
+          var bs = dates.querySelectorAll('b'); bs[0].textContent = longDate(a.signedAt); bs[1].textContent = longDate(a.expiresAt);
+          var pill = document.createElement('span'); pill.className = 'ag-pill ' + a.status;
+          pill.textContent = a.status === 'expired' ? 'Expired' : a.status === 'soon' ? 'Expires in ' + a.daysLeft + ' days' : 'Active';
+          var pdf = document.createElement('a'); pdf.className = 'pay-mini'; pdf.href = a.pdf; pdf.target = '_blank'; pdf.rel = 'noopener'; pdf.textContent = 'PDF';
+          row.append(who, dates, pill, pdf);
+          list.appendChild(row);
+        });
+      }).catch(function (err) { status.textContent = err.message; status.className = 'slot-status error'; });
+  }
+  document.getElementById('ag-copy').addEventListener('click', function () {
+    var input = document.getElementById('ag-link');
+    input.select();
+    try { navigator.clipboard.writeText(input.value); } catch (e) { document.execCommand('copy'); }
+    this.textContent = 'Copied!';
+    var btn = this; setTimeout(function () { btn.textContent = 'Copy link'; }, 1800);
+  });
+  new MutationObserver(function () { if (!panel.hidden) load(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
+})();
+</script>
 <script>
 (function () {
   var panel = document.querySelector('.me-panel[data-panel="messages"]');

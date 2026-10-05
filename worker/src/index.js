@@ -14,6 +14,7 @@ import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { handleGm } from './gm.js';
 import { handleMessages } from './messages.js';
+import { handleDmAgreement, runAgreementReminders } from './dm-agreement.js';
 import { runReminders } from './reminders.js';
 import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
 import { noteAccount } from './accounts.js';
@@ -50,6 +51,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length), sendEmail);
+    }
+    if (url.pathname.startsWith('/dmagree/')) {
+      return handleDmAgreement(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/dmagree/'.length), sendEmail);
     }
     if (url.pathname.startsWith('/msg/')) {
       return handleMessages(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/msg/'.length), sendEmail);
@@ -149,6 +153,9 @@ export default {
         .then(() => runReviewInvites(env, sendEmail))
         .then((r) => console.log('review invite run', JSON.stringify(r)))
         .catch((err) => console.error('review invite run failed', err && err.message))
+        .then(() => runAgreementReminders(env, sendEmail))
+        .then((r) => console.log('agreement reminder run', JSON.stringify(r)))
+        .catch((err) => console.error('agreement reminder run failed', err && err.message))
     );
   },
 };
@@ -199,7 +206,7 @@ function json(data, status, corsHeaders) {
 //
 const FROM_ADDRESS = 'Ash Tabletop <announcements@mail.ashtabletop.com>';
 
-async function sendEmail(env, to, subject, html) {
+async function sendEmail(env, to, subject, html, extra) {
   const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
   const response = await fetch('https://api.resend.com/emails', {
@@ -214,6 +221,7 @@ async function sendEmail(env, to, subject, html) {
       subject,
       html,
       text,
+      ...(extra || {}), // for example { attachments: [...] }
     }),
   });
 
