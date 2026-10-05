@@ -474,7 +474,7 @@ async function start(user) {
   refreshPresetButtons();
   setPill();
   loadNotifBadge();
-  showTab(window.location.hash === '#me-schedule' ? 'schedule' : 'profile');
+  showTab(window.location.hash === '#me-schedule' ? 'schedule' : window.location.hash === '#me-messages' ? 'messages' : 'profile');
   // Runs after the page is up, so a slow or failed review check never holds the profile back.
   loadReviewTab().then(() => { if (window.location.hash === '#me-review' && reviewState && reviewState.eligible) showTab('review'); });
 }

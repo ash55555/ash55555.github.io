@@ -622,6 +622,7 @@
   .cal-orbs { display: none; }
 </style>
 <link rel="stylesheet" href="gm-profile.css?v=20261005d">
+<link rel="stylesheet" href="messages.css?v=20261005b">
 </head>
 <body>
 <div class="ag-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -652,6 +653,11 @@
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 10a6 6 0 1 1 12 0c0 3.2 1 5 2 6.5H4c1-1.5 2-3.3 2-6.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 19a2.6 2.6 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Notifications</span>
         <span class="me-rail-dot" id="admin-rail-dot" hidden></span>
+      </button>
+      <button type="button" class="me-rail-btn" data-tab="messages" id="admin-messages-btn" aria-current="false" aria-label="Messages">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6a.6.6 0 0 1-1-.46V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Messages</span>
+        <span class="msg-rail-badge" id="admin-msg-badge" hidden></span>
       </button>
       <button type="button" class="me-rail-btn" data-tab="calendar" aria-current="false" aria-label="Calendar">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5h16M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="14" r="1.2" fill="currentColor"/><circle cx="15" cy="14" r="1.2" fill="currentColor"/></svg>
@@ -684,6 +690,10 @@
      </nav>
 
      <div class="me-panels">
+
+    <div class="me-panel" data-panel="messages" hidden>
+      <div id="admin-messages"></div>
+    </div>
 
     <div class="note-box me-panel" data-panel="notifications" id="note-box">
       <h2>🔔 Notifications <span class="note-new" id="note-new" hidden></span></h2>
@@ -2325,7 +2335,7 @@
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var LABELS = { joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
+  var LABELS = { report: 'Report', joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
   var listEl = document.getElementById('note-list');
 
   function call(action, extra) {
@@ -3025,8 +3035,26 @@
 </script>
 <script src="campaign-colors.js?v=20261004a"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261005e"></script>
+<script src="gm-render.js?v=20261005f"></script>
 <script src="gm-profile.js?v=20261005d"></script>
+<script src="messages-ui.js?v=20261005b"></script>
+<script>
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="messages"]');
+  var badge = document.getElementById('admin-msg-badge');
+  var inst = null;
+  function getToken() { return firebase.auth().currentUser.getIdToken(); }
+  function setBadge(n) { badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n); }
+  function show() {
+    if (!inst) inst = Messages.mount(document.getElementById('admin-messages'), { getToken: getToken, onUnread: setBadge });
+    else inst.refresh();
+  }
+  // Open the conversations the first time the Messages tab is shown (a click, or a link ending in #tab=messages).
+  new MutationObserver(function () { if (!panel.hidden) show(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  if (Messages.preview) { show(); return; }
+  firebase.auth().onAuthStateChanged(function (user) { if (user) Messages.pollUnread(getToken, setBadge); });
+})();
+</script>
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';

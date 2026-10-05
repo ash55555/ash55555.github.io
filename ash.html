@@ -26,6 +26,7 @@
 
 <link rel="stylesheet" href="style.css?v=20261003e">
 <link rel="stylesheet" href="dm-profile.css?v=20261005b">
+<link rel="stylesheet" href="messages.css?v=20261005b">
 </head>
 <body data-gm-slug="ash">
 
@@ -105,6 +106,7 @@
             <img class="icon icon-d20" src="medie/d20-icon.png?v=20260929a" alt="">
             View Campaigns
           </a>
+          <button type="button" class="btn btn-ghost js-message-gm" data-slug="ash"><span class="msg-label">Message Ash</span></button>
           <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord">
             <svg class="icon"><use href="#icon-discord"/></svg>
             <span class="chat-label">Chat with Ash</span>
@@ -596,8 +598,9 @@
 <script src="campaigns-data.js?v=20261003b"></script>
 <script src="dynamic-campaigns.js?v=20261003b"></script>
 
+<script src="messages-ui.js?v=20261005b"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261005e"></script>
+<script src="gm-render.js?v=20261005f"></script>
 <script>
 // Social buttons without a real link yet are not shown to visitors.
 document.querySelectorAll('.social-btn').forEach(function (a) { if (a.getAttribute('href') === '#') a.remove(); });

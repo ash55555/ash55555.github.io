@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="style.css?v=20261003e">
 <link rel="stylesheet" href="profile.css?v=20261003b">
 <link rel="stylesheet" href="reviews.css?v=20261003c">
+<link rel="stylesheet" href="messages.css?v=20261005b">
 </head>
 <body>
 
@@ -52,6 +53,11 @@
       <button type="button" class="me-rail-btn active" data-tab="profile" aria-current="true" aria-label="My profile">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 19.5c1.5-3.6 4.3-5.4 7.5-5.4s6 1.8 7.5 5.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>My profile</span>
+      </button>
+      <button type="button" class="me-rail-btn" data-tab="messages" aria-current="false" aria-label="Messages">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6a.6.6 0 0 1-1-.46V16A2.5 2.5 0 0 1 4 13.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Messages</span>
+        <span class="msg-rail-badge" id="me-msg-badge" hidden></span>
       </button>
       <button type="button" class="me-rail-btn" data-tab="notifications" aria-current="false" aria-label="Notifications">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 10a6 6 0 1 1 12 0c0 3.2 1 5 2 6.5H4c1-1.5 2-3.3 2-6.5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 19a2.6 2.6 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -112,6 +118,11 @@
           <span class="me-status" id="me-save-status" role="status" aria-live="polite"></span>
         </div>
       </div>
+    </section>
+
+    <!-- ============ MESSAGES ============ -->
+    <section class="me-panel" data-panel="messages" hidden>
+      <div id="me-messages"></div>
     </section>
 
     <!-- ============ NOTIFICATIONS ============ -->
@@ -212,6 +223,30 @@
 <script src="nav-user.js?v=20261005a"></script>
 <script src="modules.js?v=20260927a"></script>
 <script src="reviews-ui.js?v=20261003e"></script>
-<script src="profile.js?v=20261004a"></script>
+<script src="messages-ui.js?v=20261005b"></script>
+<script src="profile.js?v=20261005a"></script>
+<script>
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="messages"]');
+  var badge = document.getElementById('me-msg-badge');
+  var inst = null;
+  function getToken() { return firebase.auth().currentUser.getIdToken(); }
+  function setBadge(n) { badge.hidden = !n; badge.textContent = n > 9 ? '9+' : String(n); }
+  function show() {
+    if (!inst) inst = Messages.mount(document.getElementById('me-messages'), { getToken: getToken, onUnread: setBadge });
+    else inst.refresh();
+  }
+  new MutationObserver(function () { if (!panel.hidden) show(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  if (Messages.preview) { show(); return; }
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user) return;
+    Messages.pollUnread(getToken, setBadge);
+    if (window.location.hash === '#me-messages') { var b = document.querySelector('.me-rail-btn[data-tab="messages"]'); if (b) b.click(); }
+  });
+  window.addEventListener('hashchange', function () {
+    if (window.location.hash === '#me-messages') { var b = document.querySelector('.me-rail-btn[data-tab="messages"]'); if (b) b.click(); }
+  });
+})();
+</script>
 </body>
 </html>

@@ -134,3 +134,22 @@ CREATE TABLE IF NOT EXISTS gm_profiles (
   data TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+-- In-site messages between people (a player and a Game Master).
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  conv TEXT NOT NULL,
+  from_uid TEXT NOT NULL,
+  to_uid TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  read_at TEXT
+);
+CREATE INDEX IF NOT EXISTS messages_conv ON messages (conv, id);
+CREATE INDEX IF NOT EXISTS messages_to ON messages (to_uid, read_at);
+CREATE TABLE IF NOT EXISTS message_emails (
+  conv TEXT NOT NULL,
+  to_uid TEXT NOT NULL,
+  last_at TEXT NOT NULL,
+  PRIMARY KEY (conv, to_uid)
+);
