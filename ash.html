@@ -106,11 +106,10 @@
             <img class="icon icon-d20" src="medie/d20-icon.png?v=20260929a" alt="">
             View Campaigns
           </a>
-          <button type="button" class="btn btn-ghost js-message-gm" data-slug="ash"><span class="msg-label">Message Ash</span></button>
-          <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord">
-            <svg class="icon"><use href="#icon-discord"/></svg>
+          <button type="button" class="btn btn-discord js-message-gm" data-slug="ash">
+            <svg class="icon"><use href="#icon-chat"/></svg>
             <span class="chat-label">Chat with Ash</span>
-          </a>
+          </button>
         </div>
         <div class="profile-socials" data-field="socials">
           <p class="profile-socials-title">Find me online</p>
@@ -598,9 +597,9 @@
 <script src="campaigns-data.js?v=20261003b"></script>
 <script src="dynamic-campaigns.js?v=20261003b"></script>
 
-<script src="messages-ui.js?v=20261005b"></script>
+<script src="messages-ui.js?v=20261005c"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261005f"></script>
+<script src="gm-render.js?v=20261005g"></script>
 <script>
 // Social buttons without a real link yet are not shown to visitors.
 document.querySelectorAll('.social-btn').forEach(function (a) { if (a.getAttribute('href') === '#') a.remove(); });

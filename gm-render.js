@@ -77,16 +77,12 @@
       if (block) block.hidden = !ul.children.length;
     }
 
-    // Chat button
-    var chat = document.querySelector('.hero-actions .btn-discord');
+    // Chat button: opens the chat on this site
+    var chat = document.querySelector('.js-message-gm');
     if (chat) {
-      var d = safeUrl(p.discord);
-      chat.hidden = !d;
-      if (d) { chat.href = d; var lbl = chat.querySelector('.chat-label'); if (lbl) lbl.textContent = 'Chat with ' + name; }
+      chat.dataset.name = name;
+      var lbl = chat.querySelector('.chat-label'); if (lbl) lbl.textContent = 'Chat with ' + name;
     }
-
-    var msg = document.querySelector('.js-message-gm');
-    if (msg) { var ml = msg.querySelector('.msg-label'); if (ml) ml.textContent = 'Message ' + name; msg.dataset.name = name; }
 
     // Picture and banner
     var img = document.querySelector('.profile-avatar .hero-token');

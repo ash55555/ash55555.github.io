@@ -280,7 +280,6 @@
     $('gm-tagline').value = p.tagline || '';
     $('gm-bio').value = p.bio || '';
     $('gm-bio-count').textContent = (p.bio || '').length + ' / 900';
-    $('gm-discord').value = p.discord || '';
     var av0 = $('gm-avatar-preview');
     if (!av0.querySelector('.gm-emoji')) av0.insertBefore(el('span', 'gm-emoji', '\uD83E\uDDD9'), av0.firstChild);
     paintPictures();
@@ -295,7 +294,6 @@
     p.pronouns = $('gm-pronouns').value.trim();
     p.tagline = $('gm-tagline').value.trim();
     p.bio = $('gm-bio').value.trim();
-    p.discord = $('gm-discord').value.trim();
     var out = clone(p);
     out.questions = out.questions.filter(function (q) { return q.id && String(q.answer || '').trim(); }).map(function (q) { return { id: q.id, answer: String(q.answer).trim() }; });
     Object.keys(out.socials).forEach(function (k) { if (!window.GmRender.safeUrl(out.socials[k])) delete out.socials[k]; });
