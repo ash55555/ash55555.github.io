@@ -141,6 +141,12 @@
   document.addEventListener('DOMContentLoaded', function () {
     var slug = document.body.getAttribute('data-gm-slug');
     if (!slug || !window.GmCatalog) return;
-    Store.loadPublic(slug).then(function (p) { if (p) apply(p); });
+    Store.loadPublic(slug).then(function (p) {
+      if (p) { apply(p); return; }
+      // A Game Master who has not filled in their profile yet
+      if (document.body.hasAttribute('data-gm-generic')) {
+        apply({ name: 'Game Master', bio: 'This Game Master is still setting up their profile. Check back soon.', tools: [], qualities: [], questions: [], socials: {} });
+      }
+    });
   });
 })();

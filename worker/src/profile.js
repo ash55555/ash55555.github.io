@@ -10,6 +10,7 @@
 
 import { verifyUser, cfg } from './pay.js';
 import { noteAccount } from './accounts.js';
+import { gmStatus } from './gm.js';
 
 const SLOT_COUNT = 336;
 const TOKEN_IDS = ['dragon', 'wizard', 'dagger', 'elf', 'bat', 'dice'];
@@ -82,6 +83,7 @@ export async function handleProfile(request, env, corsHeaders, origin, action, s
       const v = view(row, self);
       if (!v.name) v.name = clean(user.name || (user.email || '').split('@')[0], 30);
       v.isAdmin = user.sub === env.ADMIN_UID;
+      v.isGm = (await gmStatus(env, user.sub)).isGm;
       return json(v, 200, corsHeaders);
     }
 
@@ -108,15 +110,18 @@ export async function handleProfile(request, env, corsHeaders, origin, action, s
     }
 
     if (action === 'admin/summary') {
-      if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
+      const who = await gmStatus(env, user.sub);
+      if (!who.isGm) return json({ error: 'Not authorized' }, 403, corsHeaders);
+      // A Game Master sees the demand (when players are free, what they want to play) but never who the players are.
+      const anonymous = !who.isAdmin;
       const rows = (await env.DB.prepare('SELECT uid, email, name, pronouns, token, avatar_id, interests, other, slots, tz, slots_fmt, updated_at FROM profiles').all()).results;
       return json({
         players: rows.map((r) => {
           let interests = [];
           try { interests = JSON.parse(r.interests || '[]'); } catch { interests = []; }
           return {
-            uid: r.uid, email: r.email, name: r.name || (r.email || '').split('@')[0], pronouns: r.pronouns || '',
-            avatarUrl: avatarUrl(self, r), interests, other: r.other || '',
+            uid: anonymous ? '' : r.uid, email: anonymous ? '' : r.email, name: anonymous ? 'Player' : (r.name || (r.email || '').split('@')[0]), pronouns: anonymous ? '' : (r.pronouns || ''),
+            avatarUrl: anonymous ? null : avatarUrl(self, r), interests, other: r.other || '',
             slots: r.slots && r.slots.length === SLOT_COUNT ? r.slots : null, tz: r.tz || '', fmt: r.slots_fmt === 'local' ? 'local' : 'utc', updatedAt: r.updated_at,
           };
         }),

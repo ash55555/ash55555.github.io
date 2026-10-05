@@ -108,13 +108,13 @@ var AshNav = (function () {
       // everyone else's profile/get response comes back with isAdmin left false.
       var menu = container.querySelector('.nu-menu');
       var adminLink = menu.querySelector('.nu-menu-admin');
-      if (profile.isAdmin && !adminLink) {
+      if ((profile.isAdmin || profile.isGm) && !adminLink) {
         adminLink = document.createElement('a');
         adminLink.className = 'nu-menu-item nu-menu-admin';
         adminLink.href = 'admin.html';
         adminLink.innerHTML = ICON.admin + '<span>GM Dashboard</span>';
         menu.insertBefore(adminLink, menu.querySelector('.nu-logout'));
-      } else if (!profile.isAdmin && adminLink) {
+      } else if (!(profile.isAdmin || profile.isGm) && adminLink) {
         adminLink.remove();
       }
     }

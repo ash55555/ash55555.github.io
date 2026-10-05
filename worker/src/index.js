@@ -15,6 +15,7 @@ import { handleProfile, handleAvatar } from './profile.js';
 import { handleGm } from './gm.js';
 import { handleMessages } from './messages.js';
 import { handleDmAgreement, runAgreementReminders } from './dm-agreement.js';
+import { handleConnect } from './connect.js';
 import { runReminders } from './reminders.js';
 import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
 import { noteAccount } from './accounts.js';
@@ -51,6 +52,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length), sendEmail);
+    }
+    if (url.pathname.startsWith('/connect/')) {
+      return handleConnect(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/connect/'.length));
     }
     if (url.pathname.startsWith('/dmagree/')) {
       return handleDmAgreement(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/dmagree/'.length), sendEmail);

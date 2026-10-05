@@ -31,9 +31,14 @@ function picture(v, max) {
   return /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length <= max ? s : '';
 }
 
-export function isGm(env, user) {
-  if (user.sub === env.ADMIN_UID) return true;
-  return String(env.GM_UIDS || '').split(',').map((x) => x.trim()).filter(Boolean).includes(user.sub);
+// Who is a Game Master: Ash herself, anyone listed in GM_UIDS, and anyone who signed the Game Master
+// Agreement and linked their account to it, for as long as that agreement has not expired.
+export async function gmStatus(env, uid) {
+  if (!uid) return { isGm: false, isAdmin: false };
+  if (uid === env.ADMIN_UID) return { isGm: true, isAdmin: true };
+  if (String(env.GM_UIDS || '').split(',').map((x) => x.trim()).filter(Boolean).includes(uid)) return { isGm: true, isAdmin: false };
+  const row = await env.DB.prepare('SELECT 1 AS x FROM dm_agreements WHERE uid=? AND expires_at > ? LIMIT 1').bind(uid, new Date().toISOString()).first();
+  return { isGm: !!row, isAdmin: false };
 }
 
 // Turns whatever the browser sent into a clean, size-limited profile.
@@ -89,13 +94,14 @@ export async function handleGm(request, env, corsHeaders, origin, action, verify
   let user;
   try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
 
-  const gm = isGm(env, user);
+  const status = await gmStatus(env, user.sub);
+  const gm = status.isGm;
   if (action === 'get') {
     if (!gm) return json({ isGm: false }, 200, corsHeaders);
     const row = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(user.sub).first();
     let profile = null;
     try { profile = row ? JSON.parse(row.data) : null; } catch { profile = null; }
-    return json({ isGm: true, isAdmin: user.sub === env.ADMIN_UID, name: text(user.name || (user.email || '').split('@')[0], 40), slug: row ? row.slug : slugFor(env, user), profile }, 200, corsHeaders);
+    return json({ isGm: true, isAdmin: status.isAdmin, name: text(user.name || (user.email || '').split('@')[0], 40), slug: row ? row.slug : slugFor(env, user), profile }, 200, corsHeaders);
   }
 
   if (action === 'save') {

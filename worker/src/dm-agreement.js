@@ -254,17 +254,33 @@ export async function handleDmAgreement(request, env, corsHeaders, origin, actio
     return json({ ok: true, id: rec.id, key: rec.access_key, signedAt: rec.signed_at, expiresAt: rec.expires_at, emailed, renewal: !!renewal }, 200, corsHeaders);
   }
 
+  // A new GM links their account to the agreement they signed. Having the private key (it was in the
+  // email and on the page after signing) is the proof, so a stranger who only knows the email cannot do it.
+  if (action === 'claim') {
+    if (!body.idToken) return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+    let user;
+    try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
+    const id = String(body.id || ''), k = String(body.key || '');
+    if (!/^[a-f0-9]{16,64}$/.test(id) || !/^[a-f0-9]{16,64}$/.test(k)) return json({ error: 'That agreement link is not valid.' }, 400, corsHeaders);
+    const rec = await env.DB.prepare('SELECT id, uid, expires_at FROM dm_agreements WHERE id=? AND access_key=?').bind(id, k).first();
+    if (!rec) return json({ error: 'That agreement could not be found.' }, 404, corsHeaders);
+    if (new Date(rec.expires_at).getTime() < Date.now()) return json({ error: 'That agreement has expired. Please sign a new one.' }, 410, corsHeaders);
+    if (rec.uid && rec.uid !== user.sub) return json({ error: 'That agreement is already linked to another account.' }, 409, corsHeaders);
+    await env.DB.prepare('UPDATE dm_agreements SET uid=? WHERE id=?').bind(user.sub, id).run();
+    return json({ ok: true }, 200, corsHeaders);
+  }
+
   if (action === 'admin/list') {
     if (!body.idToken) return json({ error: 'Please sign in again.' }, 401, corsHeaders);
     let user;
     try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
     if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
-    const rows = (await env.DB.prepare('SELECT id, access_key, version, name, email, signed_at, expires_at, emailed_at FROM dm_agreements ORDER BY signed_at DESC LIMIT 200').all()).results;
+    const rows = (await env.DB.prepare('SELECT id, access_key, version, name, email, signed_at, expires_at, emailed_at, uid FROM dm_agreements ORDER BY signed_at DESC LIMIT 200').all()).results;
     const now = Date.now();
     return json({
       agreements: rows.map((r) => {
         const left = (new Date(r.expires_at).getTime() - now) / 86400000;
-        return { id: r.id, name: r.name, email: r.email, version: r.version, signedAt: r.signed_at, expiresAt: r.expires_at, emailed: !!r.emailed_at,
+        return { id: r.id, name: r.name, email: r.email, version: r.version, signedAt: r.signed_at, expiresAt: r.expires_at, emailed: !!r.emailed_at, claimed: !!r.uid,
           status: left < 0 ? 'expired' : left <= REMIND_DAYS ? 'soon' : 'active', daysLeft: Math.ceil(left),
           pdf: `${new URL(request.url).origin}/dmagree/pdf?id=${r.id}&k=${r.access_key}` };
       }),

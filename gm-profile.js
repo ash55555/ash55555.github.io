@@ -351,12 +351,12 @@
     }).then(function (d) { profile.avatar = d; return profile; }).catch(function () { profile.avatar = ''; return profile; });
   }
 
-  function open(profile) {
+  function open(profile, slug) {
     p = clone(profile);
     $('gm-gate').hidden = true;
     $('gm-editor').hidden = false;
     $('gm-preview-note').hidden = !Store.preview;
-    $('gm-view').href = 'ash.html' + (Store.preview ? '?preview=1' : '');
+    $('gm-view').href = (Store.preview || !slug || slug === 'ash') ? 'ash.html' + (Store.preview ? '?preview=1' : '') : 'gm.html?slug=' + encodeURIComponent(slug);
     fill();
   }
   function gate(text) {
@@ -379,7 +379,7 @@
       var prof = clone(r.profile || (r.isAdmin ? C.ASH_DEFAULT : { name: r.name || '', pronouns: '', tagline: '', tools: [], bio: '', qualities: [], questions: [], socials: {}, discord: '', avatar: '', banner: '' }));
       // Ash's own profile starts with the picture visitors already see on her page.
       if (!prof.avatar && r.isAdmin) prof.avatar = C.ASH_DEFAULT.avatar;
-      return embedAvatar(prof).then(open);
+      return embedAvatar(prof).then(function (pp) { open(pp, r.slug); });
     }).catch(function (err) { gate(err.message); });
   });
 })();

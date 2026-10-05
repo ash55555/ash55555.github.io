@@ -168,6 +168,13 @@
   .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
   .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
+  .gmf-card { padding: 1.1em 1.2em; border-radius: 18px; border: 1px solid rgba(255,255,255,.22); background: linear-gradient(135deg, rgba(255,255,255,.1), rgba(255,255,255,.03)); }
+  .gmf-card h3 { margin: .5em 0 .3em; font-size: 1.25rem; font-weight: 900; }
+  .gmf-btns { margin-top: .9em; }
+  .gmf-badge { display: inline-block; font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; border-radius: 999px; padding: .25em .85em; border: 1px solid rgba(242,184,79,.6); color: var(--gold); background: rgba(242,184,79,.1); }
+  .gmf-badge.ready { color: #7fd99a; border-color: rgba(127,217,154,.6); background: rgba(127,217,154,.12); }
+  .gmf-badge.review { color: #8fe0ff; border-color: rgba(143,224,255,.6); background: rgba(143,224,255,.1); }
+  .gmf-badge.rejected { color: #ff9db0; border-color: rgba(255,157,176,.6); background: rgba(255,157,176,.1); }
   .ag-link-row { display: flex; gap: .6em; flex-wrap: wrap; align-items: center; margin-top: .8em; }
   .ag-link-row input { flex: 1 1 280px; font: inherit; color: var(--text); padding: .7em .95em; border-radius: 12px; border: 1px solid rgba(255,255,255,.24); background: rgba(10,6,24,.45); }
   .ag-list { display: grid; gap: .7em; }
@@ -708,6 +715,44 @@
 
      <div class="me-panels">
 
+    <!-- Panels a Game Master sees instead of Ash's own (Ash's panels stay hidden for them) -->
+    <div class="me-panel" data-panel="gmcalendar" hidden>
+      <div class="pay-box">
+        <h2>🗓️ Your calendar</h2>
+        <p class="note">Your own sessions will show here once you have a game running. Nothing from Ash's calendar is shown to you.</p>
+        <p class="pay-muted">No sessions yet.</p>
+      </div>
+    </div>
+
+    <div class="me-panel" data-panel="gmreviews" hidden>
+      <div class="pay-box">
+        <h2>⭐ Your reviews</h2>
+        <p class="note">Reviews your own players write about you will show here. You only see your own.</p>
+        <p class="pay-muted">No reviews yet.</p>
+      </div>
+    </div>
+
+    <div class="me-panel" data-panel="gmcampaigns" hidden>
+      <div class="pay-box">
+        <h2>🎲 Your campaigns and players</h2>
+        <p class="note">This is where your own campaigns, their time slots, and the players who join them will live. You only ever see your own.</p>
+        <p class="pay-muted">You have no campaigns yet. Creating your first campaign is the next thing we are building here.</p>
+      </div>
+    </div>
+
+    <div class="me-panel" data-panel="gmfinance" hidden>
+      <div class="pay-box" style="margin-bottom:1.4em;">
+        <h2>💰 Getting paid</h2>
+        <p class="note">Players pay for your games straight into <strong>your own account on Whop</strong>, our payment partner. Ash Tabletop's 5% is taken automatically on each payment, and Whop's own fees apply. To receive money, Whop needs to check who you are and where to send it. You do that on Whop's secure pages, and we never see your bank or card details.</p>
+        <div id="gmf-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
+        <p class="slot-status" id="gmf-status"></p>
+      </div>
+      <div class="pay-box">
+        <h2>Your earnings</h2>
+        <p class="pay-muted">What players pay you will show here once you have a game running and a verified payout account. You only see your own money.</p>
+      </div>
+    </div>
+
     <div class="me-panel" data-panel="agreements" hidden>
       <div class="pay-box" style="margin-bottom:1.4em;">
         <h2>📜 Game Master Agreements</h2>
@@ -1178,6 +1223,11 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="firebase-init.js"></script>
+<script>
+// Who is signed in (Ash, another Game Master, or neither) is worked out once and shared with the tabs.
+window.AshRole = null;
+window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = resolve; });
+</script>
 <script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1 && /preview=glass/.test(location.search)) document.write('<scr' + 'ipt src="admin-preview.js"></scr' + 'ipt>');</script>
 <script>
 (function () {
@@ -2372,8 +2422,15 @@
   var listEl = document.getElementById('note-list');
 
   function call(action, extra) {
+    // Another Game Master reads their own notifications from the profile endpoints, never Ash's.
+    var role = window.AshRole;
+    var base = URL_BASE, act = action;
+    if (role && role.isGm && !role.isAdmin) {
+      base = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/profile/';
+      act = action === 'admin/notifications' ? 'notifications' : 'notifications/read';
+    }
     return firebase.auth().currentUser.getIdToken().then(function (idToken) {
-      return fetch(URL_BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {})) });
+      return fetch(base + act, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {})) });
     }).then(function (res) {
       return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Could not load notifications.'); return data; });
     });
@@ -2391,7 +2448,10 @@
     badge.textContent = data.unread + ' new';
     var railDot = document.getElementById('admin-rail-dot');
     if (railDot) railDot.hidden = !data.unread;
-    document.getElementById('note-sub').textContent = 'New accounts, new players, reviews, players who leave or skip a session, failed charges and session reminders show up here.' +
+    var gmOnly = window.AshRole && window.AshRole.isGm && !window.AshRole.isAdmin;
+    document.getElementById('note-sub').textContent = gmOnly
+      ? 'News about your own games, players and reviews shows up here.'
+      : 'New accounts, new players, reviews, players who leave or skip a session, failed charges and session reminders show up here.' +
       (data.emailOn ? ' Each one is also emailed to you.' : ' Email copies are not switched on yet.');
     listEl.innerHTML = '';
     if (!data.items.length) {
@@ -2440,8 +2500,8 @@
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || go) return;
     go = true;
-    load();
-    setInterval(load, 60000);
+    // wait until we know who is signed in, so a Game Master never even asks for Ash's list
+    window.AshRoleReady.then(function () { load(); setInterval(load, 60000); });
   });
 })();
 </script>
@@ -3068,8 +3128,127 @@
 </script>
 <script src="campaign-colors.js?v=20261004a"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261005g"></script>
-<script src="gm-profile.js?v=20261005e"></script>
+<script src="gm-render.js?v=20261005h"></script>
+<script src="gm-profile.js?v=20261005f"></script>
+<script>
+(function () {
+  var WORKER = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';
+  var GM_MAP = { finance: 'gmfinance', calendar: 'gmcalendar', reviews: 'gmreviews', campaigns: 'gmcampaigns' };
+  var GM_HIDE = ['announce', 'agreements'];
+
+  function tabFromHash() { var m = window.location.hash.match(/^#tab=(.+)$/); return m ? decodeURIComponent(m[1]) : ''; }
+
+  function noAccess() {
+    document.querySelectorAll('#dashboard .me-rail, #dashboard .me-panel').forEach(function (n) { n.hidden = true; n.style.display = 'none'; });
+    var box = document.createElement('div');
+    box.className = 'pay-box';
+    box.innerHTML = '<h2>This area is for Game Masters</h2><p class="note">Your account is not a Game Master account yet. If you would like to host games on Ash Tabletop, message Ash.</p>';
+    var shell = document.querySelector('#dashboard .me-panels') || document.getElementById('dashboard');
+    shell.parentNode.insertBefore(box, shell);
+  }
+
+  function gmMode(role) {
+    // another Game Master: their own tabs only, nothing of Ash's
+    document.querySelectorAll('.me-rail-btn').forEach(function (b) {
+      var t = b.dataset.tab;
+      if (GM_HIDE.indexOf(t) !== -1) { b.hidden = true; b.style.display = 'none'; }
+      if (GM_MAP[t]) b.dataset.tab = GM_MAP[t];
+    });
+    document.querySelectorAll('.me-panel[data-panel="announce"], .me-panel[data-panel="agreements"]').forEach(function (p) { p.remove(); });
+    var h = document.querySelector('.top-bar h1');
+    if (h && h.lastChild && h.lastChild.nodeType === 3) h.lastChild.textContent = 'GM Dashboard';
+    var back = document.querySelector('.top-bar-actions a.btn');
+    if (back && role.slug) back.href = 'gm.html?slug=' + encodeURIComponent(role.slug);
+    // open the right tab (a link like #tab=finance becomes their own finance tab)
+    var want = tabFromHash();
+    var go = GM_MAP[want] || want;
+    var valid = go && document.querySelector('.me-panel[data-panel="' + go + '"]');
+    if (window.AshAdminShowTab) window.AshAdminShowTab(valid ? go : 'notifications');
+  }
+
+  function start(user) {
+    user.getIdToken().then(function (idToken) {
+      return fetch(WORKER + '/gm/get', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      var role = { isGm: !!d.isGm, isAdmin: !!d.isAdmin, slug: d.slug || '', name: d.name || '' };
+      window.AshRole = role;
+      if (role.isAdmin) { /* Ash sees everything */ }
+      else if (!role.isGm) noAccess();
+      else gmMode(role);
+      window.__resolveRole(role);
+    }).catch(function () {
+      // Could not check (a hiccup): leave the page as it is. The server still decides what data anyone can get.
+      window.__resolveRole({ unknown: true });
+    });
+  }
+  firebase.auth().onAuthStateChanged(function (user) { if (user) start(user); });
+})();
+</script>
+<script>
+// Finance for a Game Master: set up payouts on Whop.
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="gmfinance"]');
+  if (!panel) return;
+  var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/connect/';
+  var card = document.getElementById('gmf-card');
+  var status = document.getElementById('gmf-status');
+  function call(action) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function go(action, btn) {
+    btn.disabled = true; status.textContent = 'One moment...'; status.className = 'slot-status';
+    call(action).then(function (d) { window.location.href = d.url; })
+      .catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
+  }
+  function draw(state) {
+    card.innerHTML = '';
+    var badge = el('span', 'gmf-badge ' + state);
+    var title = el('h3'), text = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
+    var primary = el('button', 'btn btn-primary'); primary.type = 'button';
+    if (state === 'ready') {
+      badge.textContent = 'Ready';
+      title.textContent = 'You are set up to get paid';
+      text.textContent = 'Your payout account is verified. Open your payouts to add or change where your money is sent and to withdraw.';
+      primary.textContent = 'Open my payouts';
+      primary.addEventListener('click', function () { go('portal', primary); });
+    } else if (state === 'review') {
+      badge.textContent = 'In review';
+      title.textContent = 'Whop is checking your details';
+      text.textContent = 'This usually takes a short while. You will not need to do anything. Come back and press refresh.';
+      primary.textContent = 'Refresh';
+      primary.addEventListener('click', load);
+    } else if (state === 'rejected') {
+      badge.textContent = 'Needs attention';
+      title.textContent = 'Whop could not verify your details';
+      text.textContent = 'Please message Ash and we will help you sort it out.';
+      primary.textContent = 'Try again';
+      primary.addEventListener('click', function () { go('start', primary); });
+    } else if (state === 'owner') {
+      badge.textContent = 'Owner';
+      title.textContent = 'Your own Whop account';
+      text.textContent = 'Your money already goes to your own Whop account. Use the Finance tab for the full view.';
+      primary.hidden = true;
+    } else {
+      badge.textContent = state === 'verify' ? 'Almost there' : 'Step 1';
+      title.textContent = 'Verify it is you and add where to send your money';
+      text.textContent = 'You will be taken to Whop to confirm your identity and add your bank or card details. It takes a few minutes. When you are done, you come back here.';
+      primary.textContent = state === 'verify' ? 'Continue verifying' : 'Verify and add my bank details';
+      primary.addEventListener('click', function () { go('start', primary); });
+    }
+    btns.appendChild(primary);
+    card.append(badge, title, text, btns);
+  }
+  function load() {
+    status.textContent = ''; status.className = 'slot-status';
+    call('status').then(function (d) { draw(d.state); }).catch(function (e) { card.innerHTML = ''; status.textContent = e.message; status.className = 'slot-status error'; });
+  }
+  new MutationObserver(function () { if (!panel.hidden) load(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
+})();
+</script>
 <script src="messages-ui.js?v=20261005c"></script>
 <script>
 (function () {

@@ -64,3 +64,10 @@ body { display: flex; flex-direction: column; min-height: 100vh; }
   .ag-sec h3, .ag h1 { color: #000 !important; }
   .ag-intro, .ag-sec p { color: #000 !important; }
 }
+
+.ag-account { text-align: left; max-width: 560px; margin: 1.6em auto 0; padding-top: 1.4em; border-top: 1px solid rgba(255, 255, 255, 0.2); }
+.ag-account h2 { margin: 0 0 0.2em; font-size: 1.4rem; font-weight: 900; }
+.ag-account input[type="email"], .ag-account input[type="password"] { width: 100%; font: inherit; color: var(--text); padding: 0.8em 1em; border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.26); background: rgba(10, 6, 24, 0.5); }
+.ag-account input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242, 184, 79, 0.2); }
+.ag-account .btn { width: 100%; justify-content: center; }
+

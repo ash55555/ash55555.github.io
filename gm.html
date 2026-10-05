@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="google-site-verification" content="kAa0jL8-FPzYeF_0wwZskvH-JwqpMA5cIIhSZbUf2FE" />
+<title>Game Master | Ash Tabletop</title>
+<meta name="description" content="A Game Master on Ash Tabletop.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="medie/ash-token.png">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ash Tabletop | Professional Dungeon Mastering">
+<meta property="og:description" content="Professionally run D&D 5e campaigns on Roll20 + Discord. Gothic horror, feywild whimsy, political intrigue and more. Free Session Zero, $10 per session.">
+<meta property="og:url" content="https://ashtabletop.com/">
+<meta property="og:image" content="https://ashtabletop.com/medie/ash-token.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ash Tabletop | Professional Dungeon Mastering">
+<meta name="twitter:description" content="Professionally run D&D 5e campaigns on Roll20 + Discord. Free Session Zero, $10 per session.">
+<meta name="twitter:image" content="https://ashtabletop.com/medie/ash-token.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css?v=20261003e">
+<link rel="stylesheet" href="dm-profile.css?v=20261005b">
+<link rel="stylesheet" href="messages.css?v=20261005b">
+</head>
+<body>
+
+<!-- ================= ICON SPRITE ================= -->
+<svg style="display:none">
+  <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  <symbol id="icon-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v9M9.5 9.3c0-1.3 1.2-2.1 2.5-2.1s2.5.8 2.5 2c0 2.5-5 1.7-5 4.2 0 1.2 1.2 2.1 2.5 2.1s2.5-.8 2.5-2.1"/></symbol>
+  <symbol id="icon-dice" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="icon-dagger" viewBox="0 0 24 24"><path d="M12 2v11"/><path d="M8 6h8"/><path d="M12 13l3 3-3 6-3-6z"/></symbol>
+  <symbol id="icon-bat" viewBox="0 0 24 24"><path d="M12 9c-2-4-6-5-9-3 2 1 3 3 3 5-2 0-4 2-4 4 3 0 5-1 6-3 1 2 2 3 4 3s3-1 4-3c1 2 3 3 6 3 0-2-2-4-4-4 0-2 1-4 3-5-3-2-7-1-9 3z"/><circle cx="10.5" cy="9.5" r="0.6" fill="currentColor" stroke="none"/><circle cx="13.5" cy="9.5" r="0.6" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="icon-axe" viewBox="0 0 24 24"><path d="M6 21L16 5"/><path d="M13 3c3 0 6 2 6 5-3 1-6 0-7-2z"/></symbol>
+  <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></symbol>
+  <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/></symbol>
+  <symbol id="icon-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 6l9 7 9-7"/></symbol>
+  <symbol id="icon-book" viewBox="0 0 24 24"><path d="M4 5.5C4 4.7 4.7 4 5.5 4H12v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M20 5.5c0-.8-.7-1.5-1.5-1.5H12v16h6.5a1.5 1.5 0 0 0 1.5-1.5z"/></symbol>
+  <symbol id="icon-close" viewBox="0 0 24 24"><path d="M5 5l14 14M19 5L5 19"/></symbol>
+  <symbol id="icon-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M6.5 14.5h4"/></symbol>
+  <symbol id="icon-discord" viewBox="0 0 24 24"><path fill="currentColor" stroke="none" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></symbol>
+</svg>
+
+<!-- ================= NAV ================= -->
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="Game Master picture" width="44" height="44" loading="eager">
+      <span class="brand-name">Ash Tabletop</span>
+    </a>
+    <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links" aria-label="Toggle navigation menu">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="nav-links">
+      <a href="#contact">Contact</a>
+      <div class="nav-auth">
+        <button type="button" class="nav-login js-signup-trigger" data-mode="login">Log In</button>
+        <button type="button" class="nav-cta js-signup-trigger" data-mode="signup">Sign Up</button>
+        <div class="nu-mount" id="nav-user" hidden></div>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+
+  <!-- ================= PROFILE HEADER ================= -->
+  <section class="profile-hero" id="profile-top">
+    <div class="profile-cover" aria-hidden="true"></div>
+    <div class="profile-card">
+      <div class="profile-avatar-col">
+        <div class="profile-avatar">
+          <div class="hero-glow" aria-hidden="true"></div>
+          <img class="hero-token" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Ccircle cx='100' cy='100' r='100' fill='%236b46c1'/%3E%3Cpath d='M100 40l48 28v64l-48 28-48-28V68z' fill='none' stroke='%23f2b84f' stroke-width='8' stroke-linejoin='round'/%3E%3Cpath d='M100 40v120M52 68l96 64M148 68l-96 64' fill='none' stroke='%23f2b84f' stroke-width='5'/%3E%3C/svg%3E" alt="Ash's character token, a grinning blue, fanged, pointy-eared figure in a shirt and vest" width="480" height="480" loading="eager">
+        </div>
+        <span class="profile-role">Game Master</span>
+      </div>
+      <div class="profile-main">
+        <div class="profile-namerow">
+          <h1 class="profile-name" data-field="name"></h1>
+          <span class="profile-pronouns" data-field="pronouns"></span>
+        </div>
+        <p class="profile-tagline" data-field="tagline"></p>
+        <p class="profile-platforms" data-field="platforms"></p>
+        <p class="hero-sub" data-field="bio"></p>
+        <div class="hero-tables-block">
+          <p class="hero-tables-title">My tables are:</p>
+          <ul class="hero-tables" data-field="tables"></ul>
+        </div>
+        <div class="hero-actions">
+          <button type="button" class="btn btn-discord js-message-gm" data-slug="">
+            <svg class="icon"><use href="#icon-chat"/></svg>
+            <span class="chat-label">Chat</span>
+          </button>
+        </div>
+              </div>
+    </div>
+  </section>
+
+  <!-- ================= INFO STRIP ================= -->
+  <section class="info-strip" aria-label="About Ash and how the table works"></section>
+
+  <!-- ================= CAMPAIGNS ================= -->
+  
+
+  <!-- ================= REVIEWS ================= -->
+  
+
+  <!-- ================= CONTACT ================= -->
+  <section class="contact" id="contact">
+    <div class="contact-inner">
+      <p class="eyebrow">Get In Touch</p>
+      <h2>Have a seat waiting for you.</h2>
+      <p class="section-sub">The fastest way to reach Ash is Discord, so feel free to ask about open seats, scheduling, or anything else 👋</p>
+      <div class="contact-actions">
+        <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord btn-large">
+          <svg class="icon"><use href="#icon-discord"/></svg>
+          Message on Discord
+        </a>
+      </div>
+
+      <button type="button" class="link-button js-email-trigger">
+        <svg class="icon icon-sm"><use href="#icon-mail"/></svg>
+        Prefer email? Send a message
+      </button>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================= EMAIL MODAL ================= -->
+<div class="modal" id="email-modal" hidden>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="email-modal-title">
+    <button type="button" class="modal-close js-modal-close" aria-label="Close">
+      <svg class="icon"><use href="#icon-close"/></svg>
+    </button>
+    <h3 id="email-modal-title">Send Ash a Message</h3>
+    <p class="modal-sub">Leave your email and a message, and Ash will reply straight to your inbox.</p>
+    <form id="email-form">
+      <label for="email-field">Your email</label>
+      <input id="email-field" type="email" name="email" required placeholder="you@example.com">
+      <label for="message-field">Message</label>
+      <textarea id="message-field" name="message" rows="4" required placeholder="What would you like to ask or say?"></textarea>
+      <button type="submit" class="btn btn-primary">Send Message</button>
+      <p class="modal-status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</div>
+
+<!-- ================= PAYPAL MODAL ================= -->
+<div class="modal" id="paypal-modal" hidden>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="paypal-modal-title">
+    <button type="button" class="modal-close js-modal-close" aria-label="Close">
+      <svg class="icon"><use href="#icon-close"/></svg>
+    </button>
+    <h3 id="paypal-modal-title">Subscribe to This Session</h3>
+    <p class="modal-sub" id="paypal-modal-sub"></p>
+    <div id="paypal-button-slot"></div>
+  </div>
+</div>
+
+<!-- ================= SIGNUP MODAL ================= -->
+<div class="modal" id="signup-modal" hidden>
+  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="signup-modal-title">
+    <button type="button" class="modal-close js-modal-close" aria-label="Close">
+      <svg class="icon"><use href="#icon-close"/></svg>
+    </button>
+    <h3 id="signup-modal-title">Get Notified About New Games</h3>
+    <p class="modal-sub" id="signup-modal-sub">Create a free account and get an email every time Ash opens a new game or session.</p>
+
+    <div id="signup-guest-view">
+      <button type="button" class="btn btn-google" id="signup-google-btn">
+        <svg class="icon" viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+          <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/>
+          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+          <path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6c-2 1.5-4.6 2.5-7.7 2.5-5.3 0-9.7-3.4-11.3-8.1l-6.6 5.1C9.6 39.6 16.2 44 24 44z"/>
+          <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6.6 5.6C41.4 35.8 44 30.4 44 24c0-1.3-.1-2.7-.4-3.5z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="modal-divider"><span>or</span></div>
+
+      <form id="signup-form">
+        <label for="signup-email">Email</label>
+        <input id="signup-email" type="email" name="email" required placeholder="you@example.com" autocomplete="email">
+        <label for="signup-password">Password</label>
+        <input id="signup-password" type="password" name="password" required placeholder="At least 6 characters" autocomplete="new-password" minlength="6">
+        <label for="signup-password-confirm" id="signup-confirm-label">Confirm Password</label>
+        <input id="signup-password-confirm" type="password" name="passwordConfirm" required placeholder="Re-enter your password" autocomplete="new-password" minlength="6">
+        <div class="g-recaptcha" id="signup-recaptcha" data-sitekey="6Ld-u8otAAAAAIms3pTww1E8rfstWjgqgOTU72xK"></div>
+        <button type="submit" class="btn btn-primary">Sign Up</button>
+        <button type="button" class="link-button modal-switch" id="signup-forgot" hidden>Forgot your password?</button>
+        <p class="modal-status" role="status" aria-live="polite"></p>
+      </form>
+      <button type="button" class="link-button modal-switch" id="signup-mode-toggle">Already have an account? Log in</button>
+    </div>
+
+    <div id="signup-member-view" hidden>
+      <div class="member-badge">✓ You're on the list</div>
+      <p class="modal-sub">Signed in as <strong id="signup-member-email"></strong>. You'll get an email whenever Ash opens a new game or session.</p>
+      <a class="btn btn-primary" href="profile.html" style="width:100%; justify-content:center; margin-bottom:0.7em;">My profile</a>
+      <button type="button" class="btn btn-ghost" id="signup-logout-btn" style="width:100%; justify-content:center;">Log Out</button>
+    </div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32" loading="lazy">
+  <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
+</footer>
+
+<script src="tz.js?v=20260927a"></script>
+<script src="nav-user.js?v=20261005b"></script>
+<script src="script.js?v=20261004a"></script>
+<!-- Optional: quietly syncs live seat counts / paused games from Firebase
+     onto the buttons above once Ash finishes Firebase setup. Does nothing
+     until then; see campaigns-data.js. -->
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="firebase-init.js"></script>
+
+<script>
+(function () {
+  var slug = (new URLSearchParams(window.location.search).get('slug') || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+  document.body.setAttribute('data-gm-slug', slug);
+  document.body.setAttribute('data-gm-generic', '');
+  var b = document.querySelector('.js-message-gm'); if (b) b.setAttribute('data-slug', slug);
+})();
+</script>
+<script src="messages-ui.js?v=20261005c"></script>
+<script src="gm-catalog.js?v=20261005c"></script>
+<script src="gm-render.js?v=20261005h"></script>
+<script>
+// Social buttons without a real link yet are not shown to visitors.
+document.querySelectorAll('.social-btn').forEach(function (a) { if (a.getAttribute('href') === '#') a.remove(); });
+if (!document.querySelector('.social-btn')) { var box = document.querySelector('.profile-socials'); if (box) box.remove(); }
+</script>
+</body>
+</html>

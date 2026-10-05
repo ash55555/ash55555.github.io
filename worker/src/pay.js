@@ -122,7 +122,7 @@ export function cfg(env) {
   };
 }
 
-async function whop(env, path, init = {}) {
+export async function whop(env, path, init = {}) {
   const c = cfg(env);
   const res = await fetch(c.api + path, {
     ...init,

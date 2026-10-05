@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20261005e">
-<link rel="stylesheet" href="dm-agreement.css?v=20261005a">
+<link rel="stylesheet" href="dm-agreement.css?v=20261005b">
 </head>
 <body>
 
@@ -67,6 +67,15 @@
       <a class="btn btn-primary" id="ag-pdf" href="#" target="_blank" rel="noopener">Download my PDF</a>
       <button type="button" class="btn btn-ghost" id="ag-print">Print</button>
     </div>
+
+    <form class="ag-account" id="ag-account" novalidate hidden>
+      <h2>Next: create your GM account</h2>
+      <p class="ag-help">Your GM Dashboard is where you run your games, read your messages and set up how you get paid. Use the email you signed with, and choose a password.</p>
+      <label class="ag-field"><span>Email</span><input id="ag-acc-email" type="email" autocomplete="username" placeholder="you@example.com"></label>
+      <label class="ag-field"><span>Choose a password <em>(at least 8 characters; if you already have an account, type your password)</em></span><input id="ag-acc-pass" type="password" autocomplete="new-password" minlength="8"></label>
+      <p class="ag-status" id="ag-acc-status" role="status" aria-live="polite"></p>
+      <button type="submit" class="btn btn-primary btn-large" id="ag-acc-btn">Open my GM Dashboard</button>
+    </form>
   </section>
 
 </main>
@@ -76,6 +85,9 @@
   <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
 </footer>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-init.js?v=20260926b"></script>
 <script type="module">
 import { AGREEMENT } from './dm-agreement-text.js';
 
@@ -118,6 +130,7 @@ if (doc && key) {
   document.querySelectorAll('#ag-done .ag-term').forEach((t) => { t.hidden = true; });
   $('ag-pdf').href = WORKER + '/dmagree/pdf?id=' + encodeURIComponent(doc) + '&k=' + encodeURIComponent(key);
   $('ag-print').hidden = true;
+  showAccountStep(doc, key, '');
 }
 
 // ---- signing
@@ -149,12 +162,50 @@ $('ag-form').addEventListener('submit', async (e) => {
       ? 'A copy was sent to ' + email + ' as a PDF, and Ash got a copy too. Keep it somewhere safe. We will remind you about 30 days before it expires.'
       : 'Your agreement is saved and Ash has been told, but we could not email your copy. Please download it below.';
     $('ag-pdf').href = preview ? '#' : WORKER + '/dmagree/pdf?id=' + data.id + '&k=' + data.key;
+    showAccountStep(data.id, data.key, email);
     window.scrollTo(0, 0);
   } catch (err) {
     status.textContent = err.message; status.classList.add('err'); btn.disabled = false;
   }
 });
 $('ag-print').addEventListener('click', () => window.print());
+
+// ---- the GM account: create it (or sign in), link it to this agreement, then open the dashboard
+let claim = null;
+function showAccountStep(id, key, email) {
+  claim = { id, key };
+  $('ag-account').hidden = false;
+  if (email) $('ag-acc-email').value = email;
+}
+$('ag-account').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const st = $('ag-acc-status'), btn = $('ag-acc-btn');
+  st.className = 'ag-status';
+  const email = $('ag-acc-email').value.trim(), pass = $('ag-acc-pass').value;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { st.textContent = 'Please enter your email.'; st.classList.add('err'); return; }
+  if (pass.length < 8) { st.textContent = 'Please choose a password of at least 8 characters.'; st.classList.add('err'); return; }
+  if (preview) { st.textContent = 'In the real page this creates your account and opens your dashboard.'; return; }
+  if (typeof firebase === 'undefined' || !firebase.auth) { st.textContent = 'Sign-in is not available right now. Please try again later.'; st.classList.add('err'); return; }
+  btn.disabled = true; st.textContent = 'Setting up your account...';
+  try {
+    const auth = firebase.auth();
+    let cred;
+    try { cred = await auth.createUserWithEmailAndPassword(email, pass); }
+    catch (err) {
+      if (err.code === 'auth/email-already-in-use') cred = await auth.signInWithEmailAndPassword(email, pass);
+      else throw err;
+    }
+    const idToken = await cred.user.getIdToken();
+    const r = await fetch(WORKER + '/dmagree/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken, id: claim.id, key: claim.key }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || 'Could not link your account.');
+    st.textContent = 'All set! Opening your dashboard...';
+    window.location.href = 'admin.html';
+  } catch (err) {
+    const msg = { 'auth/wrong-password': 'That email already has an account, and that password is not right.', 'auth/invalid-credential': 'That email already has an account, and that password is not right.', 'auth/weak-password': 'Please choose a stronger password.' }[err.code] || err.message || 'Something went wrong. Please try again.';
+    st.textContent = msg; st.classList.add('err'); btn.disabled = false;
+  }
+});
 </script>
 </body>
 </html>

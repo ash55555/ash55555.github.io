@@ -171,3 +171,14 @@ CREATE TABLE IF NOT EXISTS dm_agreements (
   reminded_at TEXT
 );
 CREATE INDEX IF NOT EXISTS dm_agreements_email ON dm_agreements (email);
+
+-- A signed agreement can be linked to the GM account that claimed it.
+ALTER TABLE dm_agreements ADD COLUMN uid TEXT;
+
+-- Each GM's connected Whop account (where their players' payments go).
+CREATE TABLE IF NOT EXISTS gm_accounts (
+  uid TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  email TEXT,
+  created_at TEXT NOT NULL
+);

@@ -10,6 +10,7 @@
 //  - Either side can report a conversation; the report goes straight to Ash.
 
 import { verifyUser, cfg, notify, escapeHtml } from './pay.js';
+import { gmStatus } from './gm.js';
 
 const MAX_TEXT = 1000;
 const PER_HOUR = 20;
@@ -23,7 +24,7 @@ const clean = (v, max) => String(v == null ? '' : v).replace(/<[^>]*>/g, ' ').re
 const convKey = (a, b) => [a, b].sort().join('|');
 
 async function isGmUid(env, uid) {
-  if (uid === env.ADMIN_UID) return true;
+  if ((await gmStatus(env, uid)).isGm) return true;
   const row = await env.DB.prepare('SELECT 1 AS x FROM gm_profiles WHERE uid=?').bind(uid).first();
   return !!row;
 }
@@ -42,7 +43,7 @@ async function people(env, origin, uids) {
       name: gmName || (prof && prof.name) || emailName || 'Player',
       token: (prof && prof.token) || 'wizard',
       avatarUrl: prof && prof.avatar_id ? `${origin}/profile/avatar/${prof.avatar_id}` : null,
-      isGm: uid === env.ADMIN_UID || !!gm,
+      isGm: uid === env.ADMIN_UID || !!gm || (await gmStatus(env, uid)).isGm,
       slug: uid === env.ADMIN_UID ? 'ash' : (gm ? gm.slug : null),
     };
   }

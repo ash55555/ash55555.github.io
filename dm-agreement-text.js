@@ -5,7 +5,7 @@
 // Plain language on purpose. It is not legal advice; have a lawyer look it over before relying on it.
 
 export const AGREEMENT = {
-  version: '2026-10',
+  version: '2026-10b',
   title: 'Game Master Agreement',
   platform: 'Ash Tabletop',
   termMonths: 12,
@@ -34,11 +34,11 @@ export const AGREEMENT = {
     {
       title: 'Fees and getting paid',
       body: [
-        'Players pay for each session when it starts. Every payment goes through Whop.',
+        'Players pay for each session when it starts. Their payments go into your own account on Whop, our payment provider. To receive money you must verify who you are with Whop and add where your money should be sent, on Whop\'s own pages. Whop\'s rules and terms apply to your account.',
         'The only fee Ash Tabletop charges is 5% of what players pay for your sessions.',
         'Whop, our payment provider, charges its own fees on payments. Those fees belong to Whop, not to us. You pay them, and Ash Tabletop is not responsible for them or for any change in them.',
         'Your earnings for a session are what the players paid, minus Whop\'s fees, minus our 5%.',
-        'We pay your earnings out after a 24-hour hold following each session, so we can sort out any problem first. Your very first payout may be held for up to 72 hours. We send payouts by the payout method we agree with you, and we may group them together. You must give us correct payout details.',
+        'Our 5% is taken automatically from each payment. The rest stays in your Whop account, and you withdraw it from there following Whop\'s rules and timing. We do not hold your money and we do not pay it out to you ourselves. You must keep your Whop account verified and in good standing.',
         'You are responsible for following the laws and rules that apply to you where you live and work, including taxes, licenses and permits. We do not give tax or legal advice, we do not take taxes out of your payouts, and we are not responsible for your government\'s laws or your taxes. If the law requires us to share information about you or your earnings with an authority, we may do so.',
       ],
     },
@@ -46,15 +46,15 @@ export const AGREEMENT = {
       title: 'Refunds',
       body: [
         'A player is refunded when a session did not happen as promised. For example: you did not show up, you cancelled late, you started much later than the time shown, or the session could not run because of you. We may also refund a player who tells us there is a problem with a charge, when it looks fair to us. We decide in good faith.',
-        'Every refund comes out of your earnings for that session, and that includes any payment fee that Whop keeps. If you have already been paid, you agree to pay it back. We may subtract it from your later earnings. If there are none, you agree to pay it within 14 days of our request.',
+        'Every refund comes out of your Whop account for that session, and that includes any payment fee that Whop keeps. If your balance is not enough, or you have already withdrawn the money, you agree to pay the difference within 14 days of our request.',
         'We do not refund a player just because they did not enjoy a session that was run properly.',
       ],
     },
     {
       title: 'Bank disputes and chargebacks',
       body: [
-        'If a player disputes a charge with their bank (a "chargeback"), you are responsible for the amount and for any fees charged for the dispute. We may subtract them from your earnings, in the same way as refunds.',
-        'We will help by collecting evidence from the site\'s records, such as the schedule, the notices sent to players, and attendance. If you have a lot of disputes or refunds, we may hold your payouts for longer.',
+        'If a player disputes a charge with their bank (a "chargeback"), you are responsible for the amount and for any fees charged for the dispute. They are taken from your Whop account in the same way as refunds, and you pay any difference within 14 days of our request.',
+        'We will help by collecting evidence from the site\'s records, such as the schedule, the notices sent to players, and attendance. If you have a lot of disputes or refunds, we may pause your games.',
       ],
     },
     {
@@ -100,7 +100,7 @@ export const AGREEMENT = {
       title: 'Pausing or removing you',
       body: [
         'We may pause or remove you, or one of your games, right away if there are repeated complaints, missed sessions, unsafe behavior, a break of this agreement, unusually many refunds or disputes, or anything that puts players, the site or our Whop account at risk.',
-        'While we look into a problem, we may hold your payouts to cover refunds and disputes that may follow.',
+        'While we look into a problem, we may pause your games so that no new payments are taken.',
       ],
     },
     {
