@@ -5,7 +5,7 @@
 // Plain language on purpose. It is not legal advice; have a lawyer look it over before relying on it.
 
 export const AGREEMENT = {
-  version: '2026-10b',
+  version: '2026-10c',
   title: 'Game Master Agreement',
   platform: 'Ash Tabletop',
   termMonths: 12,
@@ -39,6 +39,7 @@ export const AGREEMENT = {
         'Whop, our payment provider, charges its own fees on payments. Those fees belong to Whop, not to us. You pay them, and Ash Tabletop is not responsible for them or for any change in them.',
         'Your earnings for a session are what the players paid, minus Whop\'s fees, minus our 5%.',
         'Our 5% is taken automatically from each payment. The rest stays in your Whop account, and you withdraw it from there following Whop\'s rules and timing. We do not hold your money and we do not pay it out to you ourselves. You must keep your Whop account verified and in good standing.',
+        'Whop decides when your money is released to you. New payments can stay "pending" for a few days, and Whop may also hold back a part of your balance as a "reserve" to cover refunds and disputes, especially on newer accounts or when there are many refunds or disputes. Whop also sets the minimum amount you can withdraw, the withdrawal fees, and how long a withdrawal takes to reach your bank. These rules are set by Whop for your own account. Ash Tabletop does not set them, cannot change them, and is not responsible for any delay, hold or reserve. You can see your own balance, any reserve and its release dates in your Whop payout page.',
         'You are responsible for following the laws and rules that apply to you where you live and work, including taxes, licenses and permits. We do not give tax or legal advice, we do not take taxes out of your payouts, and we are not responsible for your government\'s laws or your taxes. If the law requires us to share information about you or your earnings with an authority, we may do so.',
       ],
     },
