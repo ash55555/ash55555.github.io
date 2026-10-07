@@ -1,0 +1,34 @@
+/* The glow behind the top of the home page and the game masters page (see arcane.js). */
+.hx-arcane { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+
+/* two magic circles, half off the edge of the page */
+.hx-circle { position: absolute; opacity: .85; filter: drop-shadow(0 0 10px rgba(255,170,120,.35)) drop-shadow(0 0 28px rgba(155,109,255,.4)); }
+.hx-circle svg { display: block; width: 100%; height: auto; overflow: visible; }
+.hx-c-left { width: clamp(300px, 36vw, 600px); left: calc(clamp(300px, 36vw, 600px) / -2.2); top: 6%; }
+.hx-c-right { width: clamp(240px, 28vw, 470px); right: calc(clamp(240px, 28vw, 470px) / -2.4); bottom: 4%; opacity: .7; }
+.hx-circle g { fill: none; stroke-width: .75; stroke-linecap: round; stroke-linejoin: round; }
+.hx-circle .hx-dash { stroke-dasharray: 1.2 3.2; }
+.hx-circle .hx-faint { opacity: .6; stroke-width: .35; }
+.hx-circle polygon { fill: rgba(255,217,138,.08); }
+.hx-circle .hx-core { fill: rgba(255,217,138,.35); }
+.hx-spin { animation: hxspin 90s linear infinite; }
+.hx-s2 { animation-duration: 70s; animation-direction: reverse; }
+.hx-s3 { animation-duration: 50s; }
+.hx-c-right .hx-s1 { animation-direction: reverse; }
+@keyframes hxspin { to { transform: rotate(360deg); } }
+
+/* embers rising */
+.hx-embers { position: absolute; inset: 0; }
+.hx-ember { position: absolute; bottom: -12px; border-radius: 50%; background: radial-gradient(circle, #fff1c9 0%, #ffb35a 45%, rgba(255,120,60,0) 75%); box-shadow: 0 0 8px 2px rgba(255,150,70,.55); opacity: 0; animation: hxrise var(--t, 12s) ease-in var(--w, 0s) infinite; }
+@keyframes hxrise { 0% { opacity: 0; transform: translate(0, 0) scale(1); } 12% { opacity: .9; } 70% { opacity: .6; } 100% { opacity: 0; transform: translate(var(--x, 30px), -110vh) scale(.4); } }
+
+@media (max-width: 900px) {
+  .hx-circle { opacity: .55; }
+  .hx-c-left { width: 300px; left: -150px; }
+  .hx-c-right { width: 240px; right: -120px; }
+  .hx-ember:nth-child(n+20) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hx-spin, .hx-ember { animation: none; }
+  .hx-ember { opacity: .5; bottom: auto; top: 60%; }
+}
