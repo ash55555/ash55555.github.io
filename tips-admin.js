@@ -24,12 +24,6 @@
     });
   }
 
-  // Ash keeps all of her own tips; a Game Master keeps 95 percent of theirs.
-  (window.AshRoleReady || Promise.resolve({})).then(function (role) {
-    var note = document.querySelector('#tips-box .note');
-    if (note) note.textContent = role && role.isAdmin ? 'What players leave you as a thank you. All of it is yours.' : 'What players leave you as a thank you. Ash Tabletop keeps 5% of each tip, and the rest is yours.';
-  });
-
   function load() {
     var user = firebase.auth().currentUser;
     if (!user) return;

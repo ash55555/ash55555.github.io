@@ -52,8 +52,7 @@
     b.className = 'tip-body';
     b.innerHTML = '';
     b.appendChild(el('h3', null, 'Tip ' + info.name));
-    var cut = Math.round((info.fee || 0) * 100);
-    b.appendChild(el('p', 'tip-sub', 'A thank you for the games. ' + (cut ? (100 - cut) + '% goes to ' + info.name + ' and ' + cut + '% helps run Ash Tabletop.' : 'All of it goes to ' + info.name + '.')));
+    b.appendChild(el('p', 'tip-sub', 'A thank you for the games.'));
     var chips = el('div', 'tip-chips');
     var custom = el('input', 'tip-custom');
     custom.type = 'number'; custom.min = String(info.min); custom.max = String(info.max); custom.step = '1'; custom.placeholder = 'Other';
