@@ -644,20 +644,53 @@
 <link rel="stylesheet" href="gm-profile.css?v=20261005d">
 <link rel="stylesheet" href="messages.css?v=20261008a">
 <style id='admin-sessions'>
-.pay-sub-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; flex-wrap: wrap; }
-.pay-sess-btns { display: flex; gap: .5em; flex-wrap: wrap; }
-.pay-mini.on { background: rgba(242,184,79,.25); border-color: rgba(242,184,79,.6); }
-.pay-sess-card { margin: .8em 0 1.2em; padding: 1.1em 1.2em; border-radius: 18px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); display: grid; gap: .8em; justify-items: start; }
-.pay-sess-lead { margin: 0; font-weight: 700; }
-.pay-sess-row { display: flex; gap: 1em; flex-wrap: wrap; }
-.pay-sess-field { display: flex; flex-direction: column; gap: .3em; font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
-.pay-sess-field input { font: inherit; font-size: 1rem; padding: .55em .8em; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.25); color: var(--text); text-transform: none; letter-spacing: 0; color-scheme: dark; }
-.pay-sess-who { display: grid; gap: .3em; }
-.pay-sess-title { font-weight: 800; font-size: .85rem; }
-.pay-sess-check { display: flex; align-items: center; gap: .5em; }
-.pay-sess-preview { margin: 0; padding: .6em .9em; border-radius: 12px; background: rgba(242,184,79,.12); border: 1px solid rgba(242,184,79,.4); font-weight: 700; }
-.rb-extra { margin-left: .5em; padding: .1em .6em; border-radius: 999px; font-size: .68rem; font-weight: 800; background: rgba(242,184,79,.2); color: var(--gold); border: 1px solid rgba(242,184,79,.5); }
-.rb-extra-x { margin-left: .5em; font-size: .74rem; text-decoration: underline; cursor: pointer; color: #ff9db0; }
+/* ===== Players and payments: sessions, session buttons, player actions ===== */
+.pay-sub-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin: 1.4em 0 .8em; }
+.pay-sub-row .pay-sub { margin: 0; }
+.pay-sess-btns { display: flex; gap: .7em; flex-wrap: wrap; }
+
+/* the two session buttons: big, easy to hit */
+.pay-sess-btns .pay-mini { display: inline-flex; align-items: center; justify-content: center; gap: .5em; min-height: 48px; padding: .7em 1.5em; font-size: 1rem; font-weight: 800; letter-spacing: .01em; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); background: linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.05)); color: #fff; box-shadow: inset 0 1.5px 0 rgba(255,255,255,.3), 0 10px 26px rgba(8,3,24,.35); transition: transform .15s, box-shadow .15s, border-color .15s; }
+.pay-sess-btns .pay-mini:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.55); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.4), 0 14px 32px rgba(8,3,24,.45); }
+.pay-sess-btns .pay-mini:first-child { background: linear-gradient(180deg, #ffd479, #f2b84f); color: #231503; border-color: transparent; box-shadow: 0 10px 28px rgba(242,184,79,.4), inset 0 1.5px 0 rgba(255,255,255,.55); }
+.pay-sess-btns .pay-mini:first-child:hover { box-shadow: 0 14px 36px rgba(242,184,79,.55), inset 0 1.5px 0 rgba(255,255,255,.6); }
+.pay-sess-btns .pay-mini.on { outline: 2px solid rgba(255,255,255,.7); outline-offset: 2px; }
+
+/* the form that opens under them */
+.pay-sess-card { position: relative; margin: 0 0 1.4em; padding: 1.4em 1.5em 1.3em; border-radius: 24px; border: 1px solid rgba(255,255,255,.22); background: linear-gradient(145deg, rgba(255,255,255,.12), rgba(20,12,44,.55)); backdrop-filter: blur(16px) saturate(160%); box-shadow: 0 22px 50px rgba(8,3,24,.45), inset 0 1.5px 0 rgba(255,255,255,.25); display: grid; gap: 1em; justify-items: start; overflow: hidden; }
+.pay-sess-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: linear-gradient(90deg, #ffd479, #ff9db0, #9b8cff); }
+.pay-sess-lead { margin: 0; font-size: 1.05rem; font-weight: 800; }
+.pay-sess-row { display: flex; gap: 1.1em; flex-wrap: wrap; }
+.pay-sess-field { display: flex; flex-direction: column; gap: .4em; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.pay-sess-field input { font: inherit; font-size: 1.05rem; font-weight: 700; min-height: 48px; padding: .6em 1em; border-radius: 14px; border: 1px solid rgba(255,255,255,.28); background: rgba(0,0,0,.3); color: #fff; text-transform: none; letter-spacing: 0; color-scheme: dark; }
+.pay-sess-field input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242,184,79,.25); }
+.pay-sess-who { display: grid; gap: .5em; padding: .9em 1.1em; border-radius: 16px; background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.14); width: 100%; box-sizing: border-box; }
+.pay-sess-title { font-weight: 800; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.pay-sess-check { display: flex; align-items: center; gap: .65em; font-size: 1rem; font-weight: 700; padding: .25em 0; cursor: pointer; }
+.pay-sess-check input { width: 20px; height: 20px; accent-color: #f2b84f; }
+.pay-sess-preview { margin: 0; padding: .8em 1.1em; border-radius: 14px; background: rgba(242,184,79,.14); border: 1px solid rgba(242,184,79,.5); font-weight: 800; }
+.pay-sess-card .pay-mini { min-height: 48px; padding: .7em 1.6em; font-size: 1rem; font-weight: 800; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; }
+.pay-sess-card .pay-mini:not(:last-child) { background: linear-gradient(180deg, #ffd479, #f2b84f); color: #231503; border-color: transparent; box-shadow: 0 10px 26px rgba(242,184,79,.4); }
+.pay-sess-card .pay-mini:hover { transform: translateY(-2px); }
+
+/* the list of sessions on the right */
+.rb-session { grid-template-columns: 1fr auto auto; align-items: center; gap: .3em .6em; padding: .8em 1em; border-radius: 16px; transition: transform .15s, border-color .15s, background .15s; }
+.rb-session:hover { transform: translateX(-3px); }
+.rb-session .rb-date { grid-column: 1; font-size: 1rem; }
+.rb-session .rb-count { grid-column: 1 / -1; }
+.rb-extra { grid-column: 2; margin: 0; padding: .15em .7em; border-radius: 999px; font-size: .7rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; background: linear-gradient(180deg, #ffd479, #f2b84f); color: #231503; }
+.rb-extra-x { grid-column: 3; margin: 0; padding: .2em .8em; border-radius: 999px; font-size: .74rem; font-weight: 800; text-decoration: none; cursor: pointer; color: #ffb3c1; border: 1px solid rgba(255,107,129,.5); background: rgba(255,107,129,.12); }
+.rb-extra-x:hover { background: rgba(255,107,129,.28); }
+
+/* player rows and their buttons */
+.rb-row { padding: .9em 1.1em; border-radius: 18px; gap: 1em; }
+.rb-actions { gap: .6em; }
+.rb-actions .pay-mini { min-height: 42px; padding: .55em 1.2em; font-size: .92rem; font-weight: 800; border-radius: 999px; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; transition: transform .15s, background .15s, border-color .15s; }
+.rb-actions .pay-mini:hover { transform: translateY(-1px); background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.5); }
+.rb-actions .pay-mini:first-child { background: linear-gradient(145deg, rgba(126,203,255,.28), rgba(155,109,255,.28)); border-color: rgba(160,190,255,.6); }
+.rb-actions .pay-mini:last-child { color: #ffb3c1; border-color: rgba(255,107,129,.45); background: rgba(255,107,129,.1); }
+.rb-actions .pay-mini:last-child:hover { background: rgba(255,107,129,.25); }
+.rb-check { width: 34px; height: 34px; }
 </style>
 </head>
 <body>
