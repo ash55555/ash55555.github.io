@@ -34,15 +34,19 @@ async function people(env, origin, uids) {
   const out = {};
   for (const uid of uids) {
     const prof = await env.DB.prepare('SELECT name, token, avatar_id, email FROM profiles WHERE uid=?').bind(uid).first();
-    const gm = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(uid).first();
+    const gm = await env.DB.prepare('SELECT slug, data, updated_at FROM gm_profiles WHERE uid=?').bind(uid).first();
     let gmName = '';
-    if (gm) { try { gmName = JSON.parse(gm.data).name || ''; } catch { gmName = ''; } }
+    let gmPicture = false;
+    if (gm) { try { const d = JSON.parse(gm.data); gmName = d.name || ''; gmPicture = String(d.avatar || '').startsWith('data:image/'); } catch { gmName = ''; } }
     const emailName = prof && prof.email ? String(prof.email).split('@')[0] : '';
     out[uid] = {
       uid,
       name: gmName || (prof && prof.name) || emailName || 'Player',
       token: (prof && prof.token) || 'wizard',
-      avatarUrl: prof && prof.avatar_id ? `${origin}/profile/avatar/${prof.avatar_id}` : null,
+      // A game master's picture is the one on their game master profile (it changes whenever they change it);
+      // everyone else, and a game master with no picture there, uses the picture on their ordinary profile.
+      avatarUrl: gm && gmPicture ? `${origin}/gm/avatar?slug=${encodeURIComponent(gm.slug)}&v=${encodeURIComponent(gm.updated_at || '')}`
+        : (prof && prof.avatar_id ? `${origin}/profile/avatar/${prof.avatar_id}` : null),
       isGm: uid === env.ADMIN_UID || !!gm || (await gmStatus(env, uid)).isGm,
       slug: uid === env.ADMIN_UID ? 'ash' : (gm ? gm.slug : null),
     };

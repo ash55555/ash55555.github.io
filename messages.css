@@ -2,7 +2,7 @@
 .msg-root { color: var(--text); }
 .msg-wrap {
   display: grid;
-  grid-template-columns: 330px 1fr;
+  grid-template-columns: 380px 1fr;
   min-height: 560px;
   height: min(74vh, 700px);
   border-radius: 24px;

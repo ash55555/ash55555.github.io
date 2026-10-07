@@ -7,7 +7,7 @@
    shared site-wide header everyone else uses stays narrower, unaffected). */
 .site-header .nav { max-width: 1800px; padding-left: 2em; padding-right: 2em; }
 
-.me { max-width: 1800px; margin: 0 auto; padding: 2.4em 2em 4.5em; }
+.me { width: 100%; max-width: 1560px; margin: 0 auto; padding: 2.4em 2em 4.5em; }
 .me-muted { color: var(--text-muted); margin: 0.3em 0 0; }
 
 /* ---------- sidebar + panels ---------- */
