@@ -135,3 +135,6 @@ html { scroll-behavior: smooth; }
   @media (max-width: 900px) { .hx-soon { grid-template-columns: 1fr; } .hx-steps { grid-template-columns: 1fr; } .nav-links a.hide-s { display: none; } }
   @media (max-width: 560px) { .hx-stats { grid-template-columns: repeat(2, 1fr); } .hx-dice { display: none; } .hx-search button { padding: .7em 1.1em; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.hx-seeall { display: inline-block; margin-left: .6em; padding: .25em .9em; border-radius: 999px; background: rgba(242,184,79,.16); border: 1px solid rgba(242,184,79,.5); color: var(--gold); font-weight: 800; white-space: nowrap; }
+.hx-seeall:hover { background: rgba(242,184,79,.3); }

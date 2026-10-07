@@ -127,9 +127,9 @@
   function drawGms() {
     var list = Object.keys(gms).map(function (k) { return gms[k]; });
     $('hx-gm-row').innerHTML = list.map(function (m) {
-      var n = games.filter(function (g) { return g.gm === m.slug; }).length;
+      var n = m.games || 0;
       return '<a class="hx-gm" href="' + gmUrl(m) + '"><div class="hx-ring">' + avatar(m, 'hx-a') + '</div><b>' + esc(m.name) + '</b><small>' + esc(m.pronouns) + '</small>' +
-        '<div class="hx-st">' + (m.reviews ? stars(m.rating) + ' ' + m.rating.toFixed(1) + ' <i>(' + m.reviews + ')</i>' : 'New') + '</div><small>' + n + (n === 1 ? ' game' : ' games') + '</small></a>';
+        '<div class="hx-st">' + (m.reviews ? stars(m.rating) + ' ' + m.rating.toFixed(1) + ' <i>(' + m.reviews + ')</i>' : 'New') + '</div><small>' + (n ? n + (n === 1 ? ' open game' : ' open games') : 'No open games yet') + '</small></a>';
     }).join('');
   }
 

@@ -9,6 +9,10 @@
     'Tabletop Simulator', 'TaleSpire', 'Zoom', 'Google Meet', 'Syrinscape', 'In person'
   ];
 
+  // Game systems and languages a GM can pick (they can add their own too).
+  var SYSTEMS = ['D&D 5e', 'D&D 5.5 (2024)', 'Pathfinder 2e', 'Call of Cthulhu', 'Vampire: The Masquerade', 'Blades in the Dark', 'Starfinder', 'Shadowrun', 'Savage Worlds', 'Dungeon Crawl Classics', 'Other TTRPG systems'];
+  var LANGUAGES = ['English', 'Spanish', 'French', 'German', 'Portuguese', 'Italian', 'Dutch', 'Arabic', 'Polish', 'Russian', 'Turkish', 'Japanese', 'Korean', 'Chinese', 'Hindi', 'Filipino'];
+
   // "My tables are..." (a GM picks up to four).
   var QUALITIES = [
     { id: 'welcoming', emoji: '🌈', label: 'Welcoming to everyone.' },
@@ -71,6 +75,8 @@
     pronouns: 'he/they',
     tagline: 'Every story needs a party. Come build one with us.',
     tools: ['D&D 5e', 'Roll20', 'Discord', 'D&D Beyond'],
+    systems: ['D&D 5e'],
+    languages: ['English'],
     bio: "Hello lovely people, I'm Ash! I run D&D 5e games on Roll20, Discord, and D&D Beyond, and I love helping people build stories they'll still be talking about months later. Gothic horror, feywild chaos, political intrigue, undead survival: I've got a table for whatever mood you're in. New to D&D? Totally welcome. Been playing for years? Also welcome. Every game starts with a free Session Zero, so you can meet the table and see if it's a fit before we start our game.",
     qualities: ['welcoming', 'rulecool', 'prepped', 'lowpressure'],
     questions: [
@@ -85,6 +91,7 @@
   };
 
   window.GmCatalog = {
+    SYSTEMS: SYSTEMS, LANGUAGES: LANGUAGES,
     TOOLS: TOOLS, QUALITIES: QUALITIES, QUESTIONS: QUESTIONS, SOCIALS: SOCIALS, ICONS: ICONS, ASH_DEFAULT: ASH_DEFAULT,
     quality: function (id) { return QUALITIES.filter(function (q) { return q.id === id; })[0] || null; },
     question: function (id) { return QUESTIONS.filter(function (q) { return q.id === id; })[0] || null; }

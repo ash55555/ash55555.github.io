@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="kAa0jL8-FPzYeF_0wwZskvH-JwqpMA5cIIhSZbUf2FE" />
-<title>Ash Tabletop | Find a Table, Meet a Game Master</title>
-<meta name="description" content="Find a D&D table run by a real, verified game master. Browse open games, see who runs them and take a seat. Professionally run D&D 5e campaigns, $10 per session.">
-<link rel="canonical" href="https://ashtabletop.com/">
+<title>Game Masters | Ash Tabletop</title>
+<meta name="description" content="Every game master on Ash Tabletop. Search by name, pronouns, language, game system, tools, the day they play and the price of a session.">
+<link rel="canonical" href="https://ashtabletop.com/gms.html">
 <link rel="icon" href="medie/ash-token.png">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Ash Tabletop | Find a Table, Meet a Game Master">
+<meta property="og:title" content="Game Masters | Ash Tabletop">
 <meta property="og:description" content="Professionally run D&D 5e campaigns on Roll20 + Discord. Gothic horror, feywild whimsy, political intrigue and more. Free Session Zero, $10 per session.">
-<meta property="og:url" content="https://ashtabletop.com/">
+<meta property="og:url" content="https://ashtabletop.com/gms.html">
 <meta property="og:image" content="https://ashtabletop.com/medie/ash-token.png">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Ash Tabletop | Find a Table, Meet a Game Master">
+<meta name="twitter:title" content="Game Masters | Ash Tabletop">
 <meta name="twitter:description" content="Professionally run D&D 5e campaigns on Roll20 + Discord. Free Session Zero, $10 per session.">
 <meta name="twitter:image" content="https://ashtabletop.com/medie/ash-token.png">
 
@@ -25,6 +25,7 @@
 
 <link rel="stylesheet" href="style.css?v=20261003e">
 <link rel="stylesheet" href="home.css?v=20261007c">
+<link rel="stylesheet" href="gms.css?v=20261007a">
 </head>
 <body>
 
@@ -72,57 +73,42 @@
 
 <main class="hx" id="top">
 
-  <section class="hx-hero">
+  <section class="hx-hero gd-hero">
     <div class="hx-orb hx-a"></div><div class="hx-orb hx-b"></div><div class="hx-orb hx-c"></div>
     <div class="hx-dice hx-d1"><svg viewBox="0 0 100 100"><path d="M50 6 90 30v40L50 94 10 70V30z"/><path d="M50 6v88M10 30l80 40M90 30 10 70"/></svg></div>
     <div class="hx-dice hx-d2"><svg viewBox="0 0 100 100"><path d="M50 8 92 78H8z"/><path d="M50 8v70M29 43l42 0"/></svg></div>
-    <div class="hx-dice hx-d3"><svg viewBox="0 0 100 100"><rect x="14" y="14" width="72" height="72" rx="14"/><circle cx="34" cy="34" r="5"/><circle cx="66" cy="66" r="5"/><circle cx="50" cy="50" r="5"/></svg></div>
     <div class="hx-dice hx-d4"><svg viewBox="0 0 100 100"><path d="M50 5 85 30 85 70 50 95 15 70 15 30z"/><path d="M15 30 50 52 85 30M50 52v43"/></svg></div>
 
-    <span class="hx-eyebrow">Real game masters · real tables</span>
-    <h1>Find your table.<br><em>Meet your game master.</em></h1>
-    <p class="hx-lede">Every DM here is checked and rated by their own players. Pick a story, see who runs it, and take a seat with confidence.</p>
-    <div class="hx-search">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input id="hx-q" type="search" placeholder="Search a game, a setting or a game master..." aria-label="Search games">
-      <button type="button" id="hx-go">Search</button>
-    </div>
-    <div class="hx-chips" id="hx-chips" role="group" aria-label="Filter games"></div>
-    <div class="hx-stats" id="hx-stats" hidden></div>
+    <span class="hx-eyebrow">The people behind the screen</span>
+    <h1>Find your <em>game master.</em></h1>
+    <p class="hx-lede">Every game master on the site, in one place. Search by name, pronouns, language, system, tools, the day they play or what a session costs.</p>
+
+    <details class="gd-panel" id="gd-panel">
+      <summary>Search and filters</summary>
+      <div class="gd-top">
+        <div class="gd-field"><label for="gd-q">Name</label>
+          <div class="gd-input"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="gd-q" type="search" placeholder="Search a game master by name..." autocomplete="off"></div></div>
+        <div class="gd-field"><label>Price per session</label>
+          <div class="gd-price">
+            <div class="gd-input"><b>$</b><input id="gd-min" type="number" min="0" step="1" inputmode="numeric" placeholder="Min" aria-label="Lowest price"></div>
+            <div class="gd-input"><b>$</b><input id="gd-max" type="number" min="0" step="1" inputmode="numeric" placeholder="Max" aria-label="Highest price"></div>
+          </div></div>
+        <div class="gd-field"><label>&nbsp;</label><button type="button" class="gd-reset" id="gd-reset">Clear all filters</button></div>
+      </div>
+      <div class="gd-groups">
+        <div class="gd-group"><h3>Pronouns</h3><div class="gd-chips" id="gd-pron"></div></div>
+        <div class="gd-group"><h3>Plays on</h3><div class="gd-chips" id="gd-day"></div></div>
+        <div class="gd-group"><h3>Languages</h3><div class="gd-chips" id="gd-lang"></div></div>
+        <div class="gd-group"><h3>Game system</h3><div class="gd-chips" id="gd-sys"></div></div>
+        <div class="gd-group wide"><h3>Tools</h3><div class="gd-chips" id="gd-tool"></div></div>
+      </div>
+      <div class="gd-bar"><span class="gd-count" id="gd-count"></span><span class="gd-none">Days are shown in your own time zone.</span></div>
+    </details>
   </section>
 
   <div class="hx-wrap">
-    <section id="hx-soon-sec" hidden>
-      <div class="hx-head"><div><span class="hx-kicker">Starting soon</span><h2>Next at the table</h2></div><p>The three sessions that begin first, in your time zone.</p></div>
-      <div class="hx-soon" id="hx-soon"></div>
-    </section>
-
-    <section id="gms">
-      <div class="hx-head"><div><span class="hx-kicker">The people behind the screen</span><h2>Meet the game masters</h2></div><p>Tap one to see their page and every game they run. <a class="hx-seeall" href="gms.html">Search all game masters ›</a></p></div>
-      <div class="hx-gms" id="hx-gm-row"></div>
-    </section>
-
-    <section id="tables">
-      <a id="campaigns"></a>
-      <div class="hx-head"><div><span class="hx-kicker">Open tables</span><h2 id="hx-tables-h">All games</h2></div><p id="hx-count"></p></div>
-      <div class="hx-grid" id="hx-grid"><div class="hx-empty">Loading the open tables...</div></div>
-    </section>
-
-    <section id="how">
-      <div class="hx-head"><div><span class="hx-kicker">Simple on purpose</span><h2>How it works</h2></div></div>
-      <div class="hx-steps">
-        <div class="hx-step"><div class="hx-ico">🔎</div><h3>Pick a table</h3><p>Browse by mood or search. Each card shows the next session, the price and how many seats are left.</p></div>
-        <div class="hx-step"><div class="hx-ico">🪑</div><h3>Reserve a seat</h3><p>Save a card once. You are only charged for sessions you actually play, and you can skip up to an hour before.</p></div>
-        <div class="hx-step"><div class="hx-ico">🎲</div><h3>Show up and play</h3><p>You get a reminder the day before. Roll initiative, meet your party, and enjoy the story.</p></div>
-      </div>
-    </section>
-
-    <section id="for-dms">
-      <div class="hx-band">
-        <h2>Are you a dungeon master?</h2>
-        <p>Run your games here, get paid for every session, and let us handle the sign-ups and payments. Tell us about your table.</p>
-        <a class="hx-pill hx-gold" href="ash.html#contact">Apply to become a DM</a>
-      </div>
+    <section id="gd-list">
+      <div class="gd-grid" id="gd-grid"><div class="gd-empty">Loading the game masters...</div></div>
     </section>
   </div>
 </main>
@@ -186,6 +172,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="firebase-init.js"></script>
-<script src="home.js?v=20261007c"></script>
+<script src="gms.js?v=20261007a"></script>
 </body>
 </html>

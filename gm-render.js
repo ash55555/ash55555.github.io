@@ -63,6 +63,8 @@
     var tg = document.querySelector('[data-field="tagline"]'); if (tg) tg.hidden = !p.tagline;
     var pl = document.querySelector('[data-field="platforms"]');
     if (pl) { pl.textContent = (p.tools || []).join('  ·  '); pl.hidden = !(p.tools || []).length; }
+    var lg = document.querySelector('[data-field="languages"]');
+    if (lg) { lg.textContent = (p.languages || []).length ? '\uD83D\uDDE3  ' + p.languages.join('  \u00B7  ') : ''; lg.hidden = !(p.languages || []).length; }
     setText('[data-field="bio"]', p.bio || '');
 
     // My tables are...

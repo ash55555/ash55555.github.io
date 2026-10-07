@@ -3,6 +3,10 @@
 // It works for every Game Master automatically: a published campaign shows up here with its owner.
 
 import { cfg, loadGames, upcoming, sessionsBetween } from './pay.js';
+import { gmStatus } from './gm.js';
+
+// Names that are game systems, so a system listed under "tools" still counts when people search by system.
+const SYSTEM_NAMES = ['D&D 5e', 'D&D 5.5 (2024)', 'Pathfinder 2e', 'Call of Cthulhu', 'Vampire: The Masquerade', 'Blades in the Dark', 'Starfinder', 'Shadowrun', 'Savage Worlds', 'Dungeon Crawl Classics'];
 
 // Ash's own written reviews on her page (6 of them, 5 stars each) count towards her rating.
 const ASH_WRITTEN = { count: 6, sum: 30 };
@@ -50,35 +54,68 @@ export async function handleHome(request, env, corsHeaders) {
     });
   }
 
-  // The Game Masters who have a table listed, with their rating from their players.
+  // Every Game Master who is allowed to host here and has a page people can look at (Ash first), with what
+  // visitors can search by: pronouns, languages, systems, tools, the days they play and what a session costs.
+  const gmList = [];
   const gmByUid = {};
-  const gms = [];
-  const addRating = async (table, col, val) => {
+  const parse = (raw) => { try { return JSON.parse(raw || '{}') || {}; } catch { return {}; } };
+  const ratingOf = async (table, col, val) => {
     const r = await env.DB.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(rating),0) AS s FROM ${table} WHERE ${col}=? AND mode=?`).bind(val, mode).first();
     return { n: r ? r.n : 0, s: r ? r.s : 0 };
   };
-  const ashRows = await env.DB.prepare('SELECT data FROM gm_profiles WHERE slug=?').bind('ash').first();
-  let ashData = {};
-  try { ashData = JSON.parse((ashRows && ashRows.data) || '{}') || {}; } catch { ashData = {}; }
+  const slotsOf = (uid) => {
+    const slugs = rows.filter((r) => (r.owner_uid || null) === uid).map((r) => r.slug);
+    return Object.values(games).filter((g) => g.enabled && slugs.some((sl) => g.key === sl || g.key.startsWith(sl + '::')));
+  };
+  const extras = (uid, data, defaults) => {
+    const tools = Array.isArray(data.tools) ? data.tools.slice(0, 24) : [];
+    const sys = (Array.isArray(data.systems) ? data.systems : []).slice();
+    tools.forEach((t) => { if (SYSTEM_NAMES.includes(t) && !sys.includes(t)) sys.push(t); });
+    const slots = slotsOf(uid);
+    const prices = slots.map((g) => g.price);
+    return {
+      tagline: data.tagline || '',
+      tools,
+      systems: sys.length ? sys : (defaults ? defaults.systems : []),
+      languages: (Array.isArray(data.languages) && data.languages.length ? data.languages : (defaults ? defaults.languages : [])).slice(0, 12),
+      sessions: slots.map((g) => { const n = upcoming(g, now, 1)[0]; return n ? n.toISOString() : null; }).filter(Boolean),
+      priceMin: prices.length ? Math.min(...prices) : null,
+      priceMax: prices.length ? Math.max(...prices) : null,
+    };
+  };
+
+  const ashRow = await env.DB.prepare('SELECT data FROM gm_profiles WHERE slug=?').bind('ash').first();
+  const ashData = parse(ashRow && ashRow.data);
   const ashLive = (await env.DB.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(rating),0) AS s FROM reviews WHERE mode=?').bind(mode).first()) || { n: 0, s: 0 };
   const ashCount = ASH_WRITTEN.count + ashLive.n;
-  gms.push({ slug: 'ash', name: ashData.name || 'Ash', pronouns: ashData.pronouns || 'he/they', avatar: null, you: true,
-    rating: ashCount ? Math.round(((ASH_WRITTEN.sum + ashLive.s) / ashCount) * 10) / 10 : null, reviews: ashCount });
-  gmByUid.ash = gms[0];
+  const ash = {
+    slug: 'ash', name: ashData.name || 'Ash', pronouns: ashData.pronouns || 'he/they', avatar: null, you: true,
+    rating: ashCount ? Math.round(((ASH_WRITTEN.sum + ashLive.s) / ashCount) * 10) / 10 : null, reviews: ashCount,
+    ...extras(null, ashData, { systems: ['D&D 5e'], languages: ['English'] }),
+  };
+  gmList.push(ash);
+  gmByUid.ash = ash;
 
-  const otherUids = Array.from(new Set(list.filter((g) => g.owner).map((g) => g.owner)));
-  for (const uid of otherUids) {
-    const p = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(uid).first();
-    if (!p) continue;
-    let data = {};
-    try { data = JSON.parse(p.data || '{}') || {}; } catch { data = {}; }
-    const rt = await addRating('gm_reviews', 'gm_uid', uid);
-    const gm = { slug: p.slug, name: data.name || 'Game Master', pronouns: data.pronouns || '', avatar: data.avatar ? `${origin}/gm/avatar?slug=${encodeURIComponent(p.slug)}` : null, you: false,
-      rating: rt.n ? Math.round((rt.s / rt.n) * 10) / 10 : null, reviews: rt.n };
-    gmByUid[uid] = gm;
-    gms.push(gm);
+  const hasGames = new Set(list.filter((g) => g.owner).map((g) => g.owner));
+  const others = (await env.DB.prepare("SELECT uid, slug, data FROM gm_profiles WHERE slug != 'ash' ORDER BY updated_at ASC").all()).results;
+  for (const p of others) {
+    const data = parse(p.data);
+    const complete = !!data.name && !!(data.tagline || data.bio);
+    if (!complete && !hasGames.has(p.uid)) continue;           // nothing for visitors to look at yet
+    if (!(await gmStatus(env, p.uid)).isGm) continue;           // their agreement ended or was never linked
+    const rt = await ratingOf('gm_reviews', 'gm_uid', p.uid);
+    const gm = {
+      slug: p.slug, name: data.name || 'Game Master', pronouns: data.pronouns || '',
+      avatar: data.avatar ? `${origin}/gm/avatar?slug=${encodeURIComponent(p.slug)}` : null, you: false,
+      rating: rt.n ? Math.round((rt.s / rt.n) * 10) / 10 : null, reviews: rt.n,
+      ...extras(p.uid, data, null),
+    };
+    gmByUid[p.uid] = gm;
+    gmList.push(gm);
   }
   list.forEach((g) => { g.gm = g.owner ? (gmByUid[g.owner] ? gmByUid[g.owner].slug : null) : 'ash'; delete g.owner; });
+  gmList.forEach((m) => { m.games = list.filter((g) => g.gm === m.slug).length; });
+  const gms = gmList;
 
   // Sessions played: the starting figure plus every session that has run since.
   // A session counts once, whether we know it ran from the schedule (someone is at the table) or from a player

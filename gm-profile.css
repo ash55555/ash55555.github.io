@@ -76,6 +76,7 @@
 .gm-banner { height: 130px; border-radius: 18px; border: 1px dashed rgba(255, 255, 255, 0.35); background: linear-gradient(135deg, #2a1a4d, #170e2b) center / cover no-repeat; display: grid; place-items: center; color: var(--text-muted); font-weight: 700; font-size: 0.85rem; overflow: hidden; }
 .gm-banner.has-img { border-style: solid; }
 
+.gm-sub { margin: 1.4em 0 .2em; font-size: 1rem; font-weight: 800; }
 .gm-chips { display: flex; flex-wrap: wrap; gap: 0.5em; }
 .gm-chip {
   font: inherit; font-weight: 700; font-size: 0.85rem; cursor: pointer; color: var(--text-muted);

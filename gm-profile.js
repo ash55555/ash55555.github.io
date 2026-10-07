@@ -185,6 +185,26 @@
     });
   }
 
+  // Systems and languages work just like tools: click to switch on, or add your own.
+  function renderPicks(key, boxId, catalog) {
+    var box = $(boxId);
+    box.innerHTML = '';
+    var all = catalog.slice();
+    (p[key] || []).forEach(function (t) { if (all.indexOf(t) === -1) all.push(t); });
+    all.forEach(function (t) {
+      var b = el('button', 'gm-chip' + (p[key].indexOf(t) !== -1 ? ' on' : ''), t);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        var i = p[key].indexOf(t);
+        if (i === -1) p[key].push(t); else p[key].splice(i, 1);
+        renderPicks(key, boxId, catalog);
+      });
+      box.appendChild(b);
+    });
+  }
+  function renderSystems() { renderPicks('systems', 'gm-systems', C.SYSTEMS); }
+  function renderLanguages() { renderPicks('languages', 'gm-languages', C.LANGUAGES); }
+
   // ------------------------------------------------------------------ qualities
   function renderQualities() {
     var sel = $('gm-quality-select');
@@ -274,7 +294,7 @@
 
   // ------------------------------------------------------------------ the whole form
   function fill() {
-    p.tools = p.tools || []; p.qualities = p.qualities || []; p.questions = p.questions || []; p.socials = p.socials || {};
+    p.tools = p.tools || []; p.systems = p.systems || []; p.languages = p.languages || []; p.qualities = p.qualities || []; p.questions = p.questions || []; p.socials = p.socials || {};
     $('gm-name').value = p.name || '';
     $('gm-pronouns').value = p.pronouns || '';
     $('gm-tagline').value = p.tagline || '';
@@ -284,6 +304,8 @@
     if (!av0.querySelector('.gm-emoji')) av0.insertBefore(el('span', 'gm-emoji', '\uD83E\uDDD9'), av0.firstChild);
     paintPictures();
     renderTools();
+    renderSystems();
+    renderLanguages();
     renderQualities();
     renderQuestions();
     renderSocials();
@@ -324,6 +346,15 @@
       renderTools();
     });
     $('gm-tool-custom').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('gm-tool-add').click(); } });
+    [['system', 'systems', 40, renderSystems], ['language', 'languages', 30, renderLanguages]].forEach(function (x) {
+      $('gm-' + x[0] + '-add').addEventListener('click', function () {
+        var v = $('gm-' + x[0] + '-custom').value.trim().slice(0, x[2]);
+        if (v && p[x[1]].indexOf(v) === -1) p[x[1]].push(v);
+        $('gm-' + x[0] + '-custom').value = '';
+        x[3]();
+      });
+      $('gm-' + x[0] + '-custom').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('gm-' + x[0] + '-add').click(); } });
+    });
     $('gm-quality-add').addEventListener('click', function () {
       var v = $('gm-quality-select').value;
       if (v && p.qualities.length < MAX_QUALITIES && p.qualities.indexOf(v) === -1) p.qualities.push(v);

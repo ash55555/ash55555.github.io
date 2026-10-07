@@ -1,0 +1,67 @@
+/* The game masters directory. Builds on home.css (hx-) and adds the filter panel and the game master cards (gd-). */
+.gd-hero { padding-bottom: 1.6em; }
+.gd-hero h1 { font-size: clamp(2.2rem, 6vw, 4rem); }
+
+.gd-panel { position: relative; max-width: 1100px; margin: 2.2em auto 0; padding: 1.4em 1.5em 1.2em; text-align: left; border-radius: 28px; border: 1px solid rgba(255,255,255,.16); background: linear-gradient(145deg, rgba(255,255,255,.10), rgba(20,12,44,.55)); backdrop-filter: blur(18px) saturate(160%); box-shadow: 0 26px 70px rgba(0,0,0,.5), inset 0 1.5px 0 rgba(255,255,255,.2); }
+.gd-panel > summary { list-style: none; display: none; }
+.gd-top { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 1em; align-items: end; }
+.gd-field { display: flex; flex-direction: column; gap: .35em; min-width: 0; }
+.gd-field > label, .gd-group > h3 { font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); margin: 0; font-family: var(--body); }
+.gd-input { display: flex; align-items: center; gap: .6em; padding: .15em 1em; border-radius: 16px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.18); transition: border-color .15s, background .15s; }
+.gd-input:focus-within { border-color: var(--violet); background: rgba(255,255,255,.1); }
+.gd-input svg { width: 18px; height: 18px; flex: none; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; }
+.gd-input b { color: var(--muted); font-weight: 800; }
+.gd-input input { flex: 1; min-width: 0; width: 100%; background: none; border: 0; outline: 0; color: var(--ink); font: inherit; padding: .75em 0; }
+.gd-input input::placeholder { color: var(--muted); }
+.gd-input input[type=number]::-webkit-inner-spin-button { opacity: .4; }
+.gd-price { display: grid; grid-template-columns: 1fr 1fr; gap: .6em; }
+
+.gd-groups { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.1em 2em; margin-top: 1.2em; }
+.gd-group { min-width: 0; }
+.gd-group.wide { grid-column: 1 / -1; }
+.gd-chips { display: flex; flex-wrap: wrap; gap: .45em; margin-top: .5em; }
+.gd-chip { padding: .38em .95em; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); color: var(--muted); font-weight: 700; font-size: .84rem; transition: all .15s; }
+.gd-chip:hover { color: var(--ink); border-color: rgba(255,255,255,.35); transform: translateY(-1px); }
+.gd-chip.on { background: linear-gradient(180deg, #ffd479, #f2b84f); color: #231503; border-color: transparent; box-shadow: 0 6px 18px rgba(242,184,79,.3); }
+.gd-none { color: var(--muted); font-size: .85rem; margin-top: .5em; }
+
+.gd-bar { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin-top: 1.2em; padding-top: 1em; border-top: 1px solid var(--line); }
+.gd-count { font-weight: 800; }
+.gd-count b { font-family: var(--display); font-size: 1.3rem; color: var(--gold); }
+.gd-reset { padding: .5em 1.2em; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.06); font-weight: 800; font-size: .85rem; }
+.gd-reset:hover { background: rgba(255,255,255,.14); }
+
+.gd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.4em; }
+.gd-card { position: relative; display: flex; flex-direction: column; gap: .7em; padding: 1.4em 1.3em 1.2em; border-radius: 28px; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px); overflow: hidden; transition: transform .25s, box-shadow .25s, border-color .25s; }
+.gd-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 110px; background: radial-gradient(90% 100% at 50% 0%, rgba(155,109,255,.45), transparent 75%); pointer-events: none; }
+.gd-card:hover { transform: translateY(-8px); border-color: rgba(255,255,255,.4); box-shadow: 0 28px 60px rgba(0,0,0,.55), 0 0 40px rgba(155,109,255,.4); }
+.gd-card .gd-stretch { position: absolute; inset: 0; z-index: 2; }
+.gd-head { position: relative; display: flex; align-items: center; gap: 1em; }
+.gd-head .hx-ring { margin: 0; flex: none; width: 84px; height: 84px; }
+.gd-who { min-width: 0; }
+.gd-who h3 { margin: 0; font-family: var(--display); font-weight: 900; font-size: 1.25rem; line-height: 1.15; }
+.gd-who h3 i { font-style: normal; margin-left: .45em; padding: .08em .55em; border-radius: 999px; background: var(--gold); color: #231503; font-size: .6rem; font-weight: 900; letter-spacing: .08em; vertical-align: middle; }
+.gd-pro { color: var(--muted); font-weight: 700; font-size: .85rem; }
+.gd-stars { color: var(--gold); font-weight: 800; font-size: .88rem; }
+.gd-stars i { font-style: normal; color: var(--muted); font-weight: 700; }
+.gd-tag { margin: 0; color: #e6dcff; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 3em; }
+.gd-tiny { display: flex; flex-wrap: wrap; gap: .35em; }
+.gd-tiny span { padding: .2em .7em; border-radius: 999px; font-size: .74rem; font-weight: 800; background: rgba(155,109,255,.2); border: 1px solid rgba(155,109,255,.4); color: #d9ccff; }
+.gd-tiny span.t { background: rgba(126,203,255,.14); border-color: rgba(126,203,255,.35); color: #bfe6ff; }
+.gd-facts { display: grid; gap: .3em; margin: .2em 0 0; padding: .8em .9em; border-radius: 16px; background: rgba(0,0,0,.26); border: 1px solid var(--line); font-size: .86rem; color: var(--muted); font-weight: 700; }
+.gd-facts div { display: flex; gap: .6em; align-items: baseline; }
+.gd-facts b { color: var(--ink); font-weight: 800; }
+.gd-facts em { font-style: normal; width: 1.3em; flex: none; }
+.gd-go { margin-top: auto; text-align: right; color: var(--gold); font-weight: 800; font-size: .88rem; }
+.gd-empty { grid-column: 1 / -1; text-align: center; padding: 3em 1em; border: 1px dashed var(--line); border-radius: 24px; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .gd-top { grid-template-columns: 1fr; }
+  .gd-groups { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .gd-panel > summary { display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-weight: 800; padding-bottom: .2em; }
+  .gd-panel > summary::after { content: '+'; font-size: 1.4rem; color: var(--gold); }
+  .gd-panel[open] > summary::after { content: '\2212'; }
+  .gd-panel:not([open]) > :not(summary) { display: none; }
+}

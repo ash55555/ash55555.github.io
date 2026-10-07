@@ -56,6 +56,10 @@ export function cleanProfile(input) {
   const p = input && typeof input === 'object' ? input : {};
   const tools = [];
   (Array.isArray(p.tools) ? p.tools : []).forEach((t) => { const v = text(t, 30); if (v && !tools.includes(v) && tools.length < 24) tools.push(v); });
+  const systems = [];
+  (Array.isArray(p.systems) ? p.systems : []).forEach((t) => { const v = text(t, 40); if (v && !systems.includes(v) && systems.length < 16) systems.push(v); });
+  const languages = [];
+  (Array.isArray(p.languages) ? p.languages : []).forEach((t) => { const v = text(t, 30); if (v && !languages.includes(v) && languages.length < 12) languages.push(v); });
   const qualities = [];
   (Array.isArray(p.qualities) ? p.qualities : []).forEach((q) => { if (QUALITY_IDS.includes(q) && !qualities.includes(q) && qualities.length < 4) qualities.push(q); });
   const questions = [];
@@ -70,6 +74,8 @@ export function cleanProfile(input) {
     pronouns: text(p.pronouns, 30),
     tagline: text(p.tagline, 90),
     tools,
+    systems,
+    languages,
     bio: longText(p.bio, 900),
     qualities,
     questions,
