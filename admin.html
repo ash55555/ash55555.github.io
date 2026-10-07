@@ -833,6 +833,13 @@
         </div>
       </div>
 
+      <div class="pay-box" id="tips-box">
+        <h2>❤️ Tips</h2>
+        <p class="note">What players leave you as a thank you. All of it is yours.</p>
+        <p class="slot-status" id="tips-status"></p>
+        <div id="tips-list"></div>
+      </div>
+
       <div class="pay-box">
         <h2>🎲 All charges</h2>
         <p class="note">Every player, every campaign, every time they were charged. Click Refund on any paid charge.</p>
@@ -2688,7 +2695,7 @@ window.AshSlots = (function () {
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var LABELS = { agreement: 'Agreement', report: 'Report', joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
+  var LABELS = { agreement: 'Agreement', tip: 'Tip', report: 'Report', joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
   var listEl = document.getElementById('note-list');
 
   function call(action, extra) {
@@ -3576,6 +3583,7 @@ window.AshSlots = (function () {
 })();
 </script>
 <script src="messages-ui.js?v=20261005c"></script>
+<script src="tips-admin.js?v=20261009a"></script>
 <script>
 (function () {
   var panel = document.querySelector('.me-panel[data-panel="agreements"]');

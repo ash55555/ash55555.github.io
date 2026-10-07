@@ -1,0 +1,20 @@
+/* The tip button pop-up on a Game Master's profile page. */
+.js-tip .tip-heart { color: #ff6b81; }
+.tip-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 1em; background: rgba(6, 3, 16, .72); backdrop-filter: blur(8px); }
+.tip-dialog { position: relative; width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 1.8em 1.8em 1.5em; border-radius: 26px; border: 1px solid rgba(255, 255, 255, .25); background: linear-gradient(145deg, rgba(255, 255, 255, .14), rgba(20, 12, 44, .92)); box-shadow: 0 30px 80px rgba(0, 0, 0, .6), inset 0 1.5px 0 rgba(255, 255, 255, .3); color: #f3eefc; }
+.tip-x { position: absolute; top: .6em; right: .8em; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .1); color: inherit; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.tip-body h3 { margin: 0 0 .2em; font-size: 1.5rem; }
+.tip-sub { margin: 0 0 1.1em; color: #cfc3ee; }
+.tip-chips { display: flex; flex-wrap: wrap; gap: .6em; margin-bottom: 1em; }
+.tip-chip { min-width: 72px; padding: .7em 1.2em; border-radius: 999px; border: 2px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .07); color: inherit; font: inherit; font-weight: 900; font-size: 1.1rem; cursor: pointer; transition: transform .15s, border-color .15s; }
+.tip-chip:hover { transform: translateY(-2px); border-color: rgba(255, 255, 255, .6); }
+.tip-chip.on { background: linear-gradient(180deg, #ffd479, #f2b84f); color: #231503; border-color: transparent; box-shadow: 0 8px 22px rgba(242, 184, 79, .4); }
+.tip-other { display: inline-flex; align-items: center; gap: .3em; padding: 0 1em; border-radius: 999px; border: 2px solid rgba(255, 255, 255, .25); background: rgba(0, 0, 0, .25); font-weight: 900; }
+.tip-custom { width: 84px; border: 0; outline: 0; background: none; color: inherit; font: inherit; font-weight: 800; font-size: 1.05rem; padding: .7em 0; }
+.tip-msg { width: 100%; box-sizing: border-box; padding: .8em 1em; border-radius: 16px; border: 1px solid rgba(255, 255, 255, .25); background: rgba(0, 0, 0, .28); color: inherit; font: inherit; resize: vertical; }
+.tip-status { min-height: 1.4em; margin: .6em 0 .2em; color: #ff9db0; font-weight: 700; }
+.tip-go { width: 100%; justify-content: center; min-height: 52px; font-size: 1.05rem; }
+.tip-fine { margin: .9em 0 0; font-size: .8rem; color: #b9a9d9; }
+.tip-embed { min-height: 320px; }
+.tip-thanks { text-align: center; }
+.tip-party { font-size: 3.4rem; margin-bottom: .2em; }

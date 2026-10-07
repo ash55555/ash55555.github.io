@@ -750,7 +750,7 @@ function renderReviewPanel() {
 
 /* ----------------------------------------------------------- notifications */
 
-const KIND_LABEL = { declined: 'Card declined', extra_session: 'Extra session', extra_session_removed: 'Session cancelled', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game',
+const KIND_LABEL = { declined: 'Card declined', extra_session: 'Extra session', tip: 'Tip', extra_session_removed: 'Session cancelled', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game',
   joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
 // The DM-side ones only ever show up for Ash's own account; clicking one opens the admin page.
 function adminLink(n) {

@@ -216,3 +216,21 @@ CREATE TABLE IF NOT EXISTS extra_sessions (
   created_by TEXT,
   PRIMARY KEY (mode, game, session_ts)
 );
+
+-- Tips players leave a Game Master (or Ash). A tip counts only once Whop confirms the payment.
+CREATE TABLE IF NOT EXISTS tips (
+  id TEXT PRIMARY KEY,
+  mode TEXT NOT NULL,
+  gm_slug TEXT NOT NULL,
+  gm_uid TEXT NOT NULL,
+  from_uid TEXT NOT NULL,
+  from_name TEXT,
+  amount REAL NOT NULL,
+  message TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  config_id TEXT,
+  payment_id TEXT,
+  created_at TEXT NOT NULL,
+  paid_at TEXT
+);
+CREATE INDEX IF NOT EXISTS tips_gm ON tips (gm_uid, status);

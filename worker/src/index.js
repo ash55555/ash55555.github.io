@@ -14,6 +14,7 @@ import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { handleGm } from './gm.js';
 import { handleHome } from './home.js';
+import { handleTip, handleTipStatus } from './tip.js';
 import { handleMessages } from './messages.js';
 import { handleDmAgreement, runAgreementReminders } from './dm-agreement.js';
 import { handleConnect } from './connect.js';
@@ -62,6 +63,12 @@ export default {
     }
     if (url.pathname.startsWith('/msg/')) {
       return handleMessages(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/msg/'.length), sendEmail);
+    }
+    if (url.pathname === '/tip/status' && request.method === 'GET') {
+      return handleTipStatus(request, env, corsHeaders);
+    }
+    if (url.pathname.startsWith('/tip/')) {
+      return handleTip(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/tip/'.length), sendEmail);
     }
     if (url.pathname === '/home/public' && request.method === 'GET') {
       return handleHome(request, env, corsHeaders);
