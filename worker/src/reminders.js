@@ -2,7 +2,7 @@
 // a short, friendly reminder with the game and the time in their own time zone.
 // Ash gets one summary email per session (who is playing, who skipped, billing).
 
-import { loadGames, cfg, upcoming, iso, gameState, playingCount, escapeHtml, notify, when } from './pay.js';
+import { loadGames, cfg, upcomingFor, iso, gameState, playingCount, escapeHtml, notify, when } from './pay.js';
 
 const HOUR_MS = 60 * 60 * 1000;
 const LEAD_MS = 24 * HOUR_MS;
@@ -56,7 +56,7 @@ export async function runReminders(env, sendEmail) {
 
   for (const [key, game] of Object.entries(games)) {
     if (!game.enabled) continue;
-    const next = upcoming(game, now, 1)[0];
+    const next = (await upcomingFor(env, mode, key, game, now, 1))[0];
     if (!next) continue;
     const msLeft = next.getTime() - now.getTime();
     if (msLeft > LEAD_MS || msLeft < 30 * 60 * 1000) continue;

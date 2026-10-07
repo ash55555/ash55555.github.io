@@ -13,7 +13,7 @@ var AshNav = (function () {
     bat: { emoji: '\u{1F987}', color: '#4a3a6b' },
     dice: { emoji: '\u{1F3B2}', color: '#a8702f' },
   };
-  var KIND_LABEL = { declined: 'Card declined', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game',
+  var KIND_LABEL = { declined: 'Card declined', extra_session: 'Extra session', extra_session_removed: 'Session cancelled', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game',
     joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
   // Notifications that are about running the games. Only Ash's account ever gets these, and
   // clicking one goes to the admin page.

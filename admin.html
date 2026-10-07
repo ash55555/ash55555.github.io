@@ -643,6 +643,22 @@
 </style>
 <link rel="stylesheet" href="gm-profile.css?v=20261005d">
 <link rel="stylesheet" href="messages.css?v=20261008a">
+<style id='admin-sessions'>
+.pay-sub-row { display: flex; align-items: center; justify-content: space-between; gap: .8em; flex-wrap: wrap; }
+.pay-sess-btns { display: flex; gap: .5em; flex-wrap: wrap; }
+.pay-mini.on { background: rgba(242,184,79,.25); border-color: rgba(242,184,79,.6); }
+.pay-sess-card { margin: .8em 0 1.2em; padding: 1.1em 1.2em; border-radius: 18px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); display: grid; gap: .8em; justify-items: start; }
+.pay-sess-lead { margin: 0; font-weight: 700; }
+.pay-sess-row { display: flex; gap: 1em; flex-wrap: wrap; }
+.pay-sess-field { display: flex; flex-direction: column; gap: .3em; font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.pay-sess-field input { font: inherit; font-size: 1rem; padding: .55em .8em; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.25); color: var(--text); text-transform: none; letter-spacing: 0; color-scheme: dark; }
+.pay-sess-who { display: grid; gap: .3em; }
+.pay-sess-title { font-weight: 800; font-size: .85rem; }
+.pay-sess-check { display: flex; align-items: center; gap: .5em; }
+.pay-sess-preview { margin: 0; padding: .6em .9em; border-radius: 12px; background: rgba(242,184,79,.12); border: 1px solid rgba(242,184,79,.4); font-weight: 700; }
+.rb-extra { margin-left: .5em; padding: .1em .6em; border-radius: 999px; font-size: .68rem; font-weight: 800; background: rgba(242,184,79,.2); color: var(--gold); border: 1px solid rgba(242,184,79,.5); }
+.rb-extra-x { margin-left: .5em; font-size: .74rem; text-decoration: underline; cursor: pointer; color: #ff9db0; }
+</style>
 </head>
 <body>
 <div class="ag-orbs" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -1629,7 +1645,7 @@ window.AshSlots = (function () {
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<h3 class='pay-sub'>Upcoming sessions</h3>\n<div class='pay-upcoming'></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
+  var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<div class='pay-sub-row'><h3 class='pay-sub'>Upcoming sessions</h3><span class='pay-sess-btns'></span></div><div class='pay-sess-form' hidden></div>\n<div class='pay-upcoming'></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
 
   // Lets a clicked notification ("Mark joined the-vampiric-dynasty") jump straight
   // to that game's box here, even if the games list is still loading when it's called.
@@ -1878,6 +1894,18 @@ window.AshSlots = (function () {
         var item = el('button', 'rb-session' + (sts === ts ? ' selected' : ''));
         item.type = 'button';
         item.append(el('span', 'rb-date', day(sts)));
+        if ((data.extras || []).indexOf(sts) !== -1) {
+          item.append(el('span', 'rb-extra', 'Extra'));
+          var rm = el('span', 'rb-extra-x', 'Remove');
+          rm.title = 'Take this extra session away';
+          rm.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (!confirm('Remove the extra session on ' + day(sts) + '? Nobody will be charged for it.')) return;
+            statusEl.textContent = 'Working...'; statusEl.className = 'slot-status';
+            call('admin/session-remove', { ts: sts }).then(load).catch(function (err) { statusEl.textContent = err.message; statusEl.className = 'slot-status error'; });
+          });
+          item.append(rm);
+        }
         var n = data.playing ? data.playing[sts] : null;
         // game.min (3) is just the usual target shown here, not the real
         // charge gate anymore: once a game is started, any real player in
@@ -1916,6 +1944,104 @@ window.AshSlots = (function () {
 
       board.append(left, right);
       host.append(board);
+    }
+
+    // ---- sessions outside the weekly schedule: one session at any time, or a weekly run of up to 50
+    var sessOpen = null;
+    function pad2(n) { return n < 10 ? '0' + n : String(n); }
+    function dateValue(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+    function timeValue(d) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+    function longWhen(d) { return d.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) + ' at ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); }
+    function fromInputs(dv, tv) { if (!dv || !tv) return null; var p = dv.split('-'), t = tv.split(':'); var d = new Date(+p[0], +p[1] - 1, +p[2], +t[0], +t[1], 0, 0); return isNaN(d.getTime()) ? null : d; }
+
+    function renderSessionTools(data) {
+      var btns = root.querySelector('.pay-sess-btns');
+      var box = root.querySelector('.pay-sess-form');
+      btns.innerHTML = '';
+      box.innerHTML = '';
+      var maxBulk = data.maxBulk || 50;
+      var base = data.weeklyNext ? new Date(data.weeklyNext) : new Date(Date.now() + 86400000);
+      var weeklySet = {};
+      (data.weekly || []).forEach(function (t) { weeklySet[new Date(t).getTime()] = 1; });
+      var one = el('button', 'pay-mini' + (sessOpen === 'one' ? ' on' : ''), '+ Session');
+      one.type = 'button';
+      var many = el('button', 'pay-mini' + (sessOpen === 'many' ? ' on' : ''), 'Add multiple sessions');
+      many.type = 'button';
+      one.addEventListener('click', function () { sessOpen = sessOpen === 'one' ? null : 'one'; renderSessionTools(data); });
+      many.addEventListener('click', function () { sessOpen = sessOpen === 'many' ? null : 'many'; renderSessionTools(data); });
+      btns.append(one, many);
+      box.hidden = !sessOpen;
+      if (!sessOpen) return;
+
+      var players = data.players.filter(function (p) { return p.status === 'active'; });
+      var card = el('div', 'pay-sess-card');
+      var msg = el('p', 'slot-status');
+      function field(label, inp) { var w = el('label', 'pay-sess-field', label); w.appendChild(inp); return w; }
+      function input(type, value) { var i = document.createElement('input'); i.type = type; i.value = value; return i; }
+      function fail(text) { msg.textContent = text; msg.className = 'slot-status error'; return Promise.reject(new Error(text)); }
+      var dateIn = input('date', dateValue(base)), timeIn = input('time', timeValue(base));
+      var row = el('div', 'pay-sess-row');
+      if (sessOpen === 'one') {
+        card.append(el('p', 'pay-sess-lead', 'The next session is ' + longWhen(base) + '. Keep it, or change the date and time for a different one.'));
+        row.append(field('Date', dateIn), field('Time', timeIn));
+        card.append(row);
+        var checks = [];
+        if (players.length) {
+          var who = el('div', 'pay-sess-who');
+          who.append(el('div', 'pay-sess-title', 'Who plays this session'));
+          players.forEach(function (p) {
+            var lab = el('label', 'pay-sess-check');
+            var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = true;
+            lab.append(cb, document.createTextNode(' ' + (p.name || p.email)));
+            checks.push({ cb: cb, uid: p.uid });
+            who.append(lab);
+          });
+          who.append(el('p', 'pay-muted', 'Anyone you untick is skipped for this session quietly: no email and no charge.'));
+          card.append(who);
+        }
+        card.append(el('p', 'pay-muted', 'Players who play get an email, and are billed when it starts if billing is on for this game.'));
+        card.append(msg);
+        card.append(button('Add this session', function () {
+          var d = fromInputs(dateIn.value, timeIn.value);
+          msg.textContent = '';
+          if (!d || d.getTime() < Date.now() + 10 * 60000) return fail('Pick a date and time at least 10 minutes from now.');
+          var only = null;
+          if (checks.some(function (c) { return !c.cb.checked; })) only = checks.filter(function (c) { return c.cb.checked; }).map(function (c) { return c.uid; });
+          return call('admin/session-add', { ts: d.toISOString(), only: only }).then(function (r) { sessOpen = null; return r; });
+        }));
+      } else {
+        var countIn = input('number', '10');
+        countIn.min = '1'; countIn.max = String(maxBulk); countIn.step = '1';
+        card.append(el('p', 'pay-sess-lead', 'Add a run of weekly sessions at the same time, one every week. Pick the first one and how many.'));
+        row.append(field('First session date', dateIn), field('Time', timeIn), field('How many (1 to ' + maxBulk + ')', countIn));
+        card.append(row);
+        var preview = el('p', 'pay-sess-preview');
+        var refresh = function () {
+          var d = fromInputs(dateIn.value, timeIn.value), n = parseInt(countIn.value, 10);
+          if (!d || !(n >= 1)) { preview.textContent = ''; return; }
+          if (n > maxBulk) n = maxBulk;
+          var last = new Date(d.getTime() + (n - 1) * 7 * 86400000);
+          var dup = 0;
+          for (var i = 0; i < n; i++) if (weeklySet[d.getTime() + i * 7 * 86400000]) dup++;
+          preview.textContent = n + (n === 1 ? ' session' : ' sessions') + ': ' + longWhen(d) + (n > 1 ? ' until ' + longWhen(last) : '') + '.' + (dup ? ' ' + dup + ' of these are already in the weekly schedule and will be left out.' : '');
+        };
+        [dateIn, timeIn, countIn].forEach(function (i) { i.addEventListener('input', refresh); });
+        refresh();
+        card.append(preview, el('p', 'pay-muted', 'Everyone in the game gets one email listing the sessions. You can skip any of them for a player afterwards, or remove an extra session that has not been billed yet.'));
+        card.append(msg);
+        card.append(button('Add these sessions', function () {
+          var d = fromInputs(dateIn.value, timeIn.value), n = parseInt(countIn.value, 10);
+          msg.textContent = '';
+          if (!d || d.getTime() < Date.now() + 10 * 60000) return fail('Pick a first session at least 10 minutes from now.');
+          if (!(n >= 1 && n <= maxBulk)) return fail('Choose between 1 and ' + maxBulk + ' sessions.');
+          return call('admin/session-bulk', { ts: d.toISOString(), count: n }).then(function (r) { sessOpen = null; return r; });
+        }));
+      }
+      var cancel = el('button', 'pay-mini', 'Cancel');
+      cancel.type = 'button';
+      cancel.addEventListener('click', function () { sessOpen = null; renderSessionTools(data); });
+      card.append(cancel);
+      box.append(card);
     }
 
     function render(data) {
@@ -1957,6 +2083,7 @@ window.AshSlots = (function () {
       } else bar.append(stateText, explain, goBtn);
 
       renderBoard(data);
+      renderSessionTools(data);
 
       var past = root.querySelector('.pay-past');
       past.innerHTML = '';

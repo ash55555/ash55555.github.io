@@ -25,7 +25,7 @@ const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const SESSIONS_SHOWN = 8;
 // The admin routes another Game Master may use (always limited to their own games and money).
-const GM_ADMIN_ACTIONS = new Set(['admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/start', 'admin/stop']);
+const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/start', 'admin/stop']);
 
 // Every game slot on the site is a bookable game. The schedule, seat limit and
 // paused/running state come from the same Firebase list the admin page edits, so
@@ -225,6 +225,30 @@ export function sessionsBetween(game, from, to) {
   return out;
 }
 
+// ---- extra sessions
+// A game normally meets on its weekly schedule. Ash or a Game Master can also add sessions at other times (one at a time,
+// or a run of weekly ones). They live in their own table and are mixed in wherever the weekly times are used, so skips,
+// charges, reminders and the player schedule all treat them exactly like any other session.
+const EXTRA_AHEAD_MS = 800 * DAY_MS;
+async function extraBetween(env, mode, gameKey, from, to) {
+  const rows = (await env.DB.prepare('SELECT session_ts FROM extra_sessions WHERE mode=? AND game=? AND session_ts > ? AND session_ts <= ?')
+    .bind(mode, gameKey, from.toISOString(), to.toISOString()).all()).results;
+  return rows.map((r) => new Date(r.session_ts));
+}
+function mergeTimes(a, b) {
+  const seen = new Set();
+  return [...a, ...b].filter((d) => { const k = d.getTime(); if (seen.has(k)) return false; seen.add(k); return true; }).sort((x, y) => x - y);
+}
+// Sessions with start in (from, to], weekly and extra together.
+export async function sessionsFor(env, mode, gameKey, game, from, to) {
+  return mergeTimes(sessionsBetween(game, from, to), await extraBetween(env, mode, gameKey, from, to));
+}
+// The next count sessions after from, weekly and extra together.
+export async function upcomingFor(env, mode, gameKey, game, from, count) {
+  const weekly = upcoming(game, from, count);
+  return mergeTimes(weekly, await extraBetween(env, mode, gameKey, from, new Date(from.getTime() + EXTRA_AHEAD_MS))).slice(0, count);
+}
+
 export const iso = (d) => d.toISOString();
 const chargeKey = (mode, game, uid, ts) => `${mode}|${game}|${uid}|${ts}`;
 
@@ -336,6 +360,9 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
       case 'admin/refund': return await adminRefund(ctx);
       case 'admin/retry': return await adminRetry(ctx);
       case 'admin/remove': return await adminRemove(ctx);
+      case 'admin/session-add': return await adminSessionAdd(ctx);
+      case 'admin/session-bulk': return await adminSessionBulk(ctx);
+      case 'admin/session-remove': return await adminSessionRemove(ctx);
       case 'admin/start': return await adminGameRunning(ctx, true);
       case 'admin/stop': return await adminGameRunning(ctx, false);
       default: return json({ error: 'Unknown action' }, 404, corsHeaders);
@@ -456,7 +483,7 @@ async function doStatus(ctx) {
   const base = { seats, roster, dm, price: game.price, mode: ctx.mode, running: gs.running };
   if (!me || me.status !== 'active') return json({ ...base, joined: false, left: !!(me && me.status === 'left') }, 200, corsHeaders);
 
-  const sessions = upcoming(game, now, SESSIONS_SHOWN);
+  const sessions = await upcomingFor(env, ctx.mode, gameKey, game, now, SESSIONS_SHOWN);
   const skips = (await env.DB.prepare('SELECT session_ts, by FROM skips WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, gameKey, user.sub).all()).results;
   const skipMap = new Map(skips.map((s) => [s.session_ts, s.by]));
   const list = sessions.map((d) => {
@@ -486,9 +513,10 @@ async function myGames(env, user, corsHeaders) {
     const game = games[row.game];
     if (!game) continue;
     const gs = await gameState(env, mode, row.game);
+    const ups = await upcomingFor(env, mode, row.game, game, now, 4);
     list.push({
       key: row.game, title: game.title, price: game.price, running: gs.running,
-      sessions: upcoming(game, now, 4).map((d) => {
+      sessions: ups.map((d) => {
         const ts = iso(d);
         const by = skipMap.get(row.game + '|' + ts) || null;
         return { ts, skipped: !!by, skippedBy: by, canChange: d.getTime() - now.getTime() >= SKIP_CUTOFF_MS && by !== 'admin' };
@@ -504,7 +532,7 @@ async function doSkip(ctx, skip) {
   if (!me || me.status !== 'active') return json({ error: 'You are not in this game right now.' }, 409, corsHeaders);
   const now = new Date();
   const ts = String(body.ts || '');
-  const valid = upcoming(game, now, 26).some((d) => iso(d) === ts);
+  const valid = (await upcomingFor(env, ctx.mode, gameKey, game, now, 26)).some((d) => iso(d) === ts);
   if (!valid) return json({ error: 'That session is not available to change.' }, 400, corsHeaders);
   if (new Date(ts).getTime() - now.getTime() < SKIP_CUTOFF_MS) {
     return json({ error: 'It is less than an hour before this session, so it is too late to change it here. Please message Ash.' }, 409, corsHeaders);
@@ -557,8 +585,10 @@ async function adminRoster(ctx) {
   const players = (await env.DB.prepare('SELECT p.*, pr.token AS pr_token, pr.avatar_id AS avatar_id FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid WHERE p.mode=? AND p.game=? ORDER BY p.status, p.joined_at').bind(ctx.mode, gameKey).all()).results;
   const skips = (await env.DB.prepare('SELECT uid, session_ts, by FROM skips WHERE mode=? AND game=?').bind(ctx.mode, gameKey).all()).results;
   const charges = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? ORDER BY session_ts DESC LIMIT 200').bind(ctx.mode, gameKey).all()).results;
-  const sessions = upcoming(game, now, SESSIONS_SHOWN).map(iso);
-  const pastSessions = sessionsBetween(game, new Date(now.getTime() - 28 * DAY_MS), now).map(iso).reverse();
+  const sessions = (await upcomingFor(env, ctx.mode, gameKey, game, now, SESSIONS_SHOWN)).map(iso);
+  const pastSessions = (await sessionsFor(env, ctx.mode, gameKey, game, new Date(now.getTime() - 28 * DAY_MS), now)).map(iso).reverse();
+  const extras = (await env.DB.prepare('SELECT session_ts FROM extra_sessions WHERE mode=? AND game=? AND session_ts > ?').bind(ctx.mode, gameKey, iso(now)).all()).results.map((r) => r.session_ts);
+  const weekly = upcoming(game, now, 60).map(iso);
   const gs = await gameState(env, ctx.mode, gameKey);
   const playing = {};
   for (const ts of sessions) playing[ts] = await playingCount(env, ctx.mode, gameKey, game, ts);
@@ -573,6 +603,10 @@ async function adminRoster(ctx) {
     seats: seatInfo(game, players.filter((p) => p.status === 'active').length),
     sessions,
     pastSessions,
+    extras,
+    weekly,
+    weeklyNext: weekly[0] || null,
+    maxBulk: MAX_BULK,
     players: players.map((p) => ({
       uid: p.uid, email: p.email, name: p.name, status: p.status, joinedAt: p.joined_at,
       token: p.pr_token || p.token || '', avatarId: p.avatar_id || null,
@@ -593,7 +627,7 @@ async function adminSkip(ctx) {
   const now = new Date();
   const player = await getPlayer(ctx, uid);
   if (!player) return json({ error: 'Player not found.' }, 404, corsHeaders);
-  const ok = upcoming(game, now, 26).some((d) => iso(d) === ts);
+  const ok = (await upcomingFor(env, ctx.mode, gameKey, game, now, 26)).some((d) => iso(d) === ts);
   if (!ok) return json({ error: 'That session is not in the future.' }, 400, corsHeaders);
   if (body.skipped) {
     const prev = await env.DB.prepare('SELECT by FROM skips WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(ctx.mode, gameKey, uid, ts).first();
@@ -819,6 +853,135 @@ async function adminGameRunning(ctx, running) {
   return json({ ok: true, ...(await gameState(env, ctx.mode, gameKey)) }, 200, corsHeaders);
 }
 
+// ---- adding and removing extra sessions
+const MAX_BULK = 50;
+const MAX_EXTRA_PENDING = 120;
+
+// A time from the browser, kept only if it is a real moment at least 10 minutes away and within the next two years or so.
+function cleanSessionTime(v, now) {
+  const d = new Date(String(v || ''));
+  if (isNaN(d.getTime())) return null;
+  d.setUTCSeconds(0, 0);
+  if (d.getTime() < now.getTime() + 10 * 60 * 1000) return null;
+  if (d.getTime() > now.getTime() + EXTRA_AHEAD_MS) return null;
+  return d;
+}
+
+async function activePlayers(ctx) {
+  return (await ctx.env.DB.prepare("SELECT p.uid, p.email, p.name AS pname, pr.name FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid WHERE p.mode=? AND p.game=? AND p.status='active'").bind(ctx.mode, ctx.gameKey).all()).results;
+}
+
+// Saves the new times. A time that is already part of the weekly schedule (or already added) is left out.
+async function saveExtraTimes(ctx, times) {
+  const { env, game, gameKey } = ctx;
+  const now = new Date();
+  const pending = (await env.DB.prepare('SELECT COUNT(*) AS n FROM extra_sessions WHERE mode=? AND game=? AND session_ts > ?').bind(ctx.mode, gameKey, iso(now)).first()).n;
+  const added = [];
+  let already = 0;
+  for (const d of times) {
+    if (pending + added.length >= MAX_EXTRA_PENDING) break;
+    if (sessionsBetween(game, new Date(d.getTime() - 1000), d).length > 0) { already++; continue; }
+    const r = await env.DB.prepare('INSERT OR IGNORE INTO extra_sessions (mode, game, session_ts, created_at, created_by) VALUES (?,?,?,?,?)').bind(ctx.mode, gameKey, iso(d), iso(now), ctx.user.sub).run();
+    if (r.meta && r.meta.changes === 1) added.push(d); else already++;
+  }
+  return { added, already };
+}
+
+function extraSessionEmailHtml({ name, game, times, tz }) {
+  const rows = times.slice(0, 12).map((ts) => { const w = when(ts, tz); return '<p style="margin:0 0 6px;font-size:18px;color:#ffffff;font-weight:700">' + escapeHtml(w.day) + ' <span style="color:#f2b84f">' + escapeHtml(w.time) + '</span></p>'; }).join('');
+  const more = times.length > 12 ? '<p style="margin:6px 0 0;color:#b9a9d9">and ' + (times.length - 12) + ' more.</p>' : '';
+  const title = times.length === 1 ? 'An extra session was added' : times.length + ' extra sessions were added';
+  return '<!doctype html><html><body style="margin:0;background:#120b1c;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#1c1230;border-radius:20px;overflow:hidden;border:1px solid #3a2a5c">' +
+    '<tr><td style="padding:28px 32px 10px;background:linear-gradient(135deg,#3b2a6d,#1c1230)"><p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f2b84f;font-weight:700">Ash Tabletop</p><h1 style="margin:8px 0 0;font-size:26px;line-height:1.2;color:#ffffff">' + escapeHtml(title) + '</h1></td></tr>' +
+    '<tr><td style="padding:20px 32px 30px;color:#d9cdf2;font-size:16px;line-height:1.55"><p style="margin:0 0 16px">Hi ' + escapeHtml(name || 'there') + ', your DM added ' + (times.length === 1 ? 'a session' : 'sessions') + ' to <strong style="color:#ffffff">' + escapeHtml(game.title) + '</strong>:</p>' +
+    '<div style="background:#2a1d47;border-radius:14px;border:1px solid #4a3877;border-left:4px solid #f2b84f;padding:16px 20px">' + rows + more + '</div>' +
+    '<p style="margin:16px 0 0;font-size:15px">You are charged $' + game.price + ' for each one you play, when it starts. Cannot make one? You can skip it on your player page up to 1 hour before.</p>' +
+    '<p style="margin:22px 0 0;text-align:center"><a href="https://ashtabletop.com/player.html" style="display:inline-block;background:#f2b84f;color:#241407;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px">Open your player page</a></p>' +
+    '</td></tr></table></td></tr></table></body></html>';
+}
+
+// Tells the players who are in it (a notice on the site, and an email in real-money mode).
+async function announceExtra(ctx, players, times) {
+  if (!players.length || !times.length) return;
+  const first = when(iso(times[0]), '');
+  const body = times.length === 1
+    ? 'An extra session of ' + ctx.game.title + ' was added for ' + first.day + '. You are charged for it if you play, and you can skip it up to 1 hour before.'
+    : times.length + ' extra sessions of ' + ctx.game.title + ' were added, starting ' + first.day + '. You are charged for each one you play, and you can skip any of them up to 1 hour before.';
+  for (const p of players) {
+    await notifyPlayer(ctx.env, ctx.mode, p.uid, 'extra_session', ctx.gameKey, times.length === 1 ? 'An extra session was added' : times.length + ' extra sessions were added', body);
+    if (ctx.mode === 'live' && ctx.sendEmail && p.email) {
+      try {
+        const tz = await playerTz(ctx.env, p.uid);
+        await ctx.sendEmail(ctx.env, p.email, 'Extra session: ' + ctx.game.title, extraSessionEmailHtml({ name: p.name || p.pname, game: ctx.game, times: times.map(iso), tz }));
+      } catch (err) { console.error('extra session email failed', p.email, err && err.message); }
+    }
+  }
+}
+
+// One session at a chosen time. Players left out are skipped for it quietly (no email, no charge).
+async function adminSessionAdd(ctx) {
+  const { env, body, gameKey, corsHeaders } = ctx;
+  const now = new Date();
+  const d = cleanSessionTime(body.ts, now);
+  if (!d) return json({ error: 'Please pick a time at least 10 minutes from now.' }, 400, corsHeaders);
+  const only = Array.isArray(body.only) ? body.only.map(String) : null;
+  const { added, already } = await saveExtraTimes(ctx, [d]);
+  if (!added.length) return json({ error: already ? 'That time is already a session of this game.' : 'This game already has as many extra sessions as it can hold.' }, 409, corsHeaders);
+  const players = await activePlayers(ctx);
+  const playing = [];
+  for (const p of players) {
+    if (only && !only.includes(p.uid)) {
+      await env.DB.prepare('INSERT OR IGNORE INTO skips (mode, game, uid, session_ts, by, created_at) VALUES (?,?,?,?,?,?)').bind(ctx.mode, gameKey, p.uid, iso(d), 'admin', iso(now)).run();
+    } else playing.push(p);
+  }
+  await announceExtra(ctx, playing, [d]);
+  return json({ ok: true, ts: iso(d), playing: playing.length }, 200, corsHeaders);
+}
+
+// A run of weekly sessions: count of them (1 to 50), one every 7 days from the first time.
+async function adminSessionBulk(ctx) {
+  const { body, corsHeaders } = ctx;
+  const now = new Date();
+  const count = parseInt(body.count, 10);
+  if (!(count >= 1 && count <= MAX_BULK)) return json({ error: 'Choose between 1 and ' + MAX_BULK + ' sessions.' }, 400, corsHeaders);
+  const first = cleanSessionTime(body.ts, now);
+  if (!first) return json({ error: 'Please pick a first session at least 10 minutes from now.' }, 400, corsHeaders);
+  const times = [];
+  for (let i = 0; i < count; i++) {
+    const t = new Date(first.getTime() + i * 7 * DAY_MS);
+    if (t.getTime() > now.getTime() + EXTRA_AHEAD_MS) break;
+    times.push(t);
+  }
+  const { added, already } = await saveExtraTimes(ctx, times);
+  if (!added.length) return json({ error: already ? 'Those times are already part of the weekly schedule of this game, so nothing was added. Pick a different day or time.' : 'This game already has as many extra sessions as it can hold.' }, 409, corsHeaders);
+  await announceExtra(ctx, await activePlayers(ctx), added);
+  return json({ ok: true, added: added.length, already, first: iso(added[0]), last: iso(added[added.length - 1]) }, 200, corsHeaders);
+}
+
+// Takes an extra session away again, as long as nobody has been charged for it yet.
+async function adminSessionRemove(ctx) {
+  const { env, body, gameKey, corsHeaders } = ctx;
+  const d = new Date(String(body.ts || ''));
+  if (isNaN(d.getTime())) return json({ error: 'Missing session.' }, 400, corsHeaders);
+  const ts = iso(d);
+  const row = await env.DB.prepare('SELECT 1 AS x FROM extra_sessions WHERE mode=? AND game=? AND session_ts=?').bind(ctx.mode, gameKey, ts).first();
+  if (!row) return json({ error: 'That is not an extra session.' }, 404, corsHeaders);
+  if (d.getTime() <= Date.now()) return json({ error: 'That session has already started.' }, 409, corsHeaders);
+  const charged = await env.DB.prepare('SELECT 1 AS x FROM charges WHERE mode=? AND game=? AND session_ts=?').bind(ctx.mode, gameKey, ts).first();
+  if (charged) return json({ error: 'Players were already charged for this session, so it cannot be removed.' }, 409, corsHeaders);
+  const skipped = new Set((await env.DB.prepare('SELECT uid FROM skips WHERE mode=? AND game=? AND session_ts=?').bind(ctx.mode, gameKey, ts).all()).results.map((r) => r.uid));
+  await env.DB.prepare('DELETE FROM extra_sessions WHERE mode=? AND game=? AND session_ts=?').bind(ctx.mode, gameKey, ts).run();
+  await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND session_ts=?').bind(ctx.mode, gameKey, ts).run();
+  await env.DB.prepare('DELETE FROM reminders WHERE mode=? AND game=? AND session_ts=?').bind(ctx.mode, gameKey, ts).run();
+  const w = when(ts, '');
+  for (const p of await activePlayers(ctx)) {
+    if (skipped.has(p.uid)) continue;
+    await notifyPlayer(env, ctx.mode, p.uid, 'extra_session_removed', gameKey, 'An extra session was cancelled', 'The extra session of ' + ctx.game.title + ' on ' + w.day + ' was cancelled. You will not be charged for it.');
+  }
+  return json({ ok: true }, 200, corsHeaders);
+}
+
 async function adminRemove(ctx) {
   const { env, body, gameKey, game, corsHeaders } = ctx;
   const uid = String(body.uid || '');
@@ -845,7 +1008,7 @@ export async function runCharges(env, sendEmail) {
   for (const [gameKey, game] of Object.entries(allGames)) {
     if (game.owner) continue; // another Game Master's game is never charged through Ash's account
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
-    const sessions = sessionsBetween(game, new Date(now.getTime() - CATCH_UP_MS), now).map(iso);
+    const sessions = (await sessionsFor(env, c.mode, gameKey, game, new Date(now.getTime() - CATCH_UP_MS), now)).map(iso);
 
     // A NEW charge needs both: Ash has started the game (and the session is after
     // that moment), and enough players are playing that session. Charges that

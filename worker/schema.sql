@@ -206,3 +206,13 @@ CREATE TABLE IF NOT EXISTS gm_reviews (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (gm_uid, uid)
 );
+
+-- Sessions added by hand, outside the weekly schedule of a game (a one-off or a run of weekly sessions).
+CREATE TABLE IF NOT EXISTS extra_sessions (
+  mode TEXT NOT NULL,
+  game TEXT NOT NULL,
+  session_ts TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  created_by TEXT,
+  PRIMARY KEY (mode, game, session_ts)
+);
