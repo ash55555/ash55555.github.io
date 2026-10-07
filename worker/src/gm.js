@@ -96,6 +96,19 @@ export async function handleGm(request, env, corsHeaders, origin, action, verify
     return json({ profile }, 200, corsHeaders, { 'Cache-Control': 'public, max-age=30' });
   }
 
+  // A Game Master's picture, as an ordinary image address (the home page uses it).
+  if (action === 'avatar' && request.method === 'GET') {
+    const slug = new URL(request.url).searchParams.get('slug') || '';
+    if (!/^[a-z0-9-]{1,40}$/.test(slug)) return new Response('Not found', { status: 404, headers: corsHeaders });
+    const row = await env.DB.prepare('SELECT data FROM gm_profiles WHERE slug=?').bind(slug).first();
+    let p = {};
+    try { p = JSON.parse((row && row.data) || '{}') || {}; } catch { p = {}; }
+    const m = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(p.avatar || '');
+    if (!m) return new Response('Not found', { status: 404, headers: corsHeaders });
+    const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
+    return new Response(bytes, { status: 200, headers: { 'Content-Type': m[1], 'Cache-Control': 'public, max-age=300', ...corsHeaders } });
+  }
+
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
   if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
   let body;

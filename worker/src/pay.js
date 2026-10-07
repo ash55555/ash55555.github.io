@@ -215,7 +215,7 @@ export function upcoming(game, from, count) {
 }
 
 // Sessions with start in (from, to].
-function sessionsBetween(game, from, to) {
+export function sessionsBetween(game, from, to) {
   const out = [];
   let d = nextStart(game, from);
   while (d && d.getTime() <= to.getTime()) {

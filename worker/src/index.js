@@ -13,6 +13,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { handleGm } from './gm.js';
+import { handleHome } from './home.js';
 import { handleMessages } from './messages.js';
 import { handleDmAgreement, runAgreementReminders } from './dm-agreement.js';
 import { handleConnect } from './connect.js';
@@ -61,6 +62,9 @@ export default {
     }
     if (url.pathname.startsWith('/msg/')) {
       return handleMessages(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/msg/'.length), sendEmail);
+    }
+    if (url.pathname === '/home/public' && request.method === 'GET') {
+      return handleHome(request, env, corsHeaders);
     }
     if (url.pathname.startsWith('/gm/')) {
       return handleGm(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/gm/'.length));

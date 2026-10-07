@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="google-site-verification" content="kAa0jL8-FPzYeF_0wwZskvH-JwqpMA5cIIhSZbUf2FE" />
-<title>Ash Tabletop | Professional Dungeon Mastering</title>
-<meta name="description" content="Ash Tabletop: professionally run D&D 5e campaigns on Roll20 + Discord. Gothic horror, feywild whimsy, political intrigue and more. Free Session Zero, $10 per session.">
+<title>Ash Tabletop | Find a Table, Meet a Game Master</title>
+<meta name="description" content="Find a D&D table run by a real, verified game master. Browse open games, see who runs them and take a seat. Professionally run D&D 5e campaigns, $10 per session.">
 <link rel="canonical" href="https://ashtabletop.com/">
 <link rel="icon" href="medie/ash-token.png">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Ash Tabletop | Professional Dungeon Mastering">
+<meta property="og:title" content="Ash Tabletop | Find a Table, Meet a Game Master">
 <meta property="og:description" content="Professionally run D&D 5e campaigns on Roll20 + Discord. Gothic horror, feywild whimsy, political intrigue and more. Free Session Zero, $10 per session.">
 <meta property="og:url" content="https://ashtabletop.com/">
 <meta property="og:image" content="https://ashtabletop.com/medie/ash-token.png">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Ash Tabletop | Professional Dungeon Mastering">
+<meta name="twitter:title" content="Ash Tabletop | Find a Table, Meet a Game Master">
 <meta name="twitter:description" content="Professionally run D&D 5e campaigns on Roll20 + Discord. Free Session Zero, $10 per session.">
 <meta name="twitter:image" content="https://ashtabletop.com/medie/ash-token.png">
 
@@ -24,6 +24,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="style.css?v=20261003e">
+<link rel="stylesheet" href="home.css?v=20261007b">
 </head>
 <body>
 
@@ -48,18 +49,18 @@
 <!-- ================= NAV ================= -->
 <header class="site-header">
   <nav class="nav">
-    <a class="brand" href="#top">
-      <img class="brand-avatar" src="medie/ash-token.png" alt="Ash's character token" width="44" height="44" loading="eager">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="" width="44" height="44" loading="eager">
       <span class="brand-name">Ash Tabletop</span>
     </a>
     <button class="nav-toggle" aria-expanded="false" aria-controls="nav-links" aria-label="Toggle navigation menu">
       <span></span><span></span><span></span>
     </button>
     <div class="nav-links" id="nav-links">
-      <a href="#campaigns">Campaigns</a>
-      <a href="#campaigns">Pricing</a>
-      <a href="#reviews">Reviews</a>
-      <a href="#contact">Contact</a>
+      <a href="#tables">Browse games</a>
+      <a href="#gms">Game masters</a>
+      <a href="#how">How it works</a>
+      <a href="#for-dms">For DMs</a>
       <div class="nav-auth">
         <button type="button" class="nav-login js-signup-trigger" data-mode="login">Log In</button>
         <button type="button" class="nav-cta js-signup-trigger" data-mode="signup">Sign Up</button>
@@ -69,467 +70,62 @@
   </nav>
 </header>
 
-<main id="top">
+<main class="hx" id="top">
 
-  <!-- ================= HERO ================= -->
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="eyebrow">🎲 Professional Dungeon Mastering</p>
-      <h1>Every story needs a party.<br>Come build one with us.</h1>
-      <p class="hero-sub">Hello lovely people, I'm Ash! I run D&amp;D 5e games on Roll20, Discord, and D&amp;D Beyond, and I love helping people build stories they'll still be talking about months later. Gothic horror, feywild chaos, political intrigue, undead survival: I've got a table for whatever mood you're in. New to D&amp;D? Totally welcome. Been playing for years? Also welcome. Every game starts with a free Session Zero, so you can meet the table and see if it's a fit before we start our game.</p>
-      <div class="hero-tables-block">
-        <p class="hero-tables-title">My tables are:</p>
-        <ul class="hero-tables">
-          <li>🌈 Welcoming to everyone.</li>
-          <li>🎲 Rule of cool take a front seat in cool moments.</li>
-          <li>📖 Prepped weekly.</li>
-          <li>💬 Low pressure and judgment free, come as you are.</li>
-        </ul>
-      </div>
-      <div class="hero-actions">
-        <a href="#campaigns" class="btn btn-primary">
-          <img class="icon icon-d20" src="medie/d20-icon.png?v=20260929a" alt="">
-          View Campaigns
-        </a>
-        <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord">
-          <svg class="icon"><use href="#icon-discord"/></svg>
-          Chat with Ash
-        </a>
-      </div>
+  <section class="hx-hero">
+    <div class="hx-orb hx-a"></div><div class="hx-orb hx-b"></div><div class="hx-orb hx-c"></div>
+    <div class="hx-dice hx-d1"><svg viewBox="0 0 100 100"><path d="M50 6 90 30v40L50 94 10 70V30z"/><path d="M50 6v88M10 30l80 40M90 30 10 70"/></svg></div>
+    <div class="hx-dice hx-d2"><svg viewBox="0 0 100 100"><path d="M50 8 92 78H8z"/><path d="M50 8v70M29 43l42 0"/></svg></div>
+    <div class="hx-dice hx-d3"><svg viewBox="0 0 100 100"><rect x="14" y="14" width="72" height="72" rx="14"/><circle cx="34" cy="34" r="5"/><circle cx="66" cy="66" r="5"/><circle cx="50" cy="50" r="5"/></svg></div>
+    <div class="hx-dice hx-d4"><svg viewBox="0 0 100 100"><path d="M50 5 85 30 85 70 50 95 15 70 15 30z"/><path d="M15 30 50 52 85 30M50 52v43"/></svg></div>
+
+    <span class="hx-eyebrow">Real game masters · real tables</span>
+    <h1>Find your table.<br><em>Meet your game master.</em></h1>
+    <p class="hx-lede">Every DM here is checked and rated by their own players. Pick a story, see who runs it, and take a seat with confidence.</p>
+    <div class="hx-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="hx-q" type="search" placeholder="Search a game, a setting or a game master..." aria-label="Search games">
+      <button type="button" id="hx-go">Search</button>
     </div>
-    <div class="hero-art">
-      <div class="hero-glow" aria-hidden="true"></div>
-      <img class="hero-token" src="medie/ash-token.png" alt="Ash's character token, a grinning blue, fanged, pointy-eared figure in a shirt and vest" width="480" height="480" loading="eager">
-    </div>
+    <div class="hx-chips" id="hx-chips" role="group" aria-label="Filter games"></div>
+    <div class="hx-stats" id="hx-stats" hidden></div>
   </section>
 
-  <!-- ================= INFO STRIP ================= -->
-  <section class="info-strip" aria-label="About Ash and how the table works">
-    <div class="info-tile">
-      <p class="info-title">I became a DM because...</p>
-      <p class="info-sub">I was obsessed with Dungeons &amp; Dragons. I joined lots of games run by great DMs, and I wanted to share what I learned from my favorite game masters with everyone. Seeing my friends gather at the table, having fun, and seeing the intrigue in their eyes as they uncover the secrets I put in the game made all the prep hours worth it. And that's how I started.</p>
-    </div>
-    <div class="info-tile">
-      <p class="info-title">How I keep the table comfortable</p>
-      <p class="info-sub">I use safety tools like Lines and Veils and the X-Card at my table. I also meet every player in a Session Zero before our game, so everyone is comfortable with the themes that may come up during play.</p>
-    </div>
-    <div class="info-tile">
-      <p class="info-title">New to D&amp;D?</p>
-      <p class="info-sub">Absolutely welcome! I&#39;ll help you with everything you need, from making a character (backstory and mechanics) to introducing you to the game and the rest of the players. However comfortable you are with playing, you can go at your own pace.</p>
-    </div>
-  </section>
+  <div class="hx-wrap">
+    <section id="hx-soon-sec" hidden>
+      <div class="hx-head"><div><span class="hx-kicker">Starting soon</span><h2>Next at the table</h2></div><p>The three sessions that begin first, in your time zone.</p></div>
+      <div class="hx-soon" id="hx-soon"></div>
+    </section>
 
-  <!-- ================= CAMPAIGNS ================= -->
-  <section class="campaigns" id="campaigns">
-    <div class="section-head">
-      <p class="eyebrow">Open Tables</p>
-      <h2>Current Campaigns</h2>
-      <p class="section-sub">All session times below adjust automatically to your local timezone, so there's no math on your end.</p>
-    </div>
+    <section id="gms">
+      <div class="hx-head"><div><span class="hx-kicker">The people behind the screen</span><h2>Meet the game masters</h2></div><p>Tap one to see their page and every game they run.</p></div>
+      <div class="hx-gms" id="hx-gm-row"></div>
+    </section>
 
-    <div class="campaign-grid">
+    <section id="tables">
+      <a id="campaigns"></a>
+      <div class="hx-head"><div><span class="hx-kicker">Open tables</span><h2 id="hx-tables-h">All games</h2></div><p id="hx-count"></p></div>
+      <div class="hx-grid" id="hx-grid"><div class="hx-empty">Loading the open tables...</div></div>
+    </section>
 
-      <!-- 1. Prophecy of the Flying City -->
-      <article class="campaign-card" data-href="blog/flying-city.html">
-        <img class="campaign-banner" src="medie/2139d310-c69b-4c0e-b8a0-2eded9ce8094%20%281%29.webp" alt="The Prophecy of the Flying City banner art" loading="lazy">
-        <div class="campaign-body">
-          <h3>The Prophecy of the Flying City</h3>
-          <p class="campaign-tone">
-            <svg class="icon icon-sm"><use href="#icon-dagger"/></svg>
-            Political intrigue · subterranean survival · mystery
-          </p>
-
-          <div class="session-list">
-            <button type="button" class="session-chip" data-campaign="flying-city" data-day="3" data-hour="18" data-minute="0" data-offset="1" data-source="6:00 PM GMT+1">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-main">Wednesdays · 6:00 PM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-          </div>
-
-          <a class="story-link" href="blog/flying-city.html">
-            Read the Full Story
-            <svg class="icon icon-sm"><use href="#icon-book"/></svg>
-          </a>
-
-          <div class="campaign-footer">
-            <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
-          </div>
-          <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
-        </div>
-      </article>
-
-      <!-- 2. Curse of Strahd -->
-      <article class="campaign-card" data-href="blog/curse-of-strahd.html">
-        <img class="campaign-banner" src="medie/1466afad-bf88-4950-9f9b-a82a40f44147.webp?v=20260929c" alt="Curse of Strahd banner art" loading="lazy">
-        <div class="campaign-body">
-          <h3>Curse of Strahd</h3>
-          <p class="campaign-tone">
-            <svg class="icon icon-sm"><use href="#icon-bat"/></svg>
-            Classic gothic horror · high stakes · dark atmosphere
-          </p>
-
-          <div class="session-list">
-            <button type="button" class="session-chip" data-campaign="curse-of-strahd" data-slot="A" data-day="5" data-hour="20" data-minute="0" data-offset="1" data-source="8:00 PM GMT+1" data-group="Group A">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group A</span>
-                <span class="session-main">Fridays · 8:00 PM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-            <button type="button" class="session-chip" data-campaign="curse-of-strahd" data-slot="B" data-day="1" data-hour="20" data-minute="0" data-offset="1" data-source="8:00 PM GMT+1" data-group="Group B">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group B</span>
-                <span class="session-main">Mondays · 8:00 PM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-            <button type="button" class="session-chip" data-campaign="curse-of-strahd" data-slot="-P22OPz1OxBjVAbzihu4" data-day="4" data-hour="0" data-minute="0" data-offset="1" data-source="12:00 AM GMT+1" data-group="Group C">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group C</span>
-                <span class="session-main">Thursdays · 12:00 AM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-            <button type="button" class="session-chip" data-campaign="curse-of-strahd" data-slot="-P2wqpCkiDmAAzOsTG0u" data-day="5" data-hour="11" data-minute="0" data-offset="1" data-source="11:00 AM GMT+1" data-group="Group D">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group D</span>
-                <span class="session-main">Fridays · 11:00 AM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-          </div>
-
-          <a class="story-link" href="blog/curse-of-strahd.html">
-            Read the Full Story
-            <svg class="icon icon-sm"><use href="#icon-book"/></svg>
-          </a>
-
-          <div class="campaign-footer">
-            <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
-          </div>
-          <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
-        </div>
-      </article>
-
-      <!-- 3. Ravenloft: Undead Survival -->
-      <article class="campaign-card" data-href="blog/ravenloft-undead-survival.html">
-        <img class="campaign-banner" src="medie/37528c55-aa34-4bfa-9f9c-2f9152faf651.webp" alt="Ravenloft banner art" loading="lazy">
-        <div class="campaign-body">
-          <h3>Ravenloft: Undead Survival</h3>
-          <p class="campaign-tone">
-            <svg class="icon icon-sm"><use href="#icon-axe"/></svg>
-            Gritty survival horror · zombie hordes · resource management
-          </p>
-
-          <div class="session-list">
-            <button type="button" class="session-chip" data-campaign="ravenloft-undead-survival" data-day="6" data-hour="21" data-minute="0" data-offset="1" data-source="9:00 PM GMT+1">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-main">Saturdays · 9:00 PM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-          </div>
-
-          <a class="story-link" href="blog/ravenloft-undead-survival.html">
-            Read the Full Story
-            <svg class="icon icon-sm"><use href="#icon-book"/></svg>
-          </a>
-
-          <div class="campaign-footer">
-            <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
-          </div>
-          <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
-        </div>
-      </article>
-
-      <!-- 4. The Crooked Moon -->
-      <article class="campaign-card" data-href="blog/crooked-moon.html">
-        <img class="campaign-banner" src="medie/daaeef05-e995-40b5-84d6-4d6f5670fa47.webp" alt="The Crooked Moon banner art" loading="lazy">
-        <div class="campaign-body">
-          <h3>The Crooked Moon</h3>
-          <p class="campaign-tone">
-            <svg class="icon icon-sm"><use href="#icon-moon"/></svg>
-            Folk horror · eerie witching-hour vibes · witchcraft &amp; mystery
-          </p>
-
-          <div class="session-list">
-            <button type="button" class="session-chip" data-campaign="crooked-moon" data-slot="A" data-day="4" data-hour="20" data-minute="0" data-offset="1" data-source="8:00 PM GMT+1" data-group="Group A">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group A</span>
-                <span class="session-main">Thursdays · 8:00 PM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-            <button type="button" class="session-chip" data-campaign="crooked-moon" data-slot="B" data-day="6" data-hour="0" data-minute="0" data-offset="1" data-source="12:00 AM GMT+1" data-group="Group B">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group B</span>
-                <span class="session-main">Saturdays · 12:00 AM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-            <button type="button" class="session-chip" data-campaign="crooked-moon" data-slot="C" data-day="6" data-hour="18" data-minute="0" data-offset="1" data-source="6:00 PM GMT+1" data-group="Group C">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-group">Group C</span>
-                <span class="session-main">Saturdays · 6:00 PM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-          </div>
-
-          <a class="story-link" href="blog/crooked-moon.html">
-            Read the Full Story
-            <svg class="icon icon-sm"><use href="#icon-book"/></svg>
-          </a>
-
-          <div class="campaign-footer">
-            <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
-          </div>
-          <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
-        </div>
-      </article>
-
-      <!-- 5. The Wild Beyond the Witchlight -->
-      <article class="campaign-card" data-href="blog/witchlight.html">
-        <img class="campaign-banner" src="medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp" alt="The Wild Beyond the Witchlight banner art" loading="lazy">
-        <div class="campaign-body">
-          <h3>The Wild Beyond the Witchlight</h3>
-          <p class="campaign-tone">
-            <svg class="icon icon-sm"><use href="#icon-sparkle"/></svg>
-            Whimsical feywild fairytale · puzzle-solving · roleplay-heavy
-          </p>
-
-          <div class="session-list">
-            <button type="button" class="session-chip" data-campaign="witchlight" data-day="0" data-hour="0" data-minute="0" data-offset="1" data-source="12:00 AM GMT+1">
-              <svg class="icon icon-sm"><use href="#icon-clock"/></svg>
-              <span class="session-text">
-                <span class="session-main">Sundays · 12:00 AM GMT+1</span>
-                <span class="session-sub">Calculating your local time…</span>
-                <span class="session-seats"></span>
-              </span>
-              <span class="session-chip-cta">Join</span>
-            </button>
-          </div>
-
-          <a class="story-link" href="blog/witchlight.html">
-            Read the Full Story
-            <svg class="icon icon-sm"><use href="#icon-book"/></svg>
-          </a>
-
-          <div class="campaign-footer">
-            <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
-          </div>
-          <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
-        </div>
-      </article>
-
-    </div>
-  </section>
-
-  <!-- ================= REVIEWS ================= -->
-  <section class="reviews" id="reviews">
-    <div class="section-head">
-      <p class="eyebrow">Party Feedback</p>
-      <h2>What Players Are Saying</h2>
-    </div>
-    <!--
-      TODO pattern to duplicate per new review (add it to BOTH the visible
-      list and the aria-hidden duplicate list right below it, so the
-      scrolling strip keeps looping seamlessly):
-
-      <article class="review-card">
-        <img class="review-avatar" src="medie/photo.webp" alt="Player Name" loading="lazy">
-        <p class="review-quote">"Quote text here."</p>
-        <p class="review-author">Player Name</p>
-      </article>
-    -->
-    <div class="reviews-marquee">
-      <div class="reviews-track">
-
-        <article class="review-card">
-          <img class="review-avatar" src="medie/alice-avatar.webp" alt="Alice Rose Marsh" loading="lazy">
-          <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns. Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story. His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together. I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
-          <p class="review-author">Alice Rose Marsh</p>
-        </article>
-
-        <article class="review-card">
-          <img class="review-avatar" src="medie/bianca.webp" alt="Bianca" loading="lazy">
-          <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
-          <p class="review-author">Bianca</p>
-        </article>
-
-        <article class="review-card">
-          <img class="review-avatar" src="medie/fisherman.webp" alt="Fisherman" loading="lazy">
-          <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
-          <p class="review-author">Fisherman</p>
-        </article>
-
-        <article class="review-card">
-          <img class="review-avatar" src="medie/blackrosestar.webp" alt="Black Rose Star" loading="lazy">
-          <p class="review-quote">"Ash is one of the best DM's I've had in a long time. I have played DnD for a long time and this is the most fun I have had yet. His stories are interesting and he keeps the characters interesting and funny so you are never bored. Cannot wait for our next game."</p>
-          <p class="review-author">Black Rose Star</p>
-        </article>
-
-        <article class="review-card">
-          <img class="review-avatar" src="medie/rintintizzle.webp" alt="Rintintizzle" loading="lazy">
-          <p class="review-quote">"Ash is a young and competent DM with an easy going approach to D&amp;D. He meets his players where they are and has no problems explaining or working through any chaos or confusion on or off table time. It's clear he loves the game and has a player-focused approach. I enjoy playing at his table and look forward to many more game sessions."</p>
-          <p class="review-author">Rintintizzle</p>
-        </article>
-
-        <article class="review-card">
-          <img class="review-avatar" src="medie/biggestofrisks.webp" alt="BiggestofRisks" loading="lazy">
-          <p class="review-quote">"If you are looking for a DM to ensure complete immersion with unique voices for each character, Ash is your man. I have been a player of his for months, and as a first time player, I couldn't ask for a better experience. 5/5."</p>
-          <p class="review-author">BiggestofRisks</p>
-        </article>
-
-        <!-- Duplicate set, hidden from screen readers, so the strip loops without a visible seam -->
-        <article class="review-card" aria-hidden="true">
-          <img class="review-avatar" src="medie/alice-avatar.webp" alt="" loading="lazy">
-          <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns. Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story. His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together. I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
-          <p class="review-author">Alice Rose Marsh</p>
-        </article>
-
-        <article class="review-card" aria-hidden="true">
-          <img class="review-avatar" src="medie/bianca.webp" alt="" loading="lazy">
-          <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
-          <p class="review-author">Bianca</p>
-        </article>
-
-        <article class="review-card" aria-hidden="true">
-          <img class="review-avatar" src="medie/fisherman.webp" alt="" loading="lazy">
-          <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
-          <p class="review-author">Fisherman</p>
-        </article>
-
-        <article class="review-card" aria-hidden="true">
-          <img class="review-avatar" src="medie/blackrosestar.webp" alt="" loading="lazy">
-          <p class="review-quote">"Ash is one of the best DM's I've had in a long time. I have played DnD for a long time and this is the most fun I have had yet. His stories are interesting and he keeps the characters interesting and funny so you are never bored. Cannot wait for our next game."</p>
-          <p class="review-author">Black Rose Star</p>
-        </article>
-
-        <article class="review-card" aria-hidden="true">
-          <img class="review-avatar" src="medie/rintintizzle.webp" alt="" loading="lazy">
-          <p class="review-quote">"Ash is a young and competent DM with an easy going approach to D&amp;D. He meets his players where they are and has no problems explaining or working through any chaos or confusion on or off table time. It's clear he loves the game and has a player-focused approach. I enjoy playing at his table and look forward to many more game sessions."</p>
-          <p class="review-author">Rintintizzle</p>
-        </article>
-
-        <article class="review-card" aria-hidden="true">
-          <img class="review-avatar" src="medie/biggestofrisks.webp" alt="" loading="lazy">
-          <p class="review-quote">"If you are looking for a DM to ensure complete immersion with unique voices for each character, Ash is your man. I have been a player of his for months, and as a first time player, I couldn't ask for a better experience. 5/5."</p>
-          <p class="review-author">BiggestofRisks</p>
-        </article>
-
+    <section id="how">
+      <div class="hx-head"><div><span class="hx-kicker">Simple on purpose</span><h2>How it works</h2></div></div>
+      <div class="hx-steps">
+        <div class="hx-step"><div class="hx-ico">🔎</div><h3>Pick a table</h3><p>Browse by mood or search. Each card shows the next session, the price and how many seats are left.</p></div>
+        <div class="hx-step"><div class="hx-ico">🪑</div><h3>Reserve a seat</h3><p>Save a card once. You are only charged for sessions you actually play, and you can skip up to an hour before.</p></div>
+        <div class="hx-step"><div class="hx-ico">🎲</div><h3>Show up and play</h3><p>You get a reminder the day before. Roll initiative, meet your party, and enjoy the story.</p></div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- ================= D20 FUN ROLLER ================= -->
-  <section class="fun-roll" id="fun">
-    <div class="section-head">
-      <p class="eyebrow">✨ Table Fun</p>
-      <h2>Roll Something Silly</h2>
-      <p class="section-sub">A d20 of chaos for you and your party. Roll before session, roll mid-fight, roll whenever.</p>
-    </div>
-    <div class="dice-wrap">
-      <div class="canvas-stage" id="canvas-stage" role="button" tabindex="0" aria-label="Roll the d20">
-        <span class="d20-sparkle d20-sparkle-1">✦</span>
-        <span class="d20-sparkle d20-sparkle-2">✦</span>
-        <span class="d20-sparkle d20-sparkle-3">✦</span>
-        <span class="d20-sparkle d20-sparkle-4">✦</span>
+    <section id="for-dms">
+      <div class="hx-band">
+        <h2>Are you a dungeon master?</h2>
+        <p>Run your games here, get paid for every session, and let us handle the sign-ups and payments. Tell us about your table.</p>
+        <a class="hx-pill hx-gold" href="ash.html#contact">Apply to become a DM</a>
       </div>
-      <p class="d20-hint" id="d20-hint">Tap the die to roll</p>
-      <div class="d20-result" id="d20-result" hidden>
-        <span class="d20-result-num" id="d20-result-num"></span>
-        <p class="d20-result-text" id="d20-result-text"></p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ================= CONTACT ================= -->
-  <section class="contact" id="contact">
-    <div class="contact-inner">
-      <p class="eyebrow">Get In Touch</p>
-      <h2>Have a seat waiting for you.</h2>
-      <p class="section-sub">The fastest way to reach Ash is Discord, so feel free to ask about open seats, scheduling, or anything else 👋</p>
-      <div class="contact-actions">
-        <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord btn-large">
-          <svg class="icon"><use href="#icon-discord"/></svg>
-          Message on Discord
-        </a>
-      </div>
-
-      <button type="button" class="link-button js-email-trigger">
-        <svg class="icon icon-sm"><use href="#icon-mail"/></svg>
-        Prefer email? Send a message
-      </button>
-    </div>
-  </section>
-
+    </section>
+  </div>
 </main>
-
-<!-- ================= EMAIL MODAL ================= -->
-<div class="modal" id="email-modal" hidden>
-  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="email-modal-title">
-    <button type="button" class="modal-close js-modal-close" aria-label="Close">
-      <svg class="icon"><use href="#icon-close"/></svg>
-    </button>
-    <h3 id="email-modal-title">Send Ash a Message</h3>
-    <p class="modal-sub">Leave your email and a message, and Ash will reply straight to your inbox.</p>
-    <form id="email-form">
-      <label for="email-field">Your email</label>
-      <input id="email-field" type="email" name="email" required placeholder="you@example.com">
-      <label for="message-field">Message</label>
-      <textarea id="message-field" name="message" rows="4" required placeholder="What would you like to ask or say?"></textarea>
-      <button type="submit" class="btn btn-primary">Send Message</button>
-      <p class="modal-status" role="status" aria-live="polite"></p>
-    </form>
-  </div>
-</div>
-
-<!-- ================= PAYPAL MODAL ================= -->
-<div class="modal" id="paypal-modal" hidden>
-  <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="paypal-modal-title">
-    <button type="button" class="modal-close js-modal-close" aria-label="Close">
-      <svg class="icon"><use href="#icon-close"/></svg>
-    </button>
-    <h3 id="paypal-modal-title">Subscribe to This Session</h3>
-    <p class="modal-sub" id="paypal-modal-sub"></p>
-    <div id="paypal-button-slot"></div>
-  </div>
-</div>
 
 <!-- ================= SIGNUP MODAL ================= -->
 <div class="modal" id="signup-modal" hidden>
@@ -585,19 +181,11 @@
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
 <script src="script.js?v=20261007a"></script>
-<!-- Optional: quietly syncs live seat counts / paused games from Firebase
-     onto the buttons above once Ash finishes Firebase setup. Does nothing
-     until then; see campaigns-data.js. -->
 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="firebase-init.js"></script>
-<script src="joined-games.js?v=20261003a"></script>
-<script src="campaigns-data.js?v=20261003b"></script>
-<script src="dynamic-campaigns.js?v=20261003b"></script>
-<script src="three.min.js"></script>
-<script src="d20.js"></script>
-
+<script src="home.js?v=20261007b"></script>
 </body>
 </html>
