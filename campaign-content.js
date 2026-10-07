@@ -43,10 +43,61 @@
     } catch (e) { /* no cached color yet */ }
   }
 
+  // A campaign made by another Game Master: Ash's Discord, email form and join button are not theirs, so this page
+  // shows their own sessions and sends people to that Game Master's page to read about them and message them.
+  function gmMode(d) {
+    var profile = '../gm.html?slug=' + encodeURIComponent(d.gm);
+    var back = document.querySelector('.back-link');
+    if (back) {
+      back.href = profile;
+      var last = back.lastChild;
+      if (last && last.nodeType === 3) last.textContent = '\n  Back to the Game Master\n';
+    }
+    var nav = document.querySelector('.nav-links');
+    if (nav) nav.innerHTML = '<a class="nav-cta" href="' + profile + '">Meet the Game Master</a>';
+    var soon = 'Check back soon, or message the Game Master directly.';
+    [['cc-world', d.world], ['cc-stakes', d.stakes], ['cc-audience', d.audience]].forEach(function (x) {
+      var box = document.getElementById(x[0]);
+      if (box && !x[1]) { box.innerHTML = ''; var p = document.createElement('p'); p.textContent = soon; box.appendChild(p); }
+    });
+    var hk = document.getElementById('cc-hook');
+    if (hk && !d.hook) hk.textContent = 'Details are on their way. Message the Game Master to hear more.';
+
+    // the sessions, on the visitor's own clock
+    var list = document.querySelector('.article-schedule .session-list');
+    if (list) {
+      list.innerHTML = '';
+      var ids = Object.keys(d.slots || {});
+      if (!ids.length) { var none = document.createElement('p'); none.textContent = 'The schedule is not set yet.'; list.appendChild(none); }
+      ids.forEach(function (id) {
+        var s = d.slots[id];
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'session-chip';
+        chip.disabled = true;
+        var when = (typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') ? formatLocal(nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0)) : 'Weekly session';
+        chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta">Opening soon</span>';
+        chip.querySelector('.session-main').textContent = when;
+        chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' \u00B7 ' : '') + (s.enabled === false ? 'Not running right now' : 'Weekly, shown in your time zone');
+        chip.querySelector('.session-seats').textContent = 'Up to ' + s.max + ' players';
+        list.appendChild(chip);
+      });
+    }
+
+    var pay = document.querySelector('.blog-payment');
+    if (pay) {
+      pay.innerHTML = '<h2>Interested in this table?</h2><p class="blog-payment-price">$10 per session</p>' +
+        '<p>Meet the Game Master, read about how they run their tables, and send them a message.</p>' +
+        '<div class="blog-payment-actions"><a class="btn btn-primary" href="' + profile + '">Meet the Game Master</a></div>';
+    }
+    document.querySelectorAll('.js-email-trigger').forEach(function (b) { b.remove(); });
+  }
+
   fetch(WORKER + '/content/public?slug=' + encodeURIComponent(slug))
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       if (!d) return;
+      if (d.gm) gmMode(d);
       if (d.title) {
         document.title = d.title + ' | Ash Tabletop';
         var t = document.getElementById('cc-title');

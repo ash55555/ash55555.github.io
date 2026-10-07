@@ -78,11 +78,10 @@
     }
 
     // Chat button: opens the chat on this site
-    var chat = document.querySelector('.js-message-gm');
-    if (chat) {
+    document.querySelectorAll('.js-message-gm').forEach(function (chat) {
       chat.dataset.name = name;
       var lbl = chat.querySelector('.chat-label'); if (lbl) lbl.textContent = 'Chat with ' + name;
-    }
+    });
 
     // Picture and banner
     var img = document.querySelector('.profile-avatar .hero-token');

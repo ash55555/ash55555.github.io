@@ -12,6 +12,7 @@
 // CHARGING_MODE (off|dry|on) is the kill switch for the timer.
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { actorFor, loadOwners, inScope, slotToUtc } from './owner.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -23,6 +24,8 @@ const MAX_ATTEMPTS = 3;
 const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const SESSIONS_SHOWN = 8;
+// The admin routes another Game Master may use (always limited to their own games and money).
+const GM_ADMIN_ACTIONS = new Set(['admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/start', 'admin/stop']);
 
 // Every game slot on the site is a bookable game. The schedule, seat limit and
 // paused/running state come from the same Firebase list the admin page edits, so
@@ -97,6 +100,36 @@ export async function loadGames(env, fresh = false) {
         legacyFilled: Number.isInteger(s.filled) && s.filled > 0 ? s.filled : 0,
         enabled: s.enabled !== false,
       };
+    }
+  }
+  // Campaigns made by other Game Masters keep their sessions in the database, not in Firebase.
+  // Each game carries its owner, so nothing here is ever mixed up with Ash's.
+  if (env.DB) {
+    const now = new Date();
+    // Ash's own games must never be held up by this: if the lookup fails (for example the database has not been
+    // updated yet), her schedule loads exactly as before and only the other Game Masters' games are missing.
+    let owned = [];
+    try { owned = (await env.DB.prepare('SELECT slug, title, owner_uid, slots_json FROM campaign_content WHERE owner_uid IS NOT NULL').all()).results; } catch (err) { console.error('could not read the other Game Masters games', err && err.message); }
+    for (const c of owned) {
+      let slots = {};
+      try { slots = JSON.parse(c.slots_json || '{}') || {}; } catch { slots = {}; }
+      for (const [slotId, s] of Object.entries(slots)) {
+        if (!s || !Number.isInteger(s.day) || !Number.isInteger(s.hour)) continue;
+        const u = slotToUtc(s, now);
+        const key = slotId === 'default' ? c.slug : `${c.slug}::${slotId}`;
+        if (games[key]) continue; // never take over one of Ash's own games
+        games[key] = {
+          key,
+          title: c.title + (s.group ? `, ${s.group}` : ''),
+          day: u.day, hour: u.hour, minute: u.minute, offset: 0,
+          price: SESSION_PRICE,
+          max: Number.isInteger(s.max) && s.max > 0 ? s.max : 5,
+          min: MIN_PLAYERS,
+          legacyFilled: 0,
+          enabled: s.enabled !== false,
+          owner: c.owner_uid,
+        };
+      }
     }
   }
   gamesCache = { at: Date.now(), games };
@@ -240,16 +273,20 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
 
   const isAdminRoute = action.startsWith('admin/');
+  let actor = null;
   if (isAdminRoute) {
-    if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
+    // Ash can use every admin route. Another Game Master can use only the ones about their own games,
+    // and each of those checks below that the game or the row really is theirs.
+    actor = await actorFor(env, user);
+    if (!actor.isAdmin && !(actor.isGm && GM_ADMIN_ACTIONS.has(action))) return json({ error: 'Not authorized' }, 403, corsHeaders);
   } else if (!isAllowed(env, user)) {
     return json({ error: 'Joining online is not open to everyone yet. Please message Ash.' }, 403, corsHeaders);
   }
 
-  if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders);
+  if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders, actor);
   if (action === 'admin/balance') return await adminBalance(env, corsHeaders);
-  if (action === 'admin/charges') return await adminAllCharges(env, corsHeaders);
-  if (action === 'admin/stats') return await adminStats(env, corsHeaders);
+  if (action === 'admin/charges') return await adminAllCharges(env, corsHeaders, actor);
+  if (action === 'admin/stats') return await adminStats(env, corsHeaders, actor);
   if (action === 'admin/notifications') {
     const mode = cfg(env).mode;
     // One shared list for Ash: the DM notifications plus any addressed to Ash's own player account.
@@ -282,6 +319,8 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   let game;
   try { game = (await loadGames(env))[gameKey]; } catch (err) { return json({ error: err.message }, 502, corsHeaders); }
   if (!game) return json({ error: 'Unknown game' }, 400, corsHeaders);
+  // A Game Master can only manage their own games. Anyone else's looks like it does not exist.
+  if (isAdminRoute && !actor.isAdmin && game.owner !== user.sub) return json({ error: 'Unknown game' }, 400, corsHeaders);
 
   const ctx = { env, user, body, gameKey, game, origin, mode: cfg(env).mode, corsHeaders, sendEmail, request };
   try {
@@ -316,6 +355,9 @@ async function doSetup(ctx) {
   const { env, user, gameKey, game, corsHeaders } = ctx;
   const existing = await getPlayer(ctx);
   const updating = !!(existing && existing.status === 'active');
+  // Seats at another Game Master's table cannot be booked yet: a player's payment has to go to that GM's own
+  // payout account, and that part is not switched on. Until it is, nobody can pay Ash for someone else's game.
+  if (game.owner) return json({ error: 'Booking seats at this table is not open yet.' }, 409, corsHeaders);
   if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
   if (!updating) {
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
@@ -408,7 +450,7 @@ async function doStatus(ctx) {
   const now = new Date();
   const online = await activeCount(env, ctx.mode, gameKey);
   const seats = seatInfo(game, online);
-  const { roster, dm } = await tableFor(env, ctx.mode, gameKey, new URL(ctx.request.url).origin, user.sub);
+  const { roster, dm } = await tableFor(env, ctx.mode, gameKey, new URL(ctx.request.url).origin, user.sub, game);
   const me = await getPlayer(ctx);
   const gs = await gameState(env, ctx.mode, gameKey);
   const base = { seats, roster, dm, price: game.price, mode: ctx.mode, running: gs.running };
@@ -601,14 +643,15 @@ async function adminRetry(ctx) {
   return json({ ok: true }, 200, corsHeaders);
 }
 
-async function adminGames(env, mode, corsHeaders) {
+async function adminGames(env, mode, corsHeaders, actor) {
   const games = await loadGames(env, true);
+  const owners = await loadOwners(env);
   const players = (await env.DB.prepare("SELECT game, COUNT(*) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
   const online = Object.fromEntries(players.map((r) => [r.game, r.n]));
   const states = (await env.DB.prepare('SELECT game, running FROM games WHERE mode=?').bind(mode).all()).results;
   const running = Object.fromEntries(states.map((r) => [r.game, !!r.running]));
   return json({
-    games: Object.values(games).map((g) => ({
+    games: Object.values(games).filter((g) => inScope(actor, owners, g.key)).map((g) => ({
       key: g.key, title: g.title, enabled: g.enabled, online: online[g.key] || 0, running: !!running[g.key],
       day: g.day, hour: g.hour, minute: g.minute || 0, offset: g.offset,
     })),
@@ -662,10 +705,11 @@ async function adminBalance(env, corsHeaders) {
 // Raw material for the Finance charts: when each player joined and left, and every
 // charge that actually brought money in. The page does the counting, so the range
 // buttons (day, week, month, year, all) never need another round trip.
-async function adminStats(env, corsHeaders) {
+async function adminStats(env, corsHeaders, actor) {
   const mode = cfg(env).mode;
-  const players = (await env.DB.prepare('SELECT uid, game, joined_at, left_at FROM players WHERE mode=?').bind(mode).all()).results;
-  const charges = (await env.DB.prepare("SELECT game, session_ts, amount, refunded_amount FROM charges WHERE mode=? AND status IN ('paid','refunded')").bind(mode).all()).results;
+  const owners = await loadOwners(env);
+  const players = (await env.DB.prepare('SELECT uid, game, joined_at, left_at FROM players WHERE mode=?').bind(mode).all()).results.filter((p) => inScope(actor, owners, p.game));
+  const charges = (await env.DB.prepare("SELECT game, session_ts, amount, refunded_amount FROM charges WHERE mode=? AND status IN ('paid','refunded')").bind(mode).all()).results.filter((c) => inScope(actor, owners, c.game));
   return json({
     mode,
     players: players.map((p) => ({ uid: p.uid, game: p.game, joined: p.joined_at, left: p.left_at })),
@@ -673,11 +717,12 @@ async function adminStats(env, corsHeaders) {
   }, 200, corsHeaders);
 }
 
-async function adminAllCharges(env, corsHeaders) {
+async function adminAllCharges(env, corsHeaders, actor) {
   const mode = cfg(env).mode;
   let games;
   try { games = await loadGames(env); } catch (err) { return json({ error: err.message }, 502, corsHeaders); }
-  const rows = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? ORDER BY session_ts DESC LIMIT 300').bind(mode).all()).results;
+  const owners = await loadOwners(env);
+  const rows = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? ORDER BY session_ts DESC LIMIT 300').bind(mode).all()).results.filter((c) => inScope(actor, owners, c.game));
   const players = rows.length
     ? (await env.DB.prepare('SELECT game, uid, name, email FROM players WHERE mode=?').bind(mode).all()).results
     : [];
@@ -705,7 +750,7 @@ async function adminAllCharges(env, corsHeaders) {
 
 // Who sits at a table: the DM (Ash's own profile) and every active player, with
 // the name, picture and pronouns each person chose on their profile page.
-async function tableFor(env, mode, gameKey, selfOrigin, viewerUid) {
+async function tableFor(env, mode, gameKey, selfOrigin, viewerUid, game) {
   const pic = (id) => (id ? `${selfOrigin}/profile/avatar/${id}` : null);
   const roster = (await env.DB.prepare(
     `SELECT p.name AS pname, p.token AS ptoken, p.uid, pr.name AS name, pr.token AS token, pr.avatar_id, pr.pronouns
@@ -715,6 +760,13 @@ async function tableFor(env, mode, gameKey, selfOrigin, viewerUid) {
       name: p.name || p.pname, token: p.token || p.ptoken || '', you: !!viewerUid && p.uid === viewerUid,
       pronouns: p.pronouns || '', avatar: pic(p.avatar_id),
     }));
+  // The Game Master at the table: the game's own owner, or Ash for her games.
+  if (game && game.owner) {
+    const g = await env.DB.prepare('SELECT data FROM gm_profiles WHERE uid=?').bind(game.owner).first();
+    let prof = {};
+    try { prof = JSON.parse((g && g.data) || '{}') || {}; } catch { prof = {}; }
+    return { roster, dm: { name: prof.name || 'Your Game Master', token: 'dragon', avatar: null, pronouns: prof.pronouns || '' } };
+  }
   const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
   const dm = { name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon', avatar: pic(d && d.avatar_id), pronouns: (d && d.pronouns) || '' };
   return { roster, dm };
@@ -729,7 +781,7 @@ export async function handleRoster(request, env, corsHeaders) {
   try { game = (await loadGames(env))[gameKey]; } catch { return new Response(JSON.stringify({ error: 'Schedule unavailable' }), { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } }); }
   if (!game) return new Response(JSON.stringify({ error: 'Unknown game' }), { status: 404, headers: { 'Content-Type': 'application/json', ...corsHeaders } });
   const mode = cfg(env).mode;
-  const { roster, dm } = await tableFor(env, mode, gameKey, url.origin, null);
+  const { roster, dm } = await tableFor(env, mode, gameKey, url.origin, null, game);
   const seats = seatInfo(game, await activeCount(env, mode, gameKey));
   return new Response(JSON.stringify({ seats, roster, dm }), {
     status: 200,
@@ -749,8 +801,11 @@ export async function handleSeats(request, env, corsHeaders) {
 }
 
 async function adminGameRunning(ctx, running) {
-  const { env, gameKey, corsHeaders } = ctx;
+  const { env, gameKey, game, corsHeaders } = ctx;
   const now = iso(new Date());
+  // Billing another Game Master's table needs the payment to go to their own account. That is not switched on,
+  // so starting it is refused rather than pretending to bill.
+  if (running && game.owner) return json({ error: 'Billing for your tables is not switched on yet. Nothing was started.' }, 409, corsHeaders);
   if (running) {
     // Starting again while already running keeps the original start time.
     await env.DB.prepare(
@@ -768,7 +823,9 @@ async function adminRemove(ctx) {
   const { env, body, gameKey, game, corsHeaders } = ctx;
   const uid = String(body.uid || '');
   await env.DB.prepare("UPDATE players SET status='left', left_at=? WHERE mode=? AND game=? AND uid=?").bind(iso(new Date()), ctx.mode, gameKey, uid).run();
-  await notifyPlayer(env, ctx.mode, uid, 'removed', gameKey, 'You were removed from a game', `Ash removed you from ${game.title}. You will not be charged again. Message Ash if this was not expected.`);
+  await notifyPlayer(env, ctx.mode, uid, 'removed', gameKey, 'You were removed from a game', game.owner
+    ? `Your DM removed you from ${game.title}. You will not be charged again. Message your DM if this was not expected.`
+    : `Ash removed you from ${game.title}. You will not be charged again. Message Ash if this was not expected.`);
   return json({ ok: true }, 200, corsHeaders);
 }
 
@@ -786,6 +843,7 @@ export async function runCharges(env, sendEmail) {
   try { allGames = await loadGames(env, true); } catch (err) { return { skipped: 'could not read the schedule: ' + err.message }; }
 
   for (const [gameKey, game] of Object.entries(allGames)) {
+    if (game.owner) continue; // another Game Master's game is never charged through Ash's account
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
     const sessions = sessionsBetween(game, new Date(now.getTime() - CATCH_UP_MS), now).map(iso);
 

@@ -107,28 +107,38 @@
   <section class="info-strip" aria-label="About Ash and how the table works"></section>
 
   <!-- ================= CAMPAIGNS ================= -->
-  
+  <section class="campaigns" id="campaigns" hidden>
+    <div class="section-head">
+      <p class="eyebrow">Open Tables</p>
+      <h2>Current Campaigns</h2>
+      <p class="section-sub">All session times below adjust automatically to your local timezone, so there's no math on your end.</p>
+    </div>
+    <div class="campaign-grid" id="gm-campaign-grid"></div>
+  </section>
 
   <!-- ================= REVIEWS ================= -->
-  
+  <section class="reviews" id="reviews" hidden>
+    <div class="section-head">
+      <p class="eyebrow">Party Feedback</p>
+      <h2>What Players Are Saying</h2>
+    </div>
+    <div class="reviews-marquee">
+      <div class="reviews-track"></div>
+    </div>
+  </section>
 
   <!-- ================= CONTACT ================= -->
   <section class="contact" id="contact">
     <div class="contact-inner">
       <p class="eyebrow">Get In Touch</p>
       <h2>Have a seat waiting for you.</h2>
-      <p class="section-sub">The fastest way to reach Ash is Discord, so feel free to ask about open seats, scheduling, or anything else 👋</p>
+      <p class="section-sub">The fastest way to reach this Game Master is to send a message right here on the site. Ask about open seats, scheduling, or anything else 👋</p>
       <div class="contact-actions">
-        <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord btn-large">
-          <svg class="icon"><use href="#icon-discord"/></svg>
-          Message on Discord
-        </a>
+        <button type="button" class="btn btn-discord btn-large js-message-gm" data-slug="">
+          <svg class="icon"><use href="#icon-chat"/></svg>
+          <span class="chat-label">Chat</span>
+        </button>
       </div>
-
-      <button type="button" class="link-button js-email-trigger">
-        <svg class="icon icon-sm"><use href="#icon-mail"/></svg>
-        Prefer email? Send a message
-      </button>
     </div>
   </section>
 
@@ -218,7 +228,7 @@
 
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
-<script src="script.js?v=20261004a"></script>
+<script src="script.js?v=20261007a"></script>
 <!-- Optional: quietly syncs live seat counts / paused games from Firebase
      onto the buttons above once Ash finishes Firebase setup. Does nothing
      until then; see campaigns-data.js. -->
@@ -233,12 +243,13 @@
   var slug = (new URLSearchParams(window.location.search).get('slug') || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
   document.body.setAttribute('data-gm-slug', slug);
   document.body.setAttribute('data-gm-generic', '');
-  var b = document.querySelector('.js-message-gm'); if (b) b.setAttribute('data-slug', slug);
+  document.querySelectorAll('.js-message-gm').forEach(function (b) { b.setAttribute('data-slug', slug); });
 })();
 </script>
 <script src="messages-ui.js?v=20261005c"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261005h"></script>
+<script src="gm-render.js?v=20261007a"></script>
+<script src="gm-campaigns.js?v=20261007a"></script>
 <script>
 // Social buttons without a real link yet are not shown to visitors.
 document.querySelectorAll('.social-btn').forEach(function (a) { if (a.getAttribute('href') === '#') a.remove(); });

@@ -715,41 +715,13 @@
 
      <div class="me-panels">
 
-    <!-- Panels a Game Master sees instead of Ash's own (Ash's panels stay hidden for them) -->
-    <div class="me-panel" data-panel="gmcalendar" hidden>
-      <div class="pay-box">
-        <h2>🗓️ Your calendar</h2>
-        <p class="note">Your own sessions will show here once you have a game running. Nothing from Ash's calendar is shown to you.</p>
-        <p class="pay-muted">No sessions yet.</p>
-      </div>
-    </div>
-
-    <div class="me-panel" data-panel="gmreviews" hidden>
-      <div class="pay-box">
-        <h2>⭐ Your reviews</h2>
-        <p class="note">Reviews your own players write about you will show here. You only see your own.</p>
-        <p class="pay-muted">No reviews yet.</p>
-      </div>
-    </div>
-
-    <div class="me-panel" data-panel="gmcampaigns" hidden>
-      <div class="pay-box">
-        <h2>🎲 Your campaigns and players</h2>
-        <p class="note">This is where your own campaigns, their time slots, and the players who join them will live. You only ever see your own.</p>
-        <p class="pay-muted">You have no campaigns yet. Creating your first campaign is the next thing we are building here.</p>
-      </div>
-    </div>
-
+    <!-- Where another Game Master sets up their payouts. The page moves it to the top of their Finance tab. -->
     <div class="me-panel" data-panel="gmfinance" hidden>
       <div class="pay-box" style="margin-bottom:1.4em;">
         <h2>💰 Getting paid</h2>
         <p class="note">Players pay for your games straight into <strong>your own account on Whop</strong>, our payment partner. Ash Tabletop's 5% is taken automatically on each payment, and Whop's own fees apply. To receive money, Whop needs to check who you are and where to send it. You do that on Whop's secure pages, and we never see your bank or card details.</p>
         <div id="gmf-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
         <p class="slot-status" id="gmf-status"></p>
-      </div>
-      <div class="pay-box">
-        <h2>Your earnings</h2>
-        <p class="pay-muted">What players pay you will show here once you have a game running and a verified payout account. You only see your own money.</p>
       </div>
     </div>
 
@@ -1190,8 +1162,8 @@
 
         <div id="cc-time-single" class="slot-row" style="margin-top:1.2em;">
           <div class="slot-fields">
-            <div class="field"><label>Session day (GMT+1)</label><select id="cc-f-day"></select></div>
-            <div class="field"><label>Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
+            <div class="field"><label id="cc-day-label">Session day (GMT+1)</label><select id="cc-f-day"></select></div>
+            <div class="field"><label id="cc-time-label">Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
           </div>
         </div>
         <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so each group has its own time, further down under Players &amp; Payments. <button type="button" class="pay-mini" id="cc-time-goto">Take me there</button></p>
@@ -1228,7 +1200,81 @@
 window.AshRole = null;
 window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = resolve; });
 </script>
-<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1 && /preview=glass/.test(location.search)) document.write('<scr' + 'ipt src="admin-preview.js"></scr' + 'ipt>');</script>
+<script>
+// Where the weekly sessions of a campaign are kept and changed. Ash's live in Firebase, as always.
+// Another Game Master's live in the site database, saved through the Worker, which only lets them
+// touch their own campaigns. Everything else on this page asks this one object, so both work the same.
+window.AshSlots = (function () {
+  var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/slots/';
+  var myTz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'UTC';
+  function isGm() { var r = window.AshRole; return !!(r && r.isGm && !r.isAdmin); }
+  function offMin(tz, date) {
+    try {
+      var parts = {};
+      new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+        .formatToParts(date).forEach(function (p) { parts[p.type] = p.value; });
+      return Math.round((Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second) - Math.floor(date.getTime() / 1000) * 1000) / 60000);
+    } catch (e) { return 0; }
+  }
+  // A saved session shown on this computer's clock (a GM who travels still sees the right time).
+  function toLocal(s) {
+    var now = new Date();
+    var delta = offMin(myTz, now) - offMin(s.tz || myTz, now);
+    var total = s.hour * 60 + (s.minute || 0) + delta;
+    var shift = Math.floor(total / 1440), inDay = ((total % 1440) + 1440) % 1440;
+    return Object.assign({}, s, { day: (((s.day + shift) % 7) + 7) % 7, hour: Math.floor(inDay / 60), minute: inDay % 60, tz: myTz, filled: 0 });
+  }
+  function api(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {})) });
+    }).then(function (res) {
+      return res.json().then(function (d) { if (!res.ok) throw new Error(d.error || 'Something went wrong.'); return d; });
+    });
+  }
+  // only what a Game Master's session needs; the rest of the form (PayPal fields, GMT+1 labels) is Ash's
+  function shape(slot) {
+    return { day: slot.day, hour: slot.hour, minute: slot.minute || 0, tz: myTz, max: slot.max, enabled: slot.enabled !== false, group: slot.group || '' };
+  }
+  function loadAll() {
+    return api('all').then(function (d) {
+      var out = {};
+      Object.keys(d.campaigns || {}).forEach(function (slug) {
+        var slots = {};
+        Object.keys(d.campaigns[slug].slots || {}).forEach(function (id) { slots[id] = toLocal(d.campaigns[slug].slots[id]); });
+        out[slug] = { slots: slots };
+      });
+      window.AshCampaignsData = out;
+      if (window.AshOnCampaignsUpdate) window.AshOnCampaignsUpdate();
+    });
+  }
+  return {
+    isGm: isGm,
+    zone: function () { return isGm() ? 'your time' : 'GMT+1'; },
+    loadAll: loadAll,
+    read: function (slug) {
+      if (!isGm()) return firebase.database().ref('campaigns/' + slug + '/slots').once('value').then(function (snap) { return snap.val(); });
+      return api('list', { slug: slug }).then(function (d) {
+        var slots = {}, any = false;
+        Object.keys(d.slots || {}).forEach(function (id) { slots[id] = toLocal(d.slots[id]); any = true; });
+        return any ? slots : null;
+      });
+    },
+    set: function (slug, slotId, slot) {
+      if (!isGm()) return firebase.database().ref('campaigns/' + slug + '/slots/' + slotId).set(slot);
+      return api('save', { slug: slug, slotId: slotId, slot: shape(slot) }).then(loadAll);
+    },
+    push: function (slug, slot) {
+      if (!isGm()) return firebase.database().ref('campaigns/' + slug + '/slots').push(slot);
+      return api('save', { slug: slug, slot: shape(slot) }).then(loadAll);
+    },
+    remove: function (slug, slotId) {
+      if (!isGm()) return firebase.database().ref('campaigns/' + slug + '/slots/' + slotId).remove();
+      return api('delete', { slug: slug, slotId: slotId }).then(loadAll);
+    }
+  };
+})();
+</script>
+<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1 && /preview=(glass|gm)/.test(location.search)) document.write('<scr' + 'ipt src="admin-preview.js"></scr' + 'ipt>');</script>
 <script>
 (function () {
   // Cloudflare Worker that actually sends the emails. Placeholder until the
@@ -1261,7 +1307,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       return wrap;
     }
 
-    var daySelect = field('Day (GMT+1)', '<select class="f-day"></select>');
+    var daySelect = field('Day (' + window.AshSlots.zone() + ')', '<select class="f-day"></select>');
     var sel = daySelect.querySelector('select');
     DAY_NAMES.forEach(function (name, i) {
       var opt = document.createElement('option');
@@ -1272,7 +1318,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     });
     fields.appendChild(daySelect);
 
-    var timeField = field('Time (GMT+1)', '<input type="time" class="f-time" value="' + toTimeValue(slot.hour, slot.minute || 0) + '">');
+    var timeField = field('Time (' + window.AshSlots.zone() + ')', '<input type="time" class="f-time" value="' + toTimeValue(slot.hour, slot.minute || 0) + '">');
     fields.appendChild(timeField);
 
     var groupField = field('Group label (optional)', '<input type="text" class="f-group" value="' + (slot.group || '') + '" placeholder="e.g. Group A">');
@@ -1309,7 +1355,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     deleteBtn.textContent = 'Delete slot';
     deleteBtn.addEventListener('click', function () {
       if (!confirm('Remove this slot from the live site?')) return;
-      firebase.database().ref('campaigns/' + campaignSlug + '/slots/' + slotId).remove()
+      window.AshSlots.remove(campaignSlug, slotId)
         .then(function () { row.remove(); })
         .catch(function (err) { status.textContent = err.message; status.className = 'slot-status error'; });
     });
@@ -1343,7 +1389,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       saveBtn.disabled = true;
       status.textContent = 'Saving…';
       status.className = 'slot-status';
-      firebase.database().ref('campaigns/' + campaignSlug + '/slots/' + slotId).set(updated)
+      window.AshSlots.set(campaignSlug, slotId, updated)
         .then(function () {
           status.textContent = 'Saved, live now.';
           status.className = 'slot-status success';
@@ -1408,7 +1454,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       addBtn.disabled = true;
       status.textContent = 'Adding…';
       status.className = 'slot-status';
-      firebase.database().ref('campaigns/' + campaignSlug + '/slots').push(newSlot)
+      window.AshSlots.push(campaignSlug, newSlot)
         .then(function () {
           status.textContent = 'Added! Refresh the page and it shows up in the list above.';
           status.className = 'slot-status success';
@@ -1437,6 +1483,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     firebase.database().ref('campaigns').on('value', function (snapshot) {
+      if (window.AshSlots.isGm()) return; // another Game Master reads their own sessions from the database instead
       window.AshCampaignsData = snapshot.val();
       window.AshOnCampaignsUpdate();
     });
@@ -1889,7 +1936,12 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
           statusEl.textContent = err.message; statusEl.className = 'slot-status error'; goBtn.disabled = false;
         });
       });
-      bar.append(stateText, explain, goBtn);
+      if (window.AshSlots.isGm()) {
+        // Another Game Master's table is not billed through here yet, so there is nothing to start.
+        stateText.textContent = 'Billing for this table is not switched on yet';
+        explain.textContent = 'Players cannot book or be charged for your tables yet. You can set up your campaign and schedule now.';
+        bar.append(stateText, explain);
+      } else bar.append(stateText, explain, goBtn);
 
       renderBoard(data);
 
@@ -1973,7 +2025,12 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     if (!user || started) return;
     started = true;
     var holder = document.getElementById('pay-boxes');
-    firebase.auth().currentUser.getIdToken().then(function (idToken) {
+    // wait until we know whose games to show (and, for another Game Master, load their own sessions first)
+    window.AshRoleReady.then(function () {
+      return window.AshSlots.isGm() ? window.AshSlots.loadAll() : null;
+    }).then(function () {
+      return firebase.auth().currentUser.getIdToken();
+    }).then(function (idToken) {
       return mergeCampaignMeta(idToken).then(function () { return idToken; });
     }).then(function (idToken) {
       return fetch(URL_BASE + 'admin/games', {
@@ -2022,8 +2079,10 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
 
         // Every campaign opens to its time slots (one or many); a slot opens that game's own page.
         var wrap = el('div', 'camp-groups');
-        groups.forEach(function (g) {
+        groups.forEach(function (g, gi) {
           var label = g.title.indexOf(meta.title) === 0 ? g.title.slice(meta.title.length).replace(/^,\s*/, '') : g.title;
+          // a session saved without a group name still needs one when the campaign has several
+          if (!label && groups.length > 1) label = 'Group ' + String.fromCharCode(65 + Math.min(gi, 25));
           var det = document.createElement('details');
           det.className = 'pay-details';
           var gsum = document.createElement('summary');
@@ -2052,6 +2111,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
 
         holder.appendChild(camp);
       });
+      if (!order.length) holder.appendChild(el('p', 'pay-muted', 'Nothing here yet. Once a campaign has a session time, it shows up here with its players and payments.'));
       gamesLoaded = true;
       applyGameView();
       if (pendingOpenKey) { openGame(pendingOpenKey); pendingOpenKey = null; }
@@ -2409,9 +2469,12 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || finStarted) return;
     finStarted = true;
-    loadBalance();
-    loadStats();
-    loadCharges();
+    // Ash's own Whop balance is hers alone; another Game Master only gets their own numbers
+    window.AshRoleReady.then(function (role) {
+      if (!(role && role.isGm && !role.isAdmin)) loadBalance();
+      loadStats();
+      loadCharges();
+    });
   });
 })();
 </script>
@@ -2656,12 +2719,14 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
   document.getElementById('plan-filter').addEventListener('change', function (e) { filter = e.target.value; render(); });
   document.getElementById('plan-allhours').addEventListener('change', render);
 
-  var started = false;
-  firebase.auth().onAuthStateChanged(function (user) {
-    if (!user || started) return;
-    started = true;
-    statusEl.textContent = 'Loading...';
-    user.getIdToken().then(function (idToken) {
+  // Reads what players have filled in. It runs when the page opens, whenever the tab is opened, and every
+  // minute while the page is in front, so new calendars and wishes appear without a reload.
+  var started = false, loading = false, lastGood = 0;
+  function loadSummary(first) {
+    if (loading) return;
+    loading = true;
+    if (first) statusEl.textContent = 'Loading...';
+    firebase.auth().currentUser.getIdToken().then(function (idToken) {
       return fetch(URL_BASE + 'admin/summary', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken })
       });
@@ -2672,14 +2737,26 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       players.forEach(function (p) { if (p.slots) p.slots = toAdminWeek(p); });
       var withCal = players.filter(function (p) { return p.slots; }).length;
       var withGames = players.filter(function (p) { return p.interests.length; }).length;
-      statusEl.textContent = players.length ? withCal + ' calendar' + (withCal === 1 ? '' : 's') + ' and ' + withGames + ' game list' + (withGames === 1 ? '' : 's') + ' so far.' : 'Nobody has filled in a profile yet.';
+      if (filter && !players.some(function (p) { return p.interests.indexOf(filter) !== -1; })) filter = ''; // that wish is gone now
+      lastGood = Date.now();
+      statusEl.className = 'slot-status';
+      statusEl.textContent = (players.length ? withCal + ' calendar' + (withCal === 1 ? '' : 's') + ' and ' + withGames + ' game list' + (withGames === 1 ? '' : 's') + ' so far.' : 'Nobody has filled in a profile yet.') + ' Updated ' + new Date(lastGood).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + '.';
       renderFilter();
       renderWants();
       render();
     }).catch(function (err) {
       statusEl.textContent = err.message;
       statusEl.className = 'slot-status error';
-    });
+    }).then(function () { loading = false; });
+  }
+  firebase.auth().onAuthStateChanged(function (user) {
+    if (!user || started) return;
+    started = true;
+    loadSummary(true);
+    setInterval(function () { if (document.visibilityState === 'visible') loadSummary(false); }, 60000);
+    var railBtn = document.querySelector('.me-rail-btn[data-tab="demand"]');
+    if (railBtn) railBtn.addEventListener('click', function () { loadSummary(false); });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && Date.now() - lastGood > 30000) loadSummary(false); });
   });
 })();
 </script>
@@ -2743,7 +2820,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       card.type = 'button';
       var img = document.createElement('img');
       img.className = 'cc-card-img';
-      img.src = c.bannerUrl || FALLBACK_BANNERS[c.slug] || 'medie/ash-token.png';
+      img.src = c.bannerUrl || FALLBACK_BANNERS[c.slug] || (window.AshSlots.isGm() ? 'medie/d20-icon.png' : 'medie/ash-token.png');
       img.alt = '';
       card.appendChild(img);
       var body = el('div', 'cc-card-body');
@@ -2842,8 +2919,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
       document.getElementById('cc-f-time').value = '18:00';
       return Promise.resolve();
     }
-    return firebase.database().ref('campaigns/' + slug + '/slots').once('value').then(function (snap) {
-      var slots = snap.val();
+    return window.AshSlots.read(slug).then(function (slots) {
       var keys = slots ? Object.keys(slots) : [];
       if (keys.length <= 1) {
         var slotId = keys[0] || 'default';
@@ -2867,6 +2943,9 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
   });
 
   function openEditor(slug) {
+    var z = window.AshSlots.zone();
+    document.getElementById('cc-day-label').textContent = 'Session day (' + z + ')';
+    document.getElementById('cc-time-label').textContent = 'Session time (' + z + ')';
     current = slug;
     pendingBanner = null;
     slotState = null;
@@ -2991,7 +3070,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
           enabled: !(slotState.slot && slotState.slot.enabled === false) ,
           planId: (slotState.slot && slotState.slot.planId) || null
         });
-        timeSaved = firebase.database().ref('campaigns/' + d.slug + '/slots/' + slotState.slotId).set(updated);
+        timeSaved = window.AshSlots.set(d.slug, slotState.slotId, updated);
       }
       return timeSaved.then(function () {
         status.textContent = 'Saved. Live now.';
@@ -3009,7 +3088,7 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
   firebase.auth().onAuthStateChanged(function (user) {
     if (!user || ccStarted) return;
     ccStarted = true;
-    loadList();
+    window.AshRoleReady.then(loadList);
   });
 })();
 </script>
@@ -3128,12 +3207,11 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
 </script>
 <script src="campaign-colors.js?v=20261004a"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261005h"></script>
+<script src="gm-render.js?v=20261007a"></script>
 <script src="gm-profile.js?v=20261006a"></script>
 <script>
 (function () {
   var WORKER = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';
-  var GM_MAP = { finance: 'gmfinance', calendar: 'gmcalendar', reviews: 'gmreviews', campaigns: 'gmcampaigns' };
   var GM_HIDE = ['announce', 'agreements'];
 
   function tabFromHash() { var m = window.location.hash.match(/^#tab=(.+)$/); return m ? decodeURIComponent(m[1]) : ''; }
@@ -3148,22 +3226,45 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
   }
 
   function gmMode(role) {
-    // another Game Master: their own tabs only, nothing of Ash's
+    // Another Game Master gets the very same tabs Ash has. Each one only ever shows and changes their own
+    // campaigns, players, reviews and money. The Worker checks that on every single request.
     document.querySelectorAll('.me-rail-btn').forEach(function (b) {
-      var t = b.dataset.tab;
-      if (GM_HIDE.indexOf(t) !== -1) { b.hidden = true; b.style.display = 'none'; }
-      if (GM_MAP[t]) b.dataset.tab = GM_MAP[t];
+      if (GM_HIDE.indexOf(b.dataset.tab) !== -1) { b.hidden = true; b.style.display = 'none'; }
     });
     document.querySelectorAll('.me-panel[data-panel="announce"], .me-panel[data-panel="agreements"]').forEach(function (p) { p.remove(); });
+
+    // Finance: how to get paid goes first, and Ash's own Whop balance is never shown.
+    var fin = document.querySelector('.me-panel[data-panel="finance"]');
+    var gmf = document.querySelector('.me-panel[data-panel="gmfinance"]');
+    var wd = document.getElementById('fin-withdraw-btn');
+    if (wd && wd.closest('.pay-box')) wd.closest('.pay-box').remove();
+    if (fin && gmf) {
+      var payBox = gmf.querySelector('.pay-box');
+      if (payBox) fin.insertBefore(payBox, fin.firstChild);
+      gmf.remove();
+      if (window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
+    }
+
+    // Wording that was written for Ash alone.
+    function say(sel, txt) { var n = document.querySelector(sel); if (n) n.textContent = txt; }
+    say('.me-panel[data-panel="reviews"] .note', 'What your players wrote about you. Reviews they chose to show appear on your public profile page. Delete one and it disappears from your page too.');
+    say('.me-panel[data-panel="campaigns"] .note-box .note', 'Make a page for each campaign you run: title, hook, story, banner picture and weekly session time. Saving updates your page right away.');
+    var camp = document.querySelector('.me-panel[data-panel="campaigns"] .note-box');
+    if (camp) {
+      var hold = document.createElement('p');
+      hold.className = 'note';
+      hold.style.marginTop = '.6em';
+      hold.textContent = 'Booking seats online for your tables is not switched on yet. You can build your campaigns and your schedule now, and they will be ready when it is.';
+      camp.appendChild(hold);
+    }
     var h = document.querySelector('.top-bar h1');
     if (h && h.lastChild && h.lastChild.nodeType === 3) h.lastChild.textContent = 'GM Dashboard';
     var back = document.querySelector('.top-bar-actions a.btn');
     if (back && role.slug) back.href = 'gm.html?slug=' + encodeURIComponent(role.slug);
-    // open the right tab (a link like #tab=finance becomes their own finance tab)
+    // open the right tab (a link like #tab=finance opens their own finance tab)
     var want = tabFromHash();
-    var go = GM_MAP[want] || want;
-    var valid = go && document.querySelector('.me-panel[data-panel="' + go + '"]');
-    if (window.AshAdminShowTab) window.AshAdminShowTab(valid ? go : 'notifications');
+    var valid = want && document.querySelector('.me-panel[data-panel="' + want + '"]');
+    if (window.AshAdminShowTab) window.AshAdminShowTab(valid ? want : 'notifications');
   }
 
   function start(user) {
@@ -3190,6 +3291,12 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
   var panel = document.querySelector('.me-panel[data-panel="gmfinance"]');
   if (!panel) return;
   var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/connect/';
+  // For another Game Master the page moves this card into their Finance tab and calls this, so it loads there.
+  window.AshGmFinanceInit = function (host) {
+    panel = host;
+    new MutationObserver(function () { if (!host.hidden) load(); }).observe(host, { attributes: true, attributeFilter: ['hidden'] });
+    if (!host.hidden) load();
+  };
   var card = document.getElementById('gmf-card');
   var status = document.getElementById('gmf-status');
   function call(action) {
@@ -3363,6 +3470,19 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
         });
       }).catch(function () { /* the fallback colors stay */ });
   }
+  // Another Game Master's own banners (their drafts included) give their games their colors.
+  var bannerOf = {};
+  function learnMine(idToken) {
+    fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        ((d && d.campaigns) || []).forEach(function (c) {
+          bannerOf[c.slug] = c.bannerUrl || '';
+          if (window.AshCampaignColors && c.bannerUrl) window.AshCampaignColors.learn(c.slug, c.bannerUrl, function () { if (games.length) render(); });
+        });
+        if (games.length) render();
+      }).catch(function () { /* the fallback colors stay */ });
+  }
   function splitTitle(g) {
     var parts = String(g.title || g.key).split(', ');
     return { campaign: parts[0], group: parts.length > 1 ? parts.slice(1).join(', ') : '' };
@@ -3426,7 +3546,8 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     box.hidden = false;
     box.innerHTML = '';
     var slug = slugOf(n.g.key);
-    box.style.backgroundImage = ART[slug] ? 'url("' + ART[slug] + '")' : '';
+    var art = ART[slug] || bannerOf[slug];
+    box.style.backgroundImage = art ? 'url("' + art + '")' : '';
     var t = splitTitle(n.g);
     var left = el('div');
     left.appendChild(el('span', 'cal-next-label', 'Your next game'));
@@ -3602,7 +3723,12 @@ window.AshRoleReady = new Promise(function (resolve) { window.__resolveRole = re
     if (PREVIEW) { games = sampleGames(); status.textContent = ''; render(); return Promise.resolve(); }
     status.textContent = 'Loading…';
     status.className = 'slot-status';
-    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+    return window.AshRoleReady.then(function () {
+      return window.AshSlots.isGm() && !window.AshCampaignsData ? window.AshSlots.loadAll().catch(function () {}) : null;
+    }).then(function () {
+      return firebase.auth().currentUser.getIdToken();
+    }).then(function (idToken) {
+      if (window.AshSlots.isGm()) learnMine(idToken);
       return fetch(URL_BASE + 'admin/games', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
     }).then(function (res) {
       return res.json().then(function (d) { if (!res.ok) throw new Error(d.error || 'Could not load the calendar.'); return d; });

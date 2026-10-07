@@ -756,6 +756,11 @@ function setupReviewsMarquee() {
 // They go at the front of the strip (and of its looping duplicate), so the newest
 // is seen first. The written reviews already on the page are left exactly as they are.
 const REVIEWS_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/review/public';
+// A Game Master's profile page (gm.html) names its Game Master in its address; every other page is Ash's.
+function reviewsUrl() {
+  const gm = document.body.getAttribute('data-gm-slug') || '';
+  return gm && gm !== 'ash' ? REVIEWS_URL + '?gm=' + encodeURIComponent(gm) : REVIEWS_URL;
+}
 const REVIEW_TOKENS = {
   dragon: ['\u{1F409}', '#6b46c1'], wizard: ['\u{1F9D9}', '#2f5fa8'], dagger: ['\u{1F5E1}\uFE0F', '#8a3b3b'],
   elf: ['\u{1F9DD}', '#2f7a5a'], bat: ['\u{1F987}', '#4a3a6b'], dice: ['\u{1F3B2}', '#a8702f'],
@@ -823,16 +828,24 @@ async function loadPlayerReviews() {
   const track = document.querySelector('.reviews-track');
   if (!track) return;
   try {
-    const res = await fetch(REVIEWS_URL);
+    const res = await fetch(reviewsUrl());
     if (!res.ok) return;
     const data = await res.json();
     if (!data.reviews || !data.reviews.length) return;
     const firstReal = track.querySelector('.review-card:not([aria-hidden="true"])');
     const firstCopy = track.querySelector('.review-card[aria-hidden="true"]');
-    data.reviews.forEach((r) => {
-      track.insertBefore(buildPlayerReviewCard(r, false), firstReal);
-      track.insertBefore(buildPlayerReviewCard(r, true), firstCopy);
-    });
+    if (!firstReal) {
+      // a Game Master's strip starts empty: the real cards first, then their looping copies
+      data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r, false)));
+      data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r, true)));
+      const section = track.closest('.reviews');
+      if (section) section.hidden = false;
+    } else {
+      data.reviews.forEach((r) => {
+        track.insertBefore(buildPlayerReviewCard(r, false), firstReal);
+        track.insertBefore(buildPlayerReviewCard(r, true), firstCopy);
+      });
+    }
     // The strip measures itself on resize, so tell it the content just got longer.
     window.dispatchEvent(new Event('resize'));
   } catch (err) { /* the written reviews stay as they are */ }

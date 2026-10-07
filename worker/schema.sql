@@ -182,3 +182,27 @@ CREATE TABLE IF NOT EXISTS gm_accounts (
   email TEXT,
   created_at TEXT NOT NULL
 );
+
+-- Campaigns made by another Game Master: who owns them and their weekly sessions.
+-- owner_uid is empty for Ash's own campaigns (their sessions stay in Firebase as before).
+-- slots_json holds a GM's sessions: { "<slotId>": { day, hour, minute, tz, max, enabled, group } }.
+ALTER TABLE campaign_content ADD COLUMN owner_uid TEXT;
+ALTER TABLE campaign_content ADD COLUMN slots_json TEXT;
+CREATE INDEX IF NOT EXISTS campaign_content_owner ON campaign_content (owner_uid);
+
+-- What players say about another Game Master (Ash's reviews stay in the reviews table).
+-- One review per player per Game Master.
+CREATE TABLE IF NOT EXISTS gm_reviews (
+  gm_uid TEXT NOT NULL,
+  uid TEXT NOT NULL,
+  mode TEXT NOT NULL,
+  name TEXT,
+  rating INTEGER NOT NULL,
+  tags TEXT NOT NULL DEFAULT '[]',
+  comment TEXT NOT NULL DEFAULT '',
+  sessions INTEGER NOT NULL DEFAULT 0,
+  show_public INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (gm_uid, uid)
+);

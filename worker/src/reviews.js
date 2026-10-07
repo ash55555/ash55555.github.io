@@ -5,8 +5,12 @@
 // edit it later. Ash is told about every new or updated review.
 
 import { verifyUser, cfg, escapeHtml, notify, notifyPlayer } from './pay.js';
+import { gmStatus } from './gm.js';
 
 export const REVIEW_AFTER = 5;
+
+// Sessions at another Game Master's tables never count towards a review of Ash (or an invite to write one).
+const NOT_A_GM_GAME = "NOT EXISTS (SELECT 1 FROM campaign_content cc WHERE cc.owner_uid IS NOT NULL AND (charges.game = cc.slug OR charges.game LIKE cc.slug || '::%'))";
 
 export const REVIEW_TAGS = [
   'Sets the mood',
@@ -31,8 +35,25 @@ function clean(s, max) {
 
 // Sessions this player has been charged for, across every game, that were not refunded.
 export async function sessionsPlayed(env, mode, uid) {
-  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM charges WHERE mode=? AND uid=? AND status='paid' AND refunded_amount < amount").bind(mode, uid).first();
+  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM charges WHERE mode=? AND uid=? AND status='paid' AND refunded_amount < amount AND " + NOT_A_GM_GAME).bind(mode, uid).first();
   return r ? r.n : 0;
+}
+
+// Sessions this player was charged for at one Game Master's tables (their own campaigns only).
+async function sessionsWithGm(env, mode, uid, gmUid) {
+  const slugs = (await env.DB.prepare('SELECT slug FROM campaign_content WHERE owner_uid=?').bind(gmUid).all()).results;
+  let n = 0;
+  for (const c of slugs) {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM charges WHERE mode=? AND uid=? AND status='paid' AND refunded_amount < amount AND (game=? OR game LIKE ?)").bind(mode, uid, c.slug, c.slug + '::%').first();
+    n += r ? r.n : 0;
+  }
+  return n;
+}
+
+// The Game Master a review is about, from the name on their profile page. Ash is the default.
+async function gmByName(env, name) {
+  if (!name || name === 'ash') return null;
+  return (await env.DB.prepare('SELECT uid, slug, data FROM gm_profiles WHERE slug=?').bind(name).first()) || null;
 }
 
 function parseTags(raw) {
@@ -53,9 +74,28 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
   const mode = cfg(env).mode;
   const self = new URL(request.url).origin;
   try {
-    // Ash only: see every review, and delete one.
+    // Ash sees every review of hers, and another Game Master sees only the reviews of them.
     if (action === 'admin/list' || action === 'admin/delete') {
-      if (user.sub !== env.ADMIN_UID) return json({ error: 'Not authorized' }, 403, corsHeaders);
+      const who = await gmStatus(env, user.sub, user);
+      if (!who.isGm) return json({ error: 'Not authorized' }, 403, corsHeaders);
+      if (!who.isAdmin) {
+        if (action === 'admin/list') {
+          const rows = (await env.DB.prepare(
+            `SELECT r.uid, r.name, r.rating, r.tags, r.comment, r.sessions, r.show_public, r.created_at, r.updated_at, pr.token AS token, pr.avatar_id AS avatar_id
+             FROM gm_reviews r LEFT JOIN profiles pr ON pr.uid = r.uid WHERE r.gm_uid=? ORDER BY r.updated_at DESC LIMIT 200`).bind(user.sub).all()).results;
+          return json({
+            reviews: rows.map((r) => ({
+              uid: r.uid, name: r.name, rating: r.rating, tags: parseTags(r.tags), comment: r.comment || '', sessions: r.sessions,
+              shown: r.show_public !== 0, createdAt: r.created_at, updatedAt: r.updated_at, token: r.token || '',
+              avatar: r.avatar_id ? `${self}/profile/avatar/${r.avatar_id}` : null,
+            })),
+          }, 200, corsHeaders);
+        }
+        const target = String(body.uid || '');
+        if (!target) return json({ error: 'Missing review.' }, 400, corsHeaders);
+        await env.DB.prepare('DELETE FROM gm_reviews WHERE gm_uid=? AND uid=?').bind(user.sub, target).run();
+        return json({ ok: true }, 200, corsHeaders);
+      }
       if (action === 'admin/list') {
         const rows = (await env.DB.prepare(
           `SELECT r.uid, r.name, r.rating, r.tags, r.comment, r.sessions, r.show_public, r.created_at, r.updated_at, pr.token AS token, pr.avatar_id AS avatar_id
@@ -72,6 +112,48 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
       if (!target) return json({ error: 'Missing review.' }, 400, corsHeaders);
       await env.DB.prepare('DELETE FROM reviews WHERE uid=?').bind(target).run();
       return json({ ok: true }, 200, corsHeaders);
+    }
+
+    // A review of another Game Master (the page says which one by their profile name).
+    const gm = await gmByName(env, String(body.gm || ''));
+    if (String(body.gm || '') && String(body.gm) !== 'ash' && !gm) return json({ error: 'That Game Master was not found.' }, 404, corsHeaders);
+    if (gm) {
+      if (gm.uid === user.sub) return json({ error: 'You cannot review yourself.' }, 400, corsHeaders);
+      const played = await sessionsWithGm(env, mode, user.sub, gm.uid);
+      const can = played >= REVIEW_AFTER;
+      const mineRow = await env.DB.prepare('SELECT rating, tags, comment, updated_at, show_public FROM gm_reviews WHERE gm_uid=? AND uid=?').bind(gm.uid, user.sub).first();
+      const mineGm = mineRow ? { rating: mineRow.rating, tags: parseTags(mineRow.tags), comment: mineRow.comment || '', show: mineRow.show_public !== 0, updatedAt: mineRow.updated_at } : null;
+      let prof = {};
+      try { prof = JSON.parse(gm.data || '{}') || {}; } catch { prof = {}; }
+      if (action === 'status') {
+        return json({ sessions: played, needed: REVIEW_AFTER, eligible: can, testMode: false, tags: REVIEW_TAGS, review: mineGm, dm: { name: prof.name || 'Your Game Master', token: 'dragon', avatar: null, pronouns: prof.pronouns || '' } }, 200, corsHeaders);
+      }
+      if (action === 'delete') {
+        await env.DB.prepare('DELETE FROM gm_reviews WHERE gm_uid=? AND uid=?').bind(gm.uid, user.sub).run();
+        return json({ ok: true }, 200, corsHeaders);
+      }
+      if (action === 'submit') {
+        if (!can) return json({ error: `You can review this Game Master after ${REVIEW_AFTER} sessions together. You are at ${played}.` }, 403, corsHeaders);
+        const rating = parseInt(body.rating, 10);
+        if (!(rating >= 1 && rating <= 5)) return json({ error: 'Please pick a star rating from 1 to 5.' }, 400, corsHeaders);
+        const tags = Array.from(new Set(Array.isArray(body.tags) ? body.tags.filter((t) => REVIEW_TAGS.includes(t)) : []));
+        const comment = clean(body.comment, 600);
+        const show = body.show === false ? 0 : 1;
+        const pr = await env.DB.prepare('SELECT name FROM profiles WHERE uid=?').bind(user.sub).first();
+        const name = clean((pr && pr.name) || user.name || (user.email || '').split('@')[0] || 'A player', 40);
+        const now = new Date().toISOString();
+        await env.DB.prepare(
+          `INSERT INTO gm_reviews (gm_uid, uid, mode, name, rating, tags, comment, sessions, show_public, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+           ON CONFLICT(gm_uid, uid) DO UPDATE SET mode=excluded.mode, name=excluded.name, rating=excluded.rating, tags=excluded.tags,
+             comment=excluded.comment, sessions=excluded.sessions, show_public=excluded.show_public, updated_at=excluded.updated_at`)
+          .bind(gm.uid, user.sub, mode, name, rating, JSON.stringify(tags), comment, played, show, now, now).run();
+        // Tell that Game Master (not Ash) on their own dashboard.
+        await notifyPlayer(env, mode, gm.uid, 'review', null,
+          `${mineGm ? 'Updated review' : 'New review'}: ${rating}/5 from ${name}`,
+          `${name} rated you ${rating} out of 5 after ${played} sessions together.` + (tags.length ? ` What stood out: ${tags.join(', ')}.` : '') + (comment ? ` "${comment}"` : '') + (show ? ' It is shown on your page.' : ' They chose to keep it private.'));
+        return json({ ok: true, review: { rating, tags, comment, show: !!show, updatedAt: now } }, 200, corsHeaders);
+      }
+      return json({ error: 'Unknown action' }, 404, corsHeaders);
     }
 
     const sessions = await sessionsPlayed(env, mode, user.sub);
@@ -132,10 +214,19 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
 export async function handleReviewsPublic(request, env, corsHeaders) {
   const mode = cfg(env).mode;
   const self = new URL(request.url).origin;
-  const rows = (await env.DB.prepare(
-    `SELECT r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
-     FROM reviews r LEFT JOIN profiles pr ON pr.uid = r.uid
-     WHERE r.mode=? AND r.show_public=1 ORDER BY r.updated_at DESC LIMIT 30`).bind(mode).all()).results;
+  // ?gm=their-profile-name gives that Game Master's reviews; with no name it is Ash's.
+  const gmName = String(new URL(request.url).searchParams.get('gm') || '');
+  const gm = await gmByName(env, gmName);
+  if (gmName && gmName !== 'ash' && !gm) return new Response(JSON.stringify({ reviews: [] }), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...corsHeaders } });
+  const rows = gm
+    ? (await env.DB.prepare(
+      `SELECT r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
+       FROM gm_reviews r LEFT JOIN profiles pr ON pr.uid = r.uid
+       WHERE r.gm_uid=? AND r.mode=? AND r.show_public=1 ORDER BY r.updated_at DESC LIMIT 30`).bind(gm.uid, mode).all()).results
+    : (await env.DB.prepare(
+      `SELECT r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
+       FROM reviews r LEFT JOIN profiles pr ON pr.uid = r.uid
+       WHERE r.mode=? AND r.show_public=1 ORDER BY r.updated_at DESC LIMIT 30`).bind(mode).all()).results;
   const reviews = rows.map((r) => ({
     name: r.name, rating: r.rating, tags: parseTags(r.tags), comment: r.comment || '', token: r.token || '',
     avatar: r.avatar_id ? `${self}/profile/avatar/${r.avatar_id}` : null,
@@ -157,6 +248,7 @@ export async function runReviewInvites(env, sendEmail) {
   const due = (await env.DB.prepare(
     `SELECT c.uid AS uid, COUNT(*) AS n FROM charges c
      WHERE c.mode=? AND c.status='paid' AND c.refunded_amount < c.amount
+       AND NOT EXISTS (SELECT 1 FROM campaign_content cc WHERE cc.owner_uid IS NOT NULL AND (c.game = cc.slug OR c.game LIKE cc.slug || '::%'))
        AND NOT EXISTS (SELECT 1 FROM notifications nt WHERE nt.uid=c.uid AND nt.kind='review_invite')
        AND NOT EXISTS (SELECT 1 FROM reviews r WHERE r.uid=c.uid)
      GROUP BY c.uid HAVING COUNT(*) >= ?`).bind(mode, REVIEW_AFTER).all()).results;
