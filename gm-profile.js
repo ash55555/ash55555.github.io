@@ -292,6 +292,80 @@
     });
   }
 
+  // ------------------------------------------------------------------ theme (colors and fonts)
+  var GT = window.GmTheme;
+  function th() { if (!p.theme) p.theme = GT.clean(null); return p.theme; }
+
+  function paintThemePreview() {
+    var t = th(), pv = $('gmt-preview');
+    GT.applyTo(pv, t);
+    $('gmt-pv-name').textContent = $('gm-name').value.trim() || p.name || 'Your name';
+    $('gmt-pv-tag').textContent = $('gm-tagline').value.trim() || p.tagline || 'Your tagline goes here';
+    var pic = function (v) { return /^(data:image|medie)/.test(v || '') ? 'url("' + v + '")' : ''; };
+    pv.querySelector('.gmt-pv-avatar').style.backgroundImage = pic(p.avatar);
+    pv.querySelector('.gmt-pv-cover').style.backgroundImage = pic(p.banner);
+    ['bg', 'glowA', 'glowB', 'accent'].forEach(function (k) { $('gmt-' + k).value = t[k]; $('gmt-' + k + '-hex').textContent = t[k]; });
+  }
+
+  function setTheme(patch, keepPreset) {
+    var t = th();
+    Object.keys(patch).forEach(function (k) { t[k] = patch[k]; });
+    if (!keepPreset) t.preset = 'custom';
+    renderThemeControls();
+    paintThemePreview();
+  }
+
+  function renderThemeControls() {
+    var t = th();
+    var box = $('gmt-presets');
+    box.innerHTML = '';
+    GT.PRESETS.forEach(function (pr) {
+      var b = el('button', 'gmt-preset' + (t.preset === pr.id ? ' on' : ''));
+      b.type = 'button';
+      b.style.background = 'linear-gradient(135deg, ' + pr.bg + ' 0%, ' + pr.bg + ' 100%)';
+      var sw = el('span', 'gmt-sw');
+      [pr.glowA, pr.glowB, pr.accent].forEach(function (c) { var i = document.createElement('i'); i.style.background = c; sw.appendChild(i); });
+      var label = el('span', 'gmt-pl', pr.label);
+      label.style.color = GT.lum(pr.bg) > 0.45 ? '#231a33' : '#f3eefc';
+      b.append(sw, label);
+      b.addEventListener('click', function () { setTheme({ bg: pr.bg, glowA: pr.glowA, glowB: pr.glowB, accent: pr.accent, preset: pr.id }, true); });
+      box.appendChild(b);
+    });
+
+    var fonts = $('gmt-name-fonts');
+    fonts.innerHTML = '';
+    var shown = $('gm-name').value.trim() || p.name || 'Your name';
+    GT.FONTS.forEach(function (f) {
+      var b = el('button', 'gmt-font' + (t.nameFont === f.id ? ' on' : ''));
+      b.type = 'button';
+      var sample = el('span', 'gmt-font-sample', shown);
+      sample.style.fontFamily = f.family;
+      b.append(sample, el('span', 'gmt-font-label', f.label));
+      b.addEventListener('click', function () { setTheme({ nameFont: f.id }, true); });
+      fonts.appendChild(b);
+    });
+
+    var sel = $('gmt-tag-font');
+    sel.innerHTML = '';
+    GT.FONTS.forEach(function (f) {
+      var o = el('option', null, f.label);
+      o.value = f.id;
+      o.style.fontFamily = f.family;
+      if (t.tagFont === f.id) o.selected = true;
+      sel.appendChild(o);
+    });
+    GT.loadFonts(GT.FONTS.map(function (f) { return f.id; }));
+  }
+
+  function bindTheme() {
+    [['bg', 'bg'], ['glowA', 'glowA'], ['glowB', 'glowB'], ['accent', 'accent']].forEach(function (x) {
+      $('gmt-' + x[0]).addEventListener('input', function (e) { var patch = {}; patch[x[1]] = e.target.value.toLowerCase(); setTheme(patch, false); });
+    });
+    $('gmt-tag-font').addEventListener('change', function (e) { setTheme({ tagFont: e.target.value }, true); });
+    $('gmt-reset').addEventListener('click', function () { var d = GT.clean(null); d.preset = 'classic'; p.theme = d; renderThemeControls(); paintThemePreview(); });
+    ['gm-name', 'gm-tagline'].forEach(function (id) { $(id).addEventListener('input', function () { renderThemeControls(); paintThemePreview(); }); });
+  }
+
   // ------------------------------------------------------------------ the whole form
   function fill() {
     p.tools = p.tools || []; p.systems = p.systems || []; p.languages = p.languages || []; p.qualities = p.qualities || []; p.questions = p.questions || []; p.socials = p.socials || {};
@@ -309,6 +383,9 @@
     renderQualities();
     renderQuestions();
     renderSocials();
+    th();
+    renderThemeControls();
+    paintThemePreview();
   }
 
   function collect() {
@@ -323,6 +400,7 @@
   }
 
   function bind() {
+    bindTheme();
     $('gm-bio').addEventListener('input', function () { $('gm-bio-count').textContent = $('gm-bio').value.length + ' / 900'; });
     makeClickable($('gm-avatar-preview'), 'Change picture', $('gm-avatar-file'));
     makeClickable($('gm-banner-preview'), 'Change banner', $('gm-banner-file'));

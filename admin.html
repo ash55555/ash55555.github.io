@@ -641,7 +641,7 @@
   .me-panel .cal-stage { background: transparent; border: 0; padding: 0; overflow: visible; border-radius: 0; }
   .cal-orbs { display: none; }
 </style>
-<link rel="stylesheet" href="gm-profile.css?v=20261005d">
+<link rel="stylesheet" href="gm-profile.css?v=20261008a">
 <link rel="stylesheet" href="messages.css?v=20261008a">
 <style id='admin-sessions'>
 /* ===== Players and payments: sessions, session buttons, player actions ===== */
@@ -1154,6 +1154,45 @@
     <section class="gm-card">
       <h2><span class="gm-step">8</span> Chat button</h2>
       <p class="gm-help">Every profile has a <strong>Chat with you</strong> button. When a player clicks it, they write you a message right here on the site. You read and answer in <strong>Messages</strong>, and you also get an email. There is nothing to set up.</p>
+    </section>
+
+    <!-- 9 -->
+    <section class="gm-card" id="gmt-card">
+      <h2><span class="gm-step">9</span> Make it yours: colors and fonts</h2>
+      <p class="gm-help">Choose how your page looks to everyone who visits. Pick a ready-made theme or mix your own colors and fonts. The preview changes right away, and your page changes when you press <strong>That's it</strong> at the bottom.</p>
+
+      <div class="gmt-preview" id="gmt-preview" aria-label="Preview of your page">
+        <div class="gmt-pv-cover"></div>
+        <div class="gmt-pv-body">
+          <div class="gmt-pv-avatar"></div>
+          <div class="gmt-pv-text">
+            <div class="gmt-pv-name" id="gmt-pv-name">Your name</div>
+            <div class="gmt-pv-tag" id="gmt-pv-tag">Your tagline goes here</div>
+            <div class="gmt-pv-chips"><span>D&amp;D 5e</span><span>Beginner friendly</span><span>Roll20</span></div>
+            <div class="gmt-pv-btns"><span class="gmt-b1">Chat with you</span><span class="gmt-b2">See my campaigns</span></div>
+          </div>
+        </div>
+        <div class="gmt-pv-tiles"><span></span><span></span><span></span></div>
+      </div>
+
+      <h3 class="gm-sub">Ready-made themes</h3>
+      <div class="gmt-presets" id="gmt-presets"></div>
+
+      <h3 class="gm-sub">Your own colors</h3>
+      <p class="gm-help">Tap a square to pick any color you like. Light backgrounds work too, the text turns dark by itself.</p>
+      <div class="gmt-colors">
+        <label class="gmt-color"><input type="color" id="gmt-bg"><span><b>Background</b><em id="gmt-bg-hex"></em></span></label>
+        <label class="gmt-color"><input type="color" id="gmt-glowA"><span><b>Glow one</b><em id="gmt-glowA-hex"></em></span></label>
+        <label class="gmt-color"><input type="color" id="gmt-glowB"><span><b>Glow two</b><em id="gmt-glowB-hex"></em></span></label>
+        <label class="gmt-color"><input type="color" id="gmt-accent"><span><b>Buttons and highlights</b><em id="gmt-accent-hex"></em></span></label>
+      </div>
+
+      <h3 class="gm-sub">Fonts</h3>
+      <p class="gm-help">Pick the font for your name. Each card shows how it will look.</p>
+      <div class="gmt-fonts" id="gmt-name-fonts"></div>
+      <label class="gm-field"><span>Tagline font</span><select id="gmt-tag-font"></select></label>
+
+      <div class="gm-row-btns"><button type="button" class="gm-pill gm-pill-quiet" id="gmt-reset">Back to the standard look</button></div>
     </section>
 
     <div class="gm-savebar">
@@ -3379,9 +3418,10 @@ window.AshSlots = (function () {
 })();
 </script>
 <script src="campaign-colors.js?v=20261004a"></script>
+<script src="gm-theme.js?v=20261008a"></script>
 <script src="gm-catalog.js?v=20261005c"></script>
-<script src="gm-render.js?v=20261007a"></script>
-<script src="gm-profile.js?v=20261006a"></script>
+<script src="gm-render.js?v=20261008a"></script>
+<script src="gm-profile.js?v=20261008a"></script>
 <script>
 (function () {
   var WORKER = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';

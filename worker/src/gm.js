@@ -10,6 +10,20 @@ const QUALITY_IDS = ['welcoming', 'rulecool', 'prepped', 'lowpressure', 'beginne
 const QUESTION_IDS = ['became', 'comfort', 'newplayer', 'style', 'expect', 'session0', 'why', 'prep'];
 const SOCIAL_IDS = ['youtube', 'instagram', 'x', 'bluesky', 'patreon', 'twitch', 'tiktok', 'website'];
 const MAX_AVATAR_CHARS = 140000;
+// The look a Game Master gives their own page: four colors and two fonts (the font names are the ones the editor offers).
+const THEME_FONTS = ['poppins', 'cinzel', 'playfair', 'medieval', 'uncial', 'creepster', 'pacifico', 'lobster', 'caveat', 'bungee', 'orbitron', 'pixel', 'righteous', 'fredoka'];
+const THEME_PRESETS = ['classic', 'ember', 'ocean', 'forest', 'rose', 'violet', 'gold', 'blood', 'parchment', 'mono', 'custom'];
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+function cleanTheme(t) {
+  const x = t && typeof t === 'object' ? t : {};
+  const col = (v, d) => (HEX_COLOR.test(String(v || '')) ? String(v).toLowerCase() : d);
+  return {
+    preset: THEME_PRESETS.includes(x.preset) ? x.preset : 'custom',
+    bg: col(x.bg, '#120b1c'), glowA: col(x.glowA, '#7b4dff'), glowB: col(x.glowB, '#2cc6ff'), accent: col(x.accent, '#f2b84f'),
+    nameFont: THEME_FONTS.includes(x.nameFont) ? x.nameFont : 'poppins',
+    tagFont: THEME_FONTS.includes(x.tagFont) ? x.tagFont : 'poppins',
+  };
+}
 const MAX_BANNER_CHARS = 330000;
 
 function json(data, status, corsHeaders, extra) {
@@ -76,6 +90,7 @@ export function cleanProfile(input) {
     tools,
     systems,
     languages,
+    theme: cleanTheme(p.theme),
     bio: longText(p.bio, 900),
     qualities,
     questions,

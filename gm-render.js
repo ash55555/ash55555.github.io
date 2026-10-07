@@ -55,6 +55,7 @@
   function apply(p) {
     var C = window.GmCatalog;
     var name = p.name || 'GM';
+    if (window.GmTheme) window.GmTheme.apply(p.theme);
     document.title = name + ' | Game Master | Ash Tabletop';
     setText('[data-field="name"]', name);
     var pr = document.querySelector('[data-field="pronouns"]');
