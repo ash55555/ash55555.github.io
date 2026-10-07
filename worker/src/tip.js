@@ -7,8 +7,9 @@ import { gmPayoutAccount } from './connect.js';
 
 const MIN_TIP = 1;
 const MAX_TIP = 200;
-// Ash Tabletop takes no share of tips: all of it goes to the Game Master (Whop's own payment fee still applies).
-const TIP_FEE_RATE = 0;
+// Ash Tabletop keeps this share of a tip left for another Game Master (taken by Whop as the application fee, like on session
+// payments). A tip for Ash herself goes to her own account in full. Whop's own payment fee still applies to every payment.
+const TIP_FEE_RATE = 0.05;
 const DOLLAR = String.fromCharCode(36);
 const money = (n) => DOLLAR + (Math.round(n * 100) % 100 === 0 ? String(Math.round(n)) : n.toFixed(2));
 
@@ -37,7 +38,7 @@ async function target(env, slug) {
 export async function handleTipStatus(request, env, corsHeaders) {
   const slug = String(new URL(request.url).searchParams.get('slug') || '').toLowerCase();
   const t = await target(env, slug);
-  return new Response(JSON.stringify({ ok: !!(t && t.account), name: t ? t.name : '', min: MIN_TIP, max: MAX_TIP }), {
+  return new Response(JSON.stringify({ ok: !!(t && t.account), name: t ? t.name : '', min: MIN_TIP, max: MAX_TIP, fee: t && !t.own ? TIP_FEE_RATE : 0 }), {
     status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=30', ...corsHeaders },
   });
 }
@@ -76,7 +77,7 @@ export async function handleTip(request, env, corsHeaders, origin, action, sendE
     const fee = Math.round(amount * TIP_FEE_RATE * 100) / 100;
     const plan = {
       currency: 'usd', plan_type: 'one_time', initial_price: amount, title: 'Tip for ' + t.name,
-      ...(fee > 0 && fee < amount ? { application_fee_amount: fee } : {}),
+      ...(!t.own && fee > 0 && fee < amount ? { application_fee_amount: fee } : {}),
       ...(t.own ? {} : { product: { external_identifier: 'ash-tabletop-tip', title: 'Tip' } }),
     };
     const back = t.slug === 'ash' ? 'https://ashtabletop.com/ash.html?tip=thanks' : 'https://ashtabletop.com/gm.html?slug=' + encodeURIComponent(t.slug) + '&tip=thanks';

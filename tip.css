@@ -18,3 +18,12 @@
 .tip-embed { min-height: 320px; }
 .tip-thanks { text-align: center; }
 .tip-party { font-size: 3.4rem; margin-bottom: .2em; }
+
+/* The tip button: its own look (a warm glowing pill with a beating heart), so it is never mistaken for the quality chips. */
+.profile-main .hero-actions .js-tip { position: relative; overflow: hidden; border: 0; color: #fff; font-weight: 900; letter-spacing: .01em; background: linear-gradient(135deg, #ff5f8f 0%, #ff8a4c 100%); box-shadow: 0 10px 28px rgba(255, 95, 143, .45), inset 0 1.5px 0 rgba(255, 255, 255, .45); transition: transform .15s, box-shadow .15s; }
+.profile-main .hero-actions .js-tip:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 16px 38px rgba(255, 95, 143, .6), inset 0 1.5px 0 rgba(255, 255, 255, .55); }
+.js-tip::after { content: ''; position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-20deg); animation: tipshine 4.5s ease-in-out 1.5s infinite; }
+@keyframes tipshine { 0%, 60% { left: -60%; } 100% { left: 140%; } }
+.js-tip .tip-heart { display: inline-block; color: #fff; animation: tipbeat 1.6s ease-in-out infinite; }
+@keyframes tipbeat { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.3); } 30% { transform: scale(1); } 45% { transform: scale(1.2); } }
+@media (prefers-reduced-motion: reduce) { .js-tip::after, .js-tip .tip-heart { animation: none; } }
