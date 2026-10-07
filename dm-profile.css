@@ -52,7 +52,7 @@
   margin-top: -130px;
 }
 .profile-avatar { position: relative; width: 260px; }
-.profile-avatar .hero-glow { position: absolute; inset: -30%; z-index: 0; }
+.profile-avatar .hero-glow { position: absolute; inset: -30%; z-index: 0; pointer-events: none; }
 .profile-avatar .hero-token {
   position: relative;
   z-index: 1;
@@ -76,7 +76,7 @@
   box-shadow: 0 0 20px rgba(242, 184, 79, 0.4);
 }
 
-.profile-main { padding-top: 1.6em; min-width: 0; }
+.profile-main { position: relative; z-index: 2; padding-top: 1.6em; min-width: 0; }
 .profile-namerow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.3em 0.9em; }
 .profile-name {
   margin: 0;
