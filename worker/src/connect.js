@@ -66,7 +66,9 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
     // If Whop will not tell us (a missing permission or a hiccup), the GM is not blocked: they can still
     // continue on Whop or open their payouts, and we say plainly that we could not check.
     if (!r || !r.ok) return json({ state: 'unknown' }, 200, corsHeaders);
-    return json({ state: stateFrom(r.data), verification: r.data.verification || null }, 200, corsHeaders);
+    const state = stateFrom(r.data);
+    if (state === 'ready') forgetPayoutAccount(user.sub); // so booking opens right away, not a minute later
+    return json({ state, verification: r.data.verification || null }, 200, corsHeaders);
   }
 
   // Whop asks for the "read balance" permission on the key that opens a GM's verification or payouts page.
@@ -114,4 +116,24 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
   }
 
   return json({ error: 'Not found' }, 404, corsHeaders);
+}
+
+// The Whop account a game master's players pay into, but only once Whop says it is fully ready (identity checked,
+// bank added). Until then this is null: nobody can book or be charged for that table. Checked at most once a minute.
+const readyCache = new Map();
+export function forgetPayoutAccount(uid) { readyCache.delete(uid); }
+export async function gmPayoutAccount(env, uid) {
+  const hit = readyCache.get(uid);
+  if (hit && Date.now() - hit.at < 60000) return hit.id;
+  const row = await env.DB.prepare('SELECT account_id FROM gm_accounts WHERE uid=?').bind(uid).first();
+  let id = null;
+  const key = env.WHOP_CONNECT_API_KEY || env.WHOP_BALANCE_API_KEY;
+  if (row && key) {
+    try {
+      const res = await fetch('https://api.whop.com/api/v1/accounts/' + encodeURIComponent(row.account_id), { headers: { Authorization: 'Bearer ' + key, "Content-Type": 'application/json' } });
+      if (res.ok && stateFrom(await res.json().catch(() => ({}))) === 'ready') id = row.account_id;
+    } catch { id = null; }
+  }
+  readyCache.set(uid, { id, at: Date.now() });
+  return id;
 }

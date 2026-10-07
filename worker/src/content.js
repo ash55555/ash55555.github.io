@@ -4,6 +4,7 @@
 // their own (each campaign row remembers its owner, and every route below checks it).
 
 import { verifyUser } from './pay.js';
+import { gmPayoutAccount } from './connect.js';
 import { actorFor, MAX_GM_CAMPAIGNS, MAX_GM_SLOTS, cleanSlot, slotToUtc } from './owner.js';
 
 const MAX_BANNER_CHARS = 260000; // a landscape banner, base64 text (~190KB of image)
@@ -85,6 +86,7 @@ export async function handleContentPublic(request, env, corsHeaders) {
     const gm = await env.DB.prepare('SELECT slug FROM gm_profiles WHERE uid=?').bind(row.owner_uid).first();
     out.gm = gm ? gm.slug : '';
     out.slots = publicSlots(row);
+    out.bookable = !!(await gmPayoutAccount(env, row.owner_uid)); // seats can be booked once their payout account is approved
   }
   return json(out, 200, { 'Cache-Control': 'public, max-age=30', ...corsHeaders });
 }
@@ -106,8 +108,11 @@ export async function handleContentPublicList(request, env, corsHeaders) {
     rows = (await env.DB.prepare(
       'SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid FROM campaign_content WHERE published=1 AND owner_uid IS NULL ORDER BY created_at ASC').all()).results;
   }
+  const ready = {};
+  for (const r of rows) if (r.owner_uid && !(r.owner_uid in ready)) ready[r.owner_uid] = !!(await gmPayoutAccount(env, r.owner_uid));
   const campaigns = rows.map((r) => ({
     slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook,
+    ...(r.owner_uid ? { bookable: ready[r.owner_uid] } : {}),
     bannerUrl: r.banner_id ? `${url.origin}/content/banner/${r.banner_id}` : null,
     ...(r.owner_uid ? { slots: publicSlots(r) } : {}),
   }));

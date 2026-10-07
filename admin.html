@@ -2147,12 +2147,7 @@ window.AshSlots = (function () {
           statusEl.textContent = err.message; statusEl.className = 'slot-status error'; goBtn.disabled = false;
         });
       });
-      if (window.AshSlots.isGm()) {
-        // Another Game Master's table is not billed through here yet, so there is nothing to start.
-        stateText.textContent = 'Billing for this table is not switched on yet';
-        explain.textContent = 'Players cannot book or be charged for your tables yet. You can set up your campaign and schedule now.';
-        bar.append(stateText, explain);
-      } else bar.append(stateText, explain, goBtn);
+      bar.append(stateText, explain, goBtn);
 
       renderBoard(data);
       renderSessionTools(data);
@@ -3467,7 +3462,7 @@ window.AshSlots = (function () {
       var hold = document.createElement('p');
       hold.className = 'note';
       hold.style.marginTop = '.6em';
-      hold.textContent = 'Booking seats online for your tables is not switched on yet. You can build your campaigns and your schedule now, and they will be ready when it is.';
+      hold.textContent = 'Players can book your tables once Whop has approved your payout account. Set it up in the Finance tab, then press Start game on a table when you are ready to bill.';
       camp.appendChild(hold);
     }
     var h = document.querySelector('.top-bar h1');

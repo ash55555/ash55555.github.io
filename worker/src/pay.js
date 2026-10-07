@@ -13,6 +13,7 @@
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { actorFor, loadOwners, inScope, slotToUtc } from './owner.js';
+import { gmPayoutAccount } from './connect.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -372,6 +373,23 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   }
 }
 
+// Where a game's money goes: Ash's own Whop account for her games, and for another Game Master the account they set up
+// under Ash Tabletop, but only once Whop says it is ready. Null means nobody can book or be charged for that table yet.
+async function accountFor(env, game) {
+  return game.owner ? await gmPayoutAccount(env, game.owner) : cfg(env).company;
+}
+// Ash Tabletop keeps this share of every payment made to another Game Master (taken by Whop as the application fee).
+const PLATFORM_FEE_RATE = 0.05;
+// What is added to a payment made to another Game Master: Ash Tabletop's share, and a product to attach it to.
+function gmPlanExtras(game) {
+  const fee = platformFee(game.price);
+  return { ...(fee ? { application_fee_amount: fee } : {}), product: { external_identifier: 'ash-tabletop-game-session', title: 'Game session' } };
+}
+function platformFee(price) {
+  const fee = Math.round(price * PLATFORM_FEE_RATE * 100) / 100;
+  return fee > 0 && fee < price ? fee : null;
+}
+
 async function getPlayer(ctx, uid = ctx.user.sub) {
   return ctx.env.DB.prepare('SELECT * FROM players WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, ctx.gameKey, uid).first();
 }
@@ -382,9 +400,10 @@ async function doSetup(ctx) {
   const { env, user, gameKey, game, corsHeaders } = ctx;
   const existing = await getPlayer(ctx);
   const updating = !!(existing && existing.status === 'active');
-  // Seats at another Game Master's table cannot be booked yet: a player's payment has to go to that GM's own
-  // payout account, and that part is not switched on. Until it is, nobody can pay Ash for someone else's game.
-  if (game.owner) return json({ error: 'Booking seats at this table is not open yet.' }, 409, corsHeaders);
+  // A player's card is saved under the account the money will go to: Ash's, or the Game Master's own once Whop has
+  // approved it. Until then that table cannot take bookings.
+  const account = await accountFor(env, game);
+  if (!account) return json({ error: 'This game master has not finished setting up payouts yet, so seats cannot be booked.' }, 409, corsHeaders);
   if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
   if (!updating) {
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
@@ -400,7 +419,7 @@ async function doSetup(ctx) {
     body: JSON.stringify({
       mode: 'setup',
       redirect_url: returnUrl,
-      account_id: c.company,
+      account_id: account,
       currency: 'usd',
       payment_method_configuration: { enabled: ['card'], disabled: [], include_platform_defaults: false },
       // The standard bank check is the default: the bank only asks the player to verify when it decides to.
@@ -422,13 +441,15 @@ async function doComplete(ctx) {
   if (!body.configId && !body.setupIntentId) return json({ error: 'Missing checkout.' }, 400, corsHeaders);
 
   const c = cfg(env);
+  const account = await accountFor(env, game);
+  if (!account) return json({ error: 'This game master has not finished setting up payouts yet.' }, 409, corsHeaders);
   let intent = null;
   if (body.setupIntentId) {
     const one = await whop(env, `/setup_intents/${encodeURIComponent(body.setupIntentId)}`);
     if (!one.ok) return json({ error: 'Could not confirm your card yet.', detail: one.data }, 502, corsHeaders);
     intent = one.data;
   } else {
-    const r = await whop(env, `/setup_intents?account_id=${c.company}&first=50&direction=desc`);
+    const r = await whop(env, `/setup_intents?account_id=${account}&first=50&direction=desc`);
     if (!r.ok) return json({ error: 'Could not confirm your card yet.', detail: r.data }, 502, corsHeaders);
     intent = (r.data.data || []).find((i) => i.checkout_configuration_id === body.configId);
   }
@@ -796,10 +817,11 @@ async function tableFor(env, mode, gameKey, selfOrigin, viewerUid, game) {
     }));
   // The Game Master at the table: the game's own owner, or Ash for her games.
   if (game && game.owner) {
-    const g = await env.DB.prepare('SELECT data FROM gm_profiles WHERE uid=?').bind(game.owner).first();
+    const g = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(game.owner).first();
     let prof = {};
     try { prof = JSON.parse((g && g.data) || '{}') || {}; } catch { prof = {}; }
-    return { roster, dm: { name: prof.name || 'Your Game Master', token: 'dragon', avatar: null, pronouns: prof.pronouns || '' } };
+    const pic = g && String(prof.avatar || '').startsWith('data:image/') ? selfOrigin + '/gm/avatar?slug=' + encodeURIComponent(g.slug) : null;
+    return { roster, dm: { name: prof.name || 'Your Game Master', token: 'dragon', avatar: pic, pronouns: prof.pronouns || '', slug: g ? g.slug : null } };
   }
   const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
   const dm = { name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon', avatar: pic(d && d.avatar_id), pronouns: (d && d.pronouns) || '' };
@@ -839,7 +861,7 @@ async function adminGameRunning(ctx, running) {
   const now = iso(new Date());
   // Billing another Game Master's table needs the payment to go to their own account. That is not switched on,
   // so starting it is refused rather than pretending to bill.
-  if (running && game.owner) return json({ error: 'Billing for your tables is not switched on yet. Nothing was started.' }, 409, corsHeaders);
+  if (running && game.owner && !(await accountFor(env, game))) return json({ error: 'Finish setting up your payouts first (Finance tab). Nothing was started.' }, 409, corsHeaders);
   if (running) {
     // Starting again while already running keeps the original start time.
     await env.DB.prepare(
@@ -1006,7 +1028,8 @@ export async function runCharges(env, sendEmail) {
   try { allGames = await loadGames(env, true); } catch (err) { return { skipped: 'could not read the schedule: ' + err.message }; }
 
   for (const [gameKey, game] of Object.entries(allGames)) {
-    if (game.owner) continue; // another Game Master's game is never charged through Ash's account
+    const account = await accountFor(env, game);
+    if (!account) continue; // a Game Master whose payouts are not ready is never charged, and never through Ash's account
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
     const sessions = (await sessionsFor(env, c.mode, gameKey, game, new Date(now.getTime() - CATCH_UP_MS), now)).map(iso);
 
@@ -1063,7 +1086,7 @@ export async function runCharges(env, sendEmail) {
         const r = await whop(env, '/payments', {
           method: 'POST',
           body: JSON.stringify({
-            account_id: c.company,
+            account_id: account,
             member_id: p.member_id,
             payment_method_id: p.payment_method_id,
             plan: {
@@ -1071,6 +1094,7 @@ export async function runCharges(env, sendEmail) {
               plan_type: 'one_time',
               initial_price: game.price,
               title: 'Ash Tabletop game session',
+              ...(game.owner ? gmPlanExtras(game) : {}),
             },
             metadata: { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts },
           }),

@@ -75,6 +75,7 @@
         chip.type = 'button';
         chip.className = 'session-chip';
         chip.disabled = true;
+        chip.dataset.id = id;
         var when = (typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') ? formatLocal(nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0)) : 'Weekly session';
         chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta">Opening soon</span>';
         chip.querySelector('.session-main').textContent = when;
@@ -91,6 +92,29 @@
         '<div class="blog-payment-actions"><a class="btn btn-primary" href="' + profile + '">Meet the Game Master</a></div>';
     }
     document.querySelectorAll('.js-email-trigger').forEach(function (b) { b.remove(); });
+    if (d.bookable) openSeats(d);
+  }
+
+  // Once the Game Master's payout account is approved their sessions can be joined like any other.
+  function openSeats(d) {
+    fetch(WORKER + '/pay/seats').then(function (r) { return r.ok ? r.json() : null; }).then(function (res) {
+      var online = (res && res.seats) || {};
+      document.querySelectorAll('.article-schedule .session-chip').forEach(function (chip) {
+        var id = chip.dataset.id, s = d.slots && d.slots[id];
+        if (!s) return;
+        var key = id === 'default' ? d.slug : d.slug + '::' + id;
+        var left = Math.max(0, (s.max || 0) - (online[key] || 0));
+        var canJoin = s.enabled !== false && left > 0;
+        chip.disabled = !canJoin;
+        chip.querySelector('.session-seats').textContent = left > 0 ? left + (left === 1 ? ' seat left' : ' seats left') + ' (' + (s.max - left) + '/' + s.max + ')' : 'Full';
+        chip.querySelector('.session-chip-cta').textContent = s.enabled === false ? 'Paused' : left > 0 ? 'Join' : 'Full';
+        if (canJoin) chip.addEventListener('click', function () {
+          var params = new URLSearchParams({ campaign: d.slug, slot: id === 'default' ? '' : id, group: s.group || '', day: s.day, hour: s.hour, minute: s.minute || 0, offset: 0, embed: '1' });
+          if (typeof openJoinPopup === 'function') openJoinPopup('../player.html?' + params.toString());
+          else window.location.href = '../player.html?' + params.toString();
+        });
+      });
+    }).catch(function () { /* the sessions stay as they were */ });
   }
 
   fetch(WORKER + '/content/public?slug=' + encodeURIComponent(slug))

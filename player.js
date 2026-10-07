@@ -245,7 +245,29 @@ function billingHtml(next) {
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
 }
 
+// On another Game Master's table the page speaks about that Game Master, not about Ash.
+function personalizeDm() {
+  const table = realGame ? (serverState || publicState) : null;
+  const dm = table && table.dm;
+  if (!dm || !dm.slug || dm.slug === 'ash') return;
+  const name = dm.name || 'your Game Master';
+  const sub = document.querySelector('#pp-game-card .pp-muted');
+  if (sub) sub.textContent = 'A game run by ' + name;
+  const ask = document.querySelector('.pp-talk span');
+  if (ask) ask.textContent = 'Chat with ' + name + ' first. No pressure, no commitment.';
+  const link = document.querySelector('.pp-talk a');
+  if (link) {
+    link.href = 'gm.html?slug=' + encodeURIComponent(dm.slug);
+    link.removeAttribute('target');
+    for (const n of link.childNodes) if (n.nodeType === 3 && n.textContent.trim()) n.textContent = ' Talk to ' + name + ' ';
+  }
+  const closed = $('pp-join-closed');
+  if (closed) closed.textContent = 'Online booking for this group is opening soon. Tap Talk to ' + name + ' above and they will save you a seat.';
+  document.querySelectorAll('.pp-fineprint').forEach((p) => { p.textContent = p.textContent.replace(/Message Ash/g, 'Message ' + name); });
+}
+
 function renderGame() {
+  personalizeDm();
   document.querySelectorAll('.js-price').forEach((el) => { el.textContent = TEST_GAME.price; });
   $("pp-game-title").textContent = TEST_GAME.title;
   $("pp-game-eyebrow").textContent = TEST_GAME.eyebrow;

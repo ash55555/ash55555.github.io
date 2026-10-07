@@ -4,6 +4,7 @@
 
 import { cfg, loadGames, upcoming, sessionsBetween } from './pay.js';
 import { gmStatus } from './gm.js';
+import { gmPayoutAccount } from './connect.js';
 
 // Names that are game systems, so a system listed under "tools" still counts when people search by system.
 const SYSTEM_NAMES = ['D&D 5e', 'D&D 5.5 (2024)', 'Pathfinder 2e', 'Call of Cthulhu', 'Vampire: The Masquerade', 'Blades in the Dark', 'Starfinder', 'Shadowrun', 'Savage Worlds', 'Dungeon Crawl Classics'];
@@ -36,7 +37,8 @@ export async function handleHome(request, env, corsHeaders) {
   for (const r of rows) {
     const slots = Object.values(games).filter((g) => g.key === r.slug || g.key.startsWith(r.slug + '::')).filter((g) => g.enabled);
     if (!slots.length) continue;
-    const soon = !!r.owner_uid; // another Game Master's table cannot be booked yet
+    // a Game Master's table can be booked once Whop has approved their payout account; until then it only shows as opening soon
+    const soon = !!r.owner_uid && !(await gmPayoutAccount(env, r.owner_uid));
     const withSeats = soon ? slots : slots.filter((g) => openOf(g) > 0);
     if (!withSeats.length) continue; // a full table is not shown
     let best = null;
@@ -123,13 +125,13 @@ export async function handleHome(request, env, corsHeaders) {
   const ran = new Set();
   const from = new Date(SESSIONS_SINCE);
   for (const g of Object.values(games)) {
-    if (g.owner || !g.enabled) continue;
+    if (!g.enabled) continue;
     if (g.legacyFilled + (online[g.key] || 0) <= 0) continue; // nobody at the table
     sessionsBetween(g, from, now).forEach((d) => ran.add(g.key + '|' + d.toISOString()));
   }
   const charged = (await env.DB.prepare("SELECT DISTINCT game, session_ts FROM charges WHERE mode=? AND status IN ('paid','refunded') AND session_ts > ? AND session_ts <= ?")
     .bind(mode, from.toISOString(), now.toISOString()).all()).results;
-  charged.forEach((c) => { if (!owners[String(c.game).split('::')[0]]) ran.add(c.game + '|' + c.session_ts); });
+  charged.forEach((c) => { ran.add(c.game + '|' + c.session_ts); });
 
   return json({
     games: list.filter((g) => g.gm),
