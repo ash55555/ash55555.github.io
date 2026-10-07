@@ -4,8 +4,8 @@
 
 import { cfg, loadGames, upcoming, sessionsBetween } from './pay.js';
 
-// Ash's own written reviews on her page (3 of them, 5 stars each) count towards her rating.
-const ASH_WRITTEN = { count: 3, sum: 15 };
+// Ash's own written reviews on her page (6 of them, 5 stars each) count towards her rating.
+const ASH_WRITTEN = { count: 6, sum: 30 };
 // "Sessions played" starts at the figure Ash gave on this day and grows by one for every session that runs after it.
 const SESSIONS_BASE = 1490;
 const SESSIONS_SINCE = '2026-10-07T18:00:00.000Z';
