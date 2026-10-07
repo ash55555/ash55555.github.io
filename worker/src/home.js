@@ -8,7 +8,7 @@ import { cfg, loadGames, upcoming, sessionsBetween } from './pay.js';
 const ASH_WRITTEN = { count: 6, sum: 30 };
 // "Sessions played" starts at the figure Ash gave on this day and grows by one for every session that runs after it.
 const SESSIONS_BASE = 1490;
-const SESSIONS_SINCE = '2026-10-07T18:00:00.000Z';
+const SESSIONS_SINCE = '2026-10-07T00:00:00.000Z';
 
 function json(data, corsHeaders) {
   return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...corsHeaders } });
@@ -81,17 +81,22 @@ export async function handleHome(request, env, corsHeaders) {
   list.forEach((g) => { g.gm = g.owner ? (gmByUid[g.owner] ? gmByUid[g.owner].slug : null) : 'ash'; delete g.owner; });
 
   // Sessions played: the starting figure plus every session that has run since.
-  let ran = 0;
+  // A session counts once, whether we know it ran from the schedule (someone is at the table) or from a player
+  // having been charged for it.
+  const ran = new Set();
   const from = new Date(SESSIONS_SINCE);
   for (const g of Object.values(games)) {
     if (g.owner || !g.enabled) continue;
     if (g.legacyFilled + (online[g.key] || 0) <= 0) continue; // nobody at the table
-    ran += sessionsBetween(g, from, now).length;
+    sessionsBetween(g, from, now).forEach((d) => ran.add(g.key + '|' + d.toISOString()));
   }
+  const charged = (await env.DB.prepare("SELECT DISTINCT game, session_ts FROM charges WHERE mode=? AND status IN ('paid','refunded') AND session_ts > ? AND session_ts <= ?")
+    .bind(mode, from.toISOString(), now.toISOString()).all()).results;
+  charged.forEach((c) => { if (!owners[String(c.game).split('::')[0]]) ran.add(c.game + '|' + c.session_ts); });
 
   return json({
     games: list.filter((g) => g.gm),
     gms,
-    stats: { gms: gms.length, openGames: list.filter((g) => !g.soon).length, seatsOpen, sessionsPlayed: SESSIONS_BASE + ran },
+    stats: { gms: gms.length, openGames: list.filter((g) => !g.soon).length, seatsOpen, sessionsPlayed: SESSIONS_BASE + ran.size },
   }, corsHeaders);
 }
