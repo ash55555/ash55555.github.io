@@ -187,6 +187,7 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
         if (!(rating >= 1 && rating <= 5)) return json({ error: 'Please pick a star rating from 1 to 5.' }, 400, corsHeaders);
         const tags = Array.from(new Set(Array.isArray(body.tags) ? body.tags.filter((t) => REVIEW_TAGS.includes(t)) : []));
         const comment = clean(body.comment, 600);
+        if (!comment) return json({ error: 'Please add a few words about your experience.' }, 400, corsHeaders);
         const show = body.show === false ? 0 : 1;
         const pr = await env.DB.prepare('SELECT name FROM profiles WHERE uid=?').bind(user.sub).first();
         const name = clean((pr && pr.name) || user.name || (user.email || '').split('@')[0] || 'A player', 40);
@@ -232,6 +233,7 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
       const picked = Array.isArray(body.tags) ? body.tags.filter((t) => REVIEW_TAGS.includes(t)) : [];
       const tags = Array.from(new Set(picked));
       const comment = clean(body.comment, 600);
+      if (!comment) return json({ error: 'Please add a few words about your experience.' }, 400, corsHeaders);
       // Shown on the website unless the player unticks the box.
       const show = body.show === false ? 0 : 1;
 

@@ -689,82 +689,9 @@ function setupSignupModal() {
   });
 }
 
-// Reviews strip: auto-scrolls slowly, pauses on hover, and can be dragged
-// left/right by hand (mouse) or swiped natively (touch/trackpad already work
-// for free via overflow-x). The track holds two identical copies of every
-// review back to back, so looping is just "jump back by half the width".
-function setupReviewsMarquee() {
-  const marquee = document.querySelector('.reviews-marquee');
-  const track = document.querySelector('.reviews-track');
-  if (!marquee || !track) return;
-
-  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reducedMotion) return;
-
-  let halfWidth = track.scrollWidth / 2;
-  window.addEventListener('resize', () => {
-    halfWidth = track.scrollWidth / 2;
-  });
-
-  let isHovering = false;
-  let isDragging = false;
-  let lastTimestamp = null;
-  const pxPerSecond = halfWidth / 44; // matches the previous 44s-per-loop pace
-
-  function wrapAround() {
-    if (halfWidth <= 0) return;
-    if (marquee.scrollLeft >= halfWidth) marquee.scrollLeft -= halfWidth;
-    else if (marquee.scrollLeft <= 0) marquee.scrollLeft += halfWidth;
-  }
-
-  function tick(timestamp) {
-    if (lastTimestamp === null) lastTimestamp = timestamp;
-    const dt = timestamp - lastTimestamp;
-    lastTimestamp = timestamp;
-
-    if (!isHovering && !isDragging) {
-      marquee.scrollLeft += (pxPerSecond * dt) / 1000;
-      wrapAround();
-    }
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-
-  marquee.addEventListener('mouseenter', () => { isHovering = true; });
-  marquee.addEventListener('mouseleave', () => { isHovering = false; });
-
-  // Mouse-only click-and-drag; touch devices already get native swipe
-  // scrolling for free from overflow-x, which feels better than anything
-  // built by hand here.
-  let dragStartX = 0;
-  let dragStartScrollLeft = 0;
-
-  marquee.addEventListener('pointerdown', (event) => {
-    if (event.pointerType !== 'mouse') return;
-    isDragging = true;
-    dragStartX = event.clientX;
-    dragStartScrollLeft = marquee.scrollLeft;
-    marquee.classList.add('is-dragging');
-  });
-
-  window.addEventListener('pointermove', (event) => {
-    if (!isDragging || event.pointerType !== 'mouse') return;
-    marquee.scrollLeft = dragStartScrollLeft - (event.clientX - dragStartX);
-    wrapAround();
-  });
-
-  function endDrag(event) {
-    if (event && event.pointerType && event.pointerType !== 'mouse') return;
-    isDragging = false;
-    marquee.classList.remove('is-dragging');
-  }
-  window.addEventListener('pointerup', endDrag);
-  window.addEventListener('pointercancel', endDrag);
-}
-
 // Reviews players left from their profile page and chose to show on the website.
-// They go at the front of the strip (and of its looping duplicate), so the newest
-// is seen first. The written reviews already on the page are left exactly as they are.
+// They go at the front of the grid, so the newest is seen first. The written
+// reviews already on the page are left exactly as they are.
 const REVIEWS_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/review/public';
 // A Game Master's profile page (gm.html) names its Game Master in its address; every other page is Ash's.
 function reviewsUrl() {
@@ -775,18 +702,23 @@ const REVIEW_TOKENS = {
   dragon: ['\u{1F409}', '#6b46c1'], wizard: ['\u{1F9D9}', '#2f5fa8'], dagger: ['\u{1F5E1}\uFE0F', '#8a3b3b'],
   elf: ['\u{1F9DD}', '#2f7a5a'], bat: ['\u{1F987}', '#4a3a6b'], dice: ['\u{1F3B2}', '#a8702f'],
 };
+// However many tags a player picked, a card only ever shows its best 3 \u2014 the
+// rest stay on file (visible to the Game Master) but don't crowd the card.
+const REVIEW_TAGS_SHOWN = 3;
 
-function buildPlayerReviewCard(r, hidden) {
+function buildPlayerReviewCard(r) {
   const card = document.createElement('article');
   card.className = 'review-card';
-  if (hidden) card.setAttribute('aria-hidden', 'true');
+
+  const head = document.createElement('div');
+  head.className = 'review-head';
 
   let avatar;
   if (r.avatar) {
     avatar = document.createElement('img');
     avatar.className = 'review-avatar';
     avatar.src = r.avatar;
-    avatar.alt = hidden ? '' : r.name;
+    avatar.alt = r.name;
     avatar.loading = 'lazy';
   } else {
     const t = REVIEW_TOKENS[r.token] || REVIEW_TOKENS.wizard;
@@ -796,10 +728,11 @@ function buildPlayerReviewCard(r, hidden) {
     avatar.textContent = t[0];
     avatar.setAttribute('aria-hidden', 'true');
   }
-  card.appendChild(avatar);
+  head.appendChild(avatar);
 
-  const stars = document.createElement('p');
+  const stars = document.createElement('div');
   stars.className = 'review-stars';
+  stars.setAttribute('role', 'img');
   stars.setAttribute('aria-label', r.rating + ' out of 5 stars');
   for (let i = 1; i <= 5; i++) {
     const star = document.createElement('span');
@@ -807,17 +740,38 @@ function buildPlayerReviewCard(r, hidden) {
     star.textContent = '\u2605';
     stars.appendChild(star);
   }
-  card.appendChild(stars);
+  head.appendChild(stars);
+  card.appendChild(head);
 
-  if (r.tags && r.tags.length) {
-    const tags = document.createElement('p');
-    tags.className = 'review-tags';
-    r.tags.forEach((t) => {
+  // The qualities a player picked stay closed until tapped, so the card reads as a
+  // quote first and a quick "what stood out" summary second, not a wall of chips.
+  const tags = (r.tags || []).slice(0, REVIEW_TAGS_SHOWN);
+  if (tags.length) {
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'review-toggle';
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '<span>What stood out</span>' +
+      '<svg class="review-toggle-chevron" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
+      '<path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    card.appendChild(toggle);
+
+    const tagsEl = document.createElement('p');
+    tagsEl.className = 'review-tags';
+    tagsEl.hidden = true;
+    tags.forEach((t) => {
       const chip = document.createElement('span');
       chip.textContent = t;
-      tags.appendChild(chip);
+      tagsEl.appendChild(chip);
     });
-    card.appendChild(tags);
+    card.appendChild(tagsEl);
+
+    toggle.addEventListener('click', () => {
+      const opening = tagsEl.hidden;
+      tagsEl.hidden = !opening;
+      toggle.setAttribute('aria-expanded', String(opening));
+      toggle.classList.toggle('on', opening);
+    });
   }
 
   if (r.comment) {
@@ -842,22 +796,14 @@ async function loadPlayerReviews() {
     if (!res.ok) return;
     const data = await res.json();
     if (!data.reviews || !data.reviews.length) return;
-    const firstReal = track.querySelector('.review-card:not([aria-hidden="true"])');
-    const firstCopy = track.querySelector('.review-card[aria-hidden="true"]');
+    const firstReal = track.querySelector('.review-card');
     if (!firstReal) {
-      // a Game Master's strip starts empty: the real cards first, then their looping copies
-      data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r, false)));
-      data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r, true)));
-      const section = track.closest('.reviews');
-      if (section) section.hidden = false;
+      data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r)));
     } else {
-      data.reviews.forEach((r) => {
-        track.insertBefore(buildPlayerReviewCard(r, false), firstReal);
-        track.insertBefore(buildPlayerReviewCard(r, true), firstCopy);
-      });
+      data.reviews.forEach((r) => track.insertBefore(buildPlayerReviewCard(r), firstReal));
     }
-    // The strip measures itself on resize, so tell it the content just got longer.
-    window.dispatchEvent(new Event('resize'));
+    const section = track.closest('.reviews');
+    if (section) section.hidden = false;
   } catch (err) { /* the written reviews stay as they are */ }
 }
 
@@ -869,7 +815,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEmailModal();
   setupPaypalModal();
   setupSignupModal();
-  setupReviewsMarquee();
   loadPlayerReviews();
 });
 

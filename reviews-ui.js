@@ -228,8 +228,8 @@ var AshReviews = (function () {
       section.appendChild(tagWrap);
 
       var commentId = opts.commentId || 'rv-comment';
-      var label = el('label', 'rv-lead rv-lead-sm', 'Anything else you would like to say? ');
-      label.appendChild(el('span', 'rv-muted', '(optional)'));
+      var label = el('label', 'rv-lead rv-lead-sm', 'What would you like to say? ');
+      label.appendChild(el('span', 'rv-muted', '(required)'));
       label.setAttribute('for', commentId);
       section.appendChild(label);
       var ta = document.createElement('textarea');
@@ -240,7 +240,7 @@ var AshReviews = (function () {
       ta.placeholder = 'A favorite moment, what you like about the table, anything at all.';
       ta.value = form.comment;
       var count = el('div', 'rv-count', form.comment.length + ' / ' + MAX_COMMENT);
-      ta.addEventListener('input', function () { form.comment = ta.value; count.textContent = ta.value.length + ' / ' + MAX_COMMENT; });
+      ta.addEventListener('input', function () { form.comment = ta.value; count.textContent = ta.value.length + ' / ' + MAX_COMMENT; sync(); });
       section.appendChild(ta);
       section.appendChild(count);
 
@@ -268,11 +268,11 @@ var AshReviews = (function () {
       section.appendChild(foot);
       section.appendChild(el('p', 'rv-note', 'Your review always goes to ' + dmName + '. If the box above is ticked, it also appears on ' + dmName + '’s website. Untick it to keep it private.'));
 
-      function sync() { send.disabled = !form.rating; }
+      function sync() { send.disabled = !form.rating || !form.comment.trim(); }
       sync();
 
       send.addEventListener('click', function () {
-        if (!form.rating) return;
+        if (!form.rating || !form.comment.trim()) return;
         send.disabled = true;
         status.textContent = 'Sending...';
         status.className = 'rv-status';
