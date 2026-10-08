@@ -546,21 +546,56 @@
   .cc-banner-btn:hover .cc-banner-overlay { opacity: 1; background: rgba(0,0,0,.45); }
   .cc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1em; }
   .cc-count { font-size: .7rem; color: var(--text-muted); text-align: right; margin-top: .25em; }
-  .cc-hint { font-size: .78rem; color: var(--text-muted); margin: .4em 0 0; }
+  .cc-hint { font-size: .78rem; color: var(--text-muted); margin: .5em 0 0; }
   .cc-hint.warn { color: var(--danger); font-weight: 700; }
-  .cc-money { display: flex; align-items: center; gap: .4em; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0 .6em; }
-  .cc-money span:first-child { color: var(--gold); font-weight: 800; }
-  .cc-money input { flex: 1; min-width: 0; background: none !important; border: 0 !important; padding: .5em 0 !important; }
+
+  /* Price, seats, opening and cadence get their own glowing cards, the same visual
+     weight as the rest of the site's gold/purple accents, instead of blending into
+     the plain text-field list above and below them. */
+  .cc-highlight {
+    position: relative;
+    background: linear-gradient(160deg, rgba(242, 184, 79, .1), rgba(28, 18, 48, .4));
+    border: 1px solid rgba(242, 184, 79, .3);
+    border-radius: 18px;
+    padding: 1.3em 1.4em;
+    margin-top: 1.3em;
+    box-shadow: 0 14px 32px rgba(6, 2, 15, .35);
+  }
+  .cc-highlight.purple { background: linear-gradient(160deg, rgba(155, 109, 255, .12), rgba(28, 18, 48, .4)); border-color: rgba(155, 109, 255, .32); }
+  .cc-highlight-head { display: flex; align-items: center; gap: .55em; margin-bottom: 1.1em; }
+  .cc-highlight-head .ico {
+    display: grid; place-items: center; width: 2em; height: 2em; border-radius: 10px; font-size: 1.05rem; flex: none;
+    background: rgba(242, 184, 79, .16); box-shadow: 0 0 0 1px rgba(242, 184, 79, .3) inset;
+  }
+  .cc-highlight.purple .cc-highlight-head .ico { background: rgba(155, 109, 255, .18); box-shadow: 0 0 0 1px rgba(155, 109, 255, .35) inset; }
+  .cc-highlight-head h3 { margin: 0; font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--text); }
+  .cc-highlight .cc-fields { margin-top: 0; }
+  .cc-highlight .field:last-child { margin-bottom: 0; }
+
+  .cc-money {
+    display: flex; align-items: center; gap: .5em; background: rgba(10, 6, 20, .55); border: 1px solid var(--border);
+    border-radius: 12px; padding: 0 .9em; transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .cc-money:focus-within { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(242, 184, 79, .18); }
+  .cc-money span:first-child { color: var(--gold); font-weight: 900; font-size: 1.15rem; text-shadow: 0 0 14px rgba(242, 184, 79, .4); }
+  .cc-money input { flex: 1; min-width: 0; background: none !important; border: 0 !important; padding: .7em 0 !important; font-size: 1.05rem !important; font-weight: 800; color: var(--text); }
   .cc-money input:focus { outline: none; }
-  .cc-money-unit { font-size: .72rem; font-weight: 800; letter-spacing: .05em; color: var(--text-muted); }
-  .cc-seg { display: inline-flex; width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: .25em; gap: .2em; }
-  .cc-seg button { flex: 1; border: 0; background: none; color: var(--text-muted); font: inherit; font-weight: 800; font-size: .84rem; padding: .55em .8em; border-radius: 999px; cursor: pointer; }
-  .cc-seg button.on { background: var(--purple); color: #fff; }
-  .cc-datechips { display: flex; flex-wrap: wrap; gap: .5em; }
-  .cc-datechip { border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-weight: 700; font-size: .84rem; padding: .55em .9em; border-radius: 10px; cursor: pointer; text-align: left; }
-  .cc-datechip span { display: block; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .15em; }
-  .cc-datechip.on { border-color: var(--gold); background: rgba(242, 184, 79, .12); }
+  .cc-money-unit { font-size: .7rem; font-weight: 800; letter-spacing: .06em; color: var(--text-muted); }
+
+  .cc-seg { display: inline-flex; width: 100%; background: rgba(10, 6, 20, .55); border: 1px solid var(--border); border-radius: 999px; padding: .3em; gap: .25em; }
+  .cc-seg button { flex: 1; border: 0; background: none; color: var(--text-muted); font: inherit; font-weight: 800; font-size: .85rem; padding: .6em .9em; border-radius: 999px; cursor: pointer; transition: background .15s ease, color .15s ease, box-shadow .15s ease; }
+  .cc-seg button.on { background: linear-gradient(135deg, var(--gold), #d99a2e); color: #241407; box-shadow: 0 8px 18px rgba(242, 184, 79, .32); }
+  .cc-highlight.purple .cc-seg button.on { background: linear-gradient(135deg, var(--purple), var(--purple-deep)); color: #fff; box-shadow: 0 8px 18px rgba(155, 109, 255, .32); }
+  .cc-seg button:not(.on):hover { color: var(--text); background: rgba(255, 255, 255, .06); }
+
+  .cc-datechips { display: flex; flex-wrap: wrap; gap: .6em; }
+  .cc-datechip { border: 1px solid var(--border); background: rgba(10, 6, 20, .55); color: var(--text); font: inherit; font-weight: 700; font-size: .85rem; padding: .65em 1em; border-radius: 12px; cursor: pointer; text-align: left; transition: all .15s ease; }
+  .cc-datechip:hover { border-color: rgba(242, 184, 79, .5); transform: translateY(-1px); }
+  .cc-datechip span { display: block; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .2em; }
+  .cc-datechip.on { border-color: var(--gold); background: linear-gradient(135deg, rgba(242, 184, 79, .2), rgba(242, 184, 79, .07)); box-shadow: 0 8px 18px rgba(242, 184, 79, .2); }
   .cc-datechip.on span { color: var(--gold); }
+  .cc-cadence-strip { font-size: .84rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+  .cc-cadence-strip b { color: var(--gold); font-weight: 800; }
 </style>
 <style id="admin-glass">
   /* ===== DM side: liquid glass (admin page only) ===== */
@@ -1262,26 +1297,29 @@
           <div class="field"><label>Eyebrow (short tag above the title)</label><input type="text" id="cc-f-eyebrow" maxlength="70" placeholder="e.g. Political Intrigue · Buried City"></div>
         </div>
 
-        <div class="cc-fields" style="margin-top:1em;">
-          <div class="field">
-            <label>Price per session</label>
-            <div class="cc-money"><span>$</span><input type="number" id="cc-f-price" min="5" step="1" placeholder="10"><span class="cc-money-unit">USD</span></div>
-            <p class="cc-hint" id="cc-price-hint">$5 minimum, no maximum. Leave blank for the site default, $10.</p>
-          </div>
-          <div class="field">
-            <label>Minimum players</label>
-            <input type="number" id="cc-f-minplayers" min="1" max="20" placeholder="3">
-            <p class="cc-hint">Shown as "X needed to start." Leave blank for the site default, 3.</p>
+        <div class="cc-highlight">
+          <div class="cc-highlight-head"><span class="ico">💰</span><h3>Price &amp; seats</h3></div>
+          <div class="cc-fields">
+            <div class="field">
+              <label>Price per session</label>
+              <div class="cc-money"><span>$</span><input type="number" id="cc-f-price" min="5" step="1" placeholder="10"><span class="cc-money-unit">USD</span></div>
+              <p class="cc-hint" id="cc-price-hint">$5 minimum, no maximum. Leave blank for the site default, $10.</p>
+            </div>
+            <div class="field">
+              <label>Minimum players</label>
+              <input type="number" id="cc-f-minplayers" min="1" max="20" placeholder="3">
+              <p class="cc-hint">Shown as "X needed to start." Leave blank for the site default, 3.</p>
+            </div>
           </div>
         </div>
 
-        <div class="field" style="margin-top:1em;">
-          <label>Opening</label>
+        <div class="cc-highlight purple">
+          <div class="cc-highlight-head"><span class="ico">🗓️</span><h3>Opening</h3></div>
           <div class="cc-seg" id="cc-open-seg">
             <button type="button" class="on" data-v="now">Open now</button>
             <button type="button" data-v="date">Opens on a date</button>
           </div>
-          <div class="field" id="cc-open-date-wrap" style="margin-top:.7em;" hidden>
+          <div class="field" id="cc-open-date-wrap" style="margin-top:.9em;" hidden>
             <label>Opens on</label>
             <input type="date" id="cc-f-openat">
             <p class="cc-hint">Hidden from joining until this date. The page still shows and says when it opens.</p>
@@ -1318,22 +1356,23 @@
           <div class="cc-count" id="cc-count-audience">0 / 2500</div>
         </div>
 
-        <div id="cc-time-single" class="slot-row" style="margin-top:1.2em;">
+        <div class="cc-highlight purple" id="cc-time-single">
+          <div class="cc-highlight-head"><span class="ico">🔁</span><h3>Schedule</h3></div>
           <div class="slot-fields">
             <div class="field"><label id="cc-day-label">Session day (GMT+1)</label><select id="cc-f-day"></select></div>
             <div class="field"><label id="cc-time-label">Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
           </div>
-          <div class="field" style="margin-top:.8em;">
+          <div class="field" style="margin-top:.9em;">
             <label>How often</label>
             <div class="cc-seg" id="cc-freq-seg">
               <button type="button" class="on" data-v="weekly">Weekly</button>
               <button type="button" data-v="biweekly">Every other week</button>
             </div>
           </div>
-          <div class="field" id="cc-anchor-wrap" style="margin-top:.6em;" hidden>
+          <div class="field" id="cc-anchor-wrap" style="margin-top:.8em;" hidden>
             <label>First session (pick the real date, not a week number)</label>
             <div class="cc-datechips" id="cc-anchor-chips"></div>
-            <p class="cc-hint" id="cc-cadence-hint"></p>
+            <p class="cc-hint cc-cadence-strip" id="cc-cadence-hint"></p>
           </div>
         </div>
         <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so each group has its own time, further down under Players &amp; Payments. <button type="button" class="pay-mini" id="cc-time-goto">Take me there</button></p>
@@ -3099,9 +3138,9 @@ window.AshSlots = (function () {
   function paintCadenceHint(anchorYmd) {
     var hint = document.getElementById('cc-cadence-hint');
     var d = ymdToDate(anchorYmd);
-    if (!d) { hint.textContent = ''; return; }
+    if (!d) { hint.innerHTML = ''; return; }
     var dates = [d, addLocalDays(d, 14), addLocalDays(d, 28), addLocalDays(d, 42)];
-    hint.textContent = 'Then every two weeks: ' + dates.map(function (x) { return MONTH_ABBR[x.getMonth()] + ' ' + x.getDate(); }).join(' · ');
+    hint.innerHTML = 'Then every two weeks: <b>' + dates.map(function (x) { return MONTH_ABBR[x.getMonth()] + ' ' + x.getDate(); }).join('</b> &middot; <b>') + '</b>';
   }
   // Two real dates to pick the first session from: the soonest matching weekday, and one week after that.
   function buildAnchorChips(day, selectedYmd) {
