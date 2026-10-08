@@ -27,6 +27,11 @@ document.addEventListener('DOMContentLoaded', function () {
   function chipKey(chip) {
     return chip.dataset.campaign + '::' + (chip.dataset.slot || 'default');
   }
+  function freqLabel(freq) {
+    if (freq === 'biweekly') return 'Every other week, shown in your time zone';
+    if (freq === 'once') return 'One-shot, shown in your time zone';
+    return 'Weekly session, shown in your time zone';
+  }
 
   // Players booked online through the new card system. The admin page's "filled"
   // number counts only players who are NOT booked online (the PayPal ones), so the
@@ -60,15 +65,22 @@ document.addEventListener('DOMContentLoaded', function () {
     if (slot.source) chip.dataset.source = slot.source;
     if (groupEl && slot.group) groupEl.textContent = slot.group;
 
-    if (mainEl && typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') {
-      var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor);
-      if (next) mainEl.textContent = formatLocal(next);
-    }
+    var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor) : null;
+    if (mainEl && next && typeof formatLocal === 'function') mainEl.textContent = formatLocal(next);
 
     chip.disabled = false;
     chip.classList.remove('is-full');
     chip.classList.remove('is-full-hidden');
     if (ctaEl) ctaEl.textContent = 'Join';
+
+    if (slot.freq === 'once' && !next) {
+      chip.disabled = true;
+      chip.classList.add('is-full', 'is-full-hidden');
+      if (subEl) subEl.textContent = 'This one-shot has already run';
+      if (ctaEl) ctaEl.textContent = 'Ended';
+      if (seatsEl) seatsEl.textContent = '';
+      return;
+    }
 
     if (slot.enabled === false) {
       chip.disabled = true;
@@ -80,7 +92,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (subEl) {
-      subEl.textContent = slot.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly session, shown in your time zone';
+      subEl.textContent = freqLabel(slot.freq);
     }
 
     if (typeof slot.max === 'number') {

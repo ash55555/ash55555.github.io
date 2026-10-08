@@ -70,15 +70,18 @@ export function slotToUtc(slot, now = new Date()) {
   const shift = Math.floor(utc / 1440);
   const inDay = ((utc % 1440) + 1440) % 1440;
   const out = { day: (((slot.day + shift) % 7) + 7) % 7, hour: Math.floor(inDay / 60), minute: inDay % 60, offset: 0 };
-  if (slot.freq === 'biweekly' && slot.anchor) out.anchor = shiftYmd(slot.anchor, shift);
+  if ((slot.freq === 'biweekly' || slot.freq === 'once') && slot.anchor) out.anchor = shiftYmd(slot.anchor, shift);
   return out;
 }
 
 // Check one slot from the browser and return only the fields we keep, or { error }.
-// freq is "weekly" (the default, and the only option before this field existed) or
-// "biweekly". A biweekly slot also carries anchor, the "YYYY-MM-DD" date of its first
-// session — a real date instead of an ambiguous "which week do we start on" rule, and
-// the day that date falls on (UTC) must match the weekday already picked for the slot.
+// freq is "weekly" (the default, and the only option before this field existed),
+// "biweekly" or "once". A biweekly slot carries anchor, the "YYYY-MM-DD" date of its
+// first session — a real date instead of an ambiguous "which week do we start on" rule.
+// A one-shot slot carries the same anchor field, but as its one and only session; once
+// that date has passed, it simply has no more upcoming sessions, the same as any other
+// campaign that stops recurring. Either way, the day that date falls on (UTC) must match
+// the weekday already picked for the slot.
 export function cleanSlot(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
   const day = Number(s.day), hour = Number(s.hour), minute = Number(s.minute || 0), max = Number(s.max);
@@ -86,12 +89,12 @@ export function cleanSlot(raw) {
   if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return { error: 'Please pick a start time.' };
   if (!Number.isInteger(max) || max < 1 || max > 12) return { error: 'Max players must be between 1 and 12.' };
   if (!validTz(s.tz)) return { error: 'Your time zone could not be read. Please reload the page and try again.' };
-  const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
+  const freq = s.freq === 'biweekly' ? 'biweekly' : s.freq === 'once' ? 'once' : 'weekly';
   let anchor = null;
-  if (freq === 'biweekly') {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s.anchor || ''))) return { error: 'Please pick the date of the first session.' };
+  if (freq === 'biweekly' || freq === 'once') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s.anchor || ''))) return { error: freq === 'once' ? 'Please pick the session date.' : 'Please pick the date of the first session.' };
     const d = new Date(`${s.anchor}T00:00:00Z`);
-    if (Number.isNaN(d.getTime()) || d.getUTCDay() !== day) return { error: 'The first session date does not fall on the day you picked.' };
+    if (Number.isNaN(d.getTime()) || d.getUTCDay() !== day) return { error: 'The session date does not fall on the day you picked.' };
     anchor = String(s.anchor);
   }
   const group = String(s.group == null ? '' : s.group).replace(/<[^>]*>/g, ' ').replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);

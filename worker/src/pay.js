@@ -93,7 +93,7 @@ export async function loadGames(env, fresh = false) {
       const key = slotId === 'default' ? slug : `${slug}::${slotId}`;
       const minute = Number.isInteger(s.minute) ? s.minute : 0;
       const offset = typeof s.offset === 'number' ? s.offset : 1;
-      const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
+      const freq = s.freq === 'biweekly' ? 'biweekly' : s.freq === 'once' ? 'once' : 'weekly';
       games[key] = {
         key,
         title: (CAMPAIGN_TITLES[slug] || meta.title || slug) + (s.group ? `, ${s.group}` : ''),
@@ -102,7 +102,7 @@ export async function loadGames(env, fresh = false) {
         minute,
         offset,
         freq,
-        anchorTs: freq === 'biweekly' ? anchorTimestamp(s.anchor, s.hour, minute, offset) : null,
+        anchorTs: freq !== 'weekly' ? anchorTimestamp(s.anchor, s.hour, minute, offset) : null,
         price,
         max: Number.isInteger(s.max) && s.max > 0 ? s.max : 5,
         min,
@@ -132,12 +132,12 @@ export async function loadGames(env, fresh = false) {
         const u = slotToUtc(s, now);
         const key = slotId === 'default' ? c.slug : `${c.slug}::${slotId}`;
         if (games[key]) continue; // never take over one of Ash's own games
-        const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
+        const freq = s.freq === 'biweekly' ? 'biweekly' : s.freq === 'once' ? 'once' : 'weekly';
         games[key] = {
           key,
           title: c.title + (s.group ? `, ${s.group}` : ''),
           day: u.day, hour: u.hour, minute: u.minute, offset: 0,
-          freq, anchorTs: freq === 'biweekly' ? anchorTimestamp(u.anchor, u.hour, u.minute, 0) : null,
+          freq, anchorTs: freq !== 'weekly' ? anchorTimestamp(u.anchor, u.hour, u.minute, 0) : null,
           price,
           max: Number.isInteger(s.max) && s.max > 0 ? s.max : 5,
           min,
@@ -210,9 +210,9 @@ function isAllowed(env, user) {
   return allowed.includes((user.email || '').toLowerCase());
 }
 
-// The date (in ms since epoch) of a slot's very first session, from its "YYYY-MM-DD"
-// anchor plus the hour/minute/offset already resolved for that slot. Only biweekly
-// slots have an anchor; everyone else gets null and nextStart below just runs weekly.
+// The date (in ms since epoch) of a slot's one fixed session, from its "YYYY-MM-DD"
+// anchor plus the hour/minute/offset already resolved for that slot. Only biweekly and
+// one-shot slots have an anchor; everyone else gets null and nextStart below just runs weekly.
 function anchorTimestamp(anchorYmd, hour, minute, offset) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchorYmd || '');
   if (!m) return null;
@@ -227,8 +227,12 @@ function fmtOpenDate(ymd) {
 
 // First session start strictly after `after`. Weekly by default; a biweekly game only
 // counts the occurrence every 14 days from its anchor date, so there's never a "which
-// week" guess — the cadence is always counted from one real, GM-picked date.
+// week" guess — the cadence is always counted from one real, GM-picked date. A one-shot
+// game has exactly one session, its anchor date, and nothing before or after it.
 function nextStart(game, after) {
+  if (game.freq === 'once') {
+    return Number.isFinite(game.anchorTs) && game.anchorTs > after.getTime() ? new Date(game.anchorTs) : null;
+  }
   const utcHour = game.hour - game.offset;
   const targetDay = (game.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
   const biweekly = game.freq === 'biweekly' && Number.isFinite(game.anchorTs);
@@ -244,20 +248,24 @@ function nextStart(game, after) {
 }
 
 export function upcoming(game, from, count) {
+  const d = nextStart(game, from);
+  if (game.freq === 'once') return d ? [d] : [];
   const out = [];
-  let d = nextStart(game, from);
+  let cur = d;
   const stepMs = (game.freq === 'biweekly' ? 14 : 7) * DAY_MS;
-  for (let i = 0; i < count && d; i++) {
-    out.push(d);
-    d = new Date(d.getTime() + stepMs);
+  for (let i = 0; i < count && cur; i++) {
+    out.push(cur);
+    cur = new Date(cur.getTime() + stepMs);
   }
   return out;
 }
 
 // Sessions with start in (from, to].
 export function sessionsBetween(game, from, to) {
+  const start = nextStart(game, from);
+  if (game.freq === 'once') return start && start.getTime() <= to.getTime() ? [start] : [];
   const out = [];
-  let d = nextStart(game, from);
+  let d = start;
   const stepMs = (game.freq === 'biweekly' ? 14 : 7) * DAY_MS;
   while (d && d.getTime() <= to.getTime()) {
     out.push(d);

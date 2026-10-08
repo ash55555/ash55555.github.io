@@ -20,6 +20,11 @@
     var p = ymd.split('-').map(Number);
     return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }
+  function freqLabel(freq) {
+    if (freq === 'biweekly') return 'Every other week, shown in your time zone';
+    if (freq === 'once') return 'One-shot, shown in your time zone';
+    return 'Weekly session, shown in your time zone';
+  }
 
   function buildCard(c) {
     var href = 'blog/campaign.html?slug=' + encodeURIComponent(c.slug);
@@ -145,12 +150,18 @@
         chip.dataset.freq = slot.freq || 'weekly'; chip.dataset.anchor = slot.anchor || '';
         if (slot.source) chip.dataset.source = slot.source;
         var mainEl = chip.querySelector('.session-main');
-        if (mainEl && typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') {
-          var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor);
-          if (next) mainEl.textContent = formatLocal(next);
-        }
+        var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor) : null;
+        if (next && mainEl && typeof formatLocal === 'function') mainEl.textContent = formatLocal(next);
         var subEl = chip.querySelector('.session-sub');
         var ctaEl = chip.querySelector('.session-chip-cta');
+        // A one-shot with no next occurrence has already happened; there is nothing left to join.
+        if (slot.freq === 'once' && !next) {
+          if (subEl) subEl.textContent = 'This one-shot has already run';
+          if (ctaEl) ctaEl.textContent = 'Ended';
+          chip.disabled = true;
+          chip.classList.add('is-full', 'is-full-hidden');
+          return;
+        }
         if (slot.enabled === false) {
           if (subEl) subEl.textContent = 'Not currently running';
           if (ctaEl) ctaEl.textContent = 'Paused';
@@ -158,7 +169,7 @@
           chip.classList.add('is-full');
           return;
         }
-        if (subEl) subEl.textContent = slot.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly session, shown in your time zone';
+        if (subEl) subEl.textContent = freqLabel(slot.freq);
         chip.disabled = false;
         chip.classList.remove('is-full');
         chip.classList.remove('is-full-hidden');

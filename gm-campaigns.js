@@ -25,8 +25,15 @@
   function opensLater(c) {
     return c.openMode === 'date' && c.openAt && new Date(c.openAt + 'T00:00:00Z').getTime() > Date.now();
   }
+  function freqLabel(freq) {
+    if (freq === 'biweekly') return 'Every other week, shown in your time zone';
+    if (freq === 'once') return 'One-shot, shown in your time zone';
+    return 'Weekly, shown in your time zone';
+  }
 
   function sessionChip(s, c, id) {
+    var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0, s.freq, s.anchor) : null;
+    if (s.freq === 'once' && !next) return null; // this one-shot has already happened
     var key = id === 'default' ? c.slug : c.slug + '::' + id;
     var left = Math.max(0, (s.max || 0) - (online[key] || 0));
     var later = opensLater(c);
@@ -36,10 +43,9 @@
     chip.disabled = !canJoin;
     var cta = later ? 'Opens ' + openDateLong(c.openAt) : !c.bookable ? 'Opening soon' : s.enabled === false ? 'Paused' : left > 0 ? 'Join' : 'Full';
     chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta"></span>';
-    var main = typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function'
-      ? formatLocal(nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0, s.freq, s.anchor)) : 'Weekly session';
+    var main = next && typeof formatLocal === 'function' ? formatLocal(next) : 'Weekly session';
     chip.querySelector('.session-main').textContent = main;
-    chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' ' + DOT + ' ' : '') + (s.enabled === false ? 'Not running right now' : (s.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly, shown in your time zone'));
+    chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' ' + DOT + ' ' : '') + (s.enabled === false ? 'Not running right now' : freqLabel(s.freq));
     chip.querySelector('.session-seats').textContent = c.bookable ? (left > 0 ? left + (left === 1 ? ' seat left' : ' seats left') + ' (' + (s.max - left) + '/' + s.max + ')' : 'Full') : 'Up to ' + s.max + ' players';
     chip.querySelector('.session-chip-cta').textContent = cta;
     if (canJoin) {
@@ -68,7 +74,8 @@
     if (c.eyebrow) body.appendChild(el('p', 'campaign-tone', c.eyebrow));
     if (c.hook) body.appendChild(el('p', 'campaign-hook', c.hook));
     var list = el('div', 'session-list');
-    Object.keys(c.slots || {}).forEach(function (id) { list.appendChild(sessionChip(c.slots[id], c, id)); });
+    Object.keys(c.slots || {}).forEach(function (id) { var chip = sessionChip(c.slots[id], c, id); if (chip) list.appendChild(chip); });
+    if (!list.children.length) list.appendChild(el('p', 'campaign-note', 'No upcoming sessions right now.'));
     body.appendChild(list);
     var more = el('a', 'story-link', 'Read the Full Story');
     more.href = href;

@@ -67,8 +67,8 @@ function publicSlots(row) {
   Object.entries(parseSlots(row)).forEach(([id, s]) => {
     if (!s || !Number.isInteger(s.day) || !Number.isInteger(s.hour)) return;
     const u = slotToUtc(s, now);
-    const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
-    out[id] = { day: u.day, hour: u.hour, minute: u.minute, offset: 0, max: s.max, filled: 0, enabled: s.enabled !== false, group: s.group || '', freq, anchor: freq === 'biweekly' ? (u.anchor || null) : null };
+    const freq = s.freq === 'biweekly' ? 'biweekly' : s.freq === 'once' ? 'once' : 'weekly';
+    out[id] = { day: u.day, hour: u.hour, minute: u.minute, offset: 0, max: s.max, filled: 0, enabled: s.enabled !== false, group: s.group || '', freq, anchor: freq !== 'weekly' ? (u.anchor || null) : null };
   });
   return out;
 }

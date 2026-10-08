@@ -7,6 +7,12 @@
   if (!slug) return;
   var WORKER = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';
 
+  function freqLabel(freq) {
+    if (freq === 'biweekly') return 'Every other week, shown in your time zone';
+    if (freq === 'once') return 'One-shot, shown in your time zone';
+    return 'Weekly, shown in your time zone';
+  }
+
   // ledeFirst: bold-and-larger opening line (the intro section's style).
   // italicLast: the closing flourish line at the end (the "why this table"
   // section always signs off with one), matching how these pages have always read.
@@ -71,18 +77,21 @@
       if (!ids.length) { var none = document.createElement('p'); none.textContent = 'The schedule is not set yet.'; list.appendChild(none); }
       ids.forEach(function (id) {
         var s = d.slots[id];
+        var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0, s.freq, s.anchor) : null;
+        if (s.freq === 'once' && !next) return; // this one-shot has already happened; nothing to show
         var chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'session-chip';
         chip.disabled = true;
         chip.dataset.id = id;
-        var when = (typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') ? formatLocal(nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0, s.freq, s.anchor)) : 'Weekly session';
+        var when = (next && typeof formatLocal === 'function') ? formatLocal(next) : 'Weekly session';
         chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta">Opening soon</span>';
         chip.querySelector('.session-main').textContent = when;
-        chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' \u00B7 ' : '') + (s.enabled === false ? 'Not running right now' : (s.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly, shown in your time zone'));
+        chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' \u00B7 ' : '') + (s.enabled === false ? 'Not running right now' : freqLabel(s.freq));
         chip.querySelector('.session-seats').textContent = 'Up to ' + s.max + ' players';
         list.appendChild(chip);
       });
+      if (!list.children.length) { var ended = document.createElement('p'); ended.textContent = 'This table has no upcoming sessions right now.'; list.appendChild(ended); }
     }
 
     var price = '$' + (d.price % 1 === 0 ? d.price : d.price.toFixed(2)) + ' USD per session';

@@ -2,9 +2,10 @@
 // reference. This finds each session's next real-world occurrence in UTC, then
 // lets the browser render it in the visitor's own local timezone automatically.
 
-// freq ("weekly", the default, or "biweekly") and anchor (a slot's "YYYY-MM-DD" first-session
-// date, biweekly only) are optional, mirroring the Worker's own nextStart/anchorTimestamp in
-// worker/src/pay.js — a biweekly slot only counts the occurrence every 14 days from that date.
+// freq ("weekly", the default, "biweekly" or "once") and anchor (a slot's "YYYY-MM-DD" date,
+// for biweekly its first session, for a one-shot its only one) are optional, mirroring the
+// Worker's own nextStart/anchorTimestamp in worker/src/pay.js — a biweekly slot only counts
+// the occurrence every 14 days from that date, and a one-shot has no occurrence but that date.
 function nextOccurrenceUTC(sourceDay, sourceHour, minute, offsetHours, freq, anchor) {
   let utcHour = sourceHour - offsetHours;
   let dayShift = 0;
@@ -17,11 +18,12 @@ function nextOccurrenceUTC(sourceDay, sourceHour, minute, offsetHours, freq, anc
   }
   const utcDay = (sourceDay + dayShift + 7) % 7;
   const now = new Date();
-  const biweekly = freq === 'biweekly' && anchor;
-  const anchorMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchor || '');
-  const anchorTs = biweekly && anchorMatch ? Date.UTC(+anchorMatch[1], +anchorMatch[2] - 1, +anchorMatch[3], utcHour, minute) : null;
-  const horizon = biweekly && anchorTs != null ? 16 : 8;
+  const anchorMatch = (freq === 'biweekly' || freq === 'once') && anchor ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchor) : null;
+  const anchorTs = anchorMatch ? Date.UTC(+anchorMatch[1], +anchorMatch[2] - 1, +anchorMatch[3], utcHour, minute) : null;
 
+  if (freq === 'once') return anchorTs != null && anchorTs > now.getTime() ? new Date(anchorTs) : null;
+
+  const horizon = freq === 'biweekly' && anchorTs != null ? 16 : 8;
   for (let i = 0; i < horizon; i++) {
     const candidate = new Date(Date.UTC(
       now.getUTCFullYear(),

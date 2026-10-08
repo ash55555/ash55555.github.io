@@ -1359,7 +1359,8 @@
         <div class="cc-highlight purple" id="cc-time-single">
           <div class="cc-highlight-head"><span class="ico">🔁</span><h3>Schedule</h3></div>
           <div class="slot-fields">
-            <div class="field"><label id="cc-day-label">Session day (GMT+1)</label><select id="cc-f-day"></select></div>
+            <div class="field" id="cc-day-wrap"><label id="cc-day-label">Session day (GMT+1)</label><select id="cc-f-day"></select></div>
+            <div class="field" id="cc-oneshot-date-wrap" hidden><label>Session date</label><input type="date" id="cc-f-oneshot-date"></div>
             <div class="field"><label id="cc-time-label">Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
           </div>
           <div class="field" style="margin-top:.9em;">
@@ -1367,6 +1368,7 @@
             <div class="cc-seg" id="cc-freq-seg">
               <button type="button" class="on" data-v="weekly">Weekly</button>
               <button type="button" data-v="biweekly">Every other week</button>
+              <button type="button" data-v="once">One-shot</button>
             </div>
           </div>
           <div class="field" id="cc-anchor-wrap" style="margin-top:.8em;" hidden>
@@ -1374,6 +1376,7 @@
             <div class="cc-datechips" id="cc-anchor-chips"></div>
             <p class="cc-hint cc-cadence-strip" id="cc-cadence-hint"></p>
           </div>
+          <p class="cc-hint" id="cc-oneshot-hint" hidden>A one-shot runs once, on this date, then it's done. It stops showing as joinable the day after.</p>
         </div>
         <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so each group has its own time, further down under Players &amp; Payments. <button type="button" class="pay-mini" id="cc-time-goto">Take me there</button></p>
 
@@ -1442,7 +1445,8 @@ window.AshSlots = (function () {
   }
   // only what a Game Master's session needs; the rest of the form (PayPal fields, GMT+1 labels) is Ash's
   function shape(slot) {
-    return { day: slot.day, hour: slot.hour, minute: slot.minute || 0, tz: myTz, max: slot.max, enabled: slot.enabled !== false, group: slot.group || '', freq: slot.freq === 'biweekly' ? 'biweekly' : 'weekly', anchor: slot.freq === 'biweekly' ? (slot.anchor || null) : null };
+    var freq = slot.freq === 'biweekly' ? 'biweekly' : slot.freq === 'once' ? 'once' : 'weekly';
+    return { day: slot.day, hour: slot.hour, minute: slot.minute || 0, tz: myTz, max: slot.max, enabled: slot.enabled !== false, group: slot.group || '', freq: freq, anchor: freq !== 'weekly' ? (slot.anchor || null) : null };
   }
   function loadAll() {
     return api('all').then(function (d) {
@@ -1593,11 +1597,11 @@ window.AshSlots = (function () {
         max: parseInt(row.querySelector('.f-max').value, 10) || 1,
         enabled: row.querySelector('.f-enabled').checked,
         planId: row.querySelector('.f-plan').value.trim() || null,
-        // This simpler, per-group editor has no every-other-week control of its own (that lives in the
-        // main campaign editor, for a campaign's single group); keep whatever cadence was already set
-        // rather than silently reverting a biweekly group back to weekly just because it was saved here.
-        freq: slot.freq === 'biweekly' ? 'biweekly' : 'weekly',
-        anchor: slot.freq === 'biweekly' ? (slot.anchor || null) : null
+        // This simpler, per-group editor has no every-other-week or one-shot control of its own (that
+        // lives in the main campaign editor, for a campaign's single group); keep whatever cadence was
+        // already set rather than silently reverting it back to weekly just because it was saved here.
+        freq: slot.freq === 'biweekly' ? 'biweekly' : slot.freq === 'once' ? 'once' : 'weekly',
+        anchor: (slot.freq === 'biweekly' || slot.freq === 'once') ? (slot.anchor || null) : null
       };
 
       saveBtn.disabled = true;
@@ -3169,12 +3173,21 @@ window.AshSlots = (function () {
       document.getElementById('cc-open-date-wrap').hidden = b.dataset.v !== 'date';
     });
   });
+  // Weekly and every-other-week both run off a day-of-week + time; a one-shot is just one
+  // specific calendar date, so its own date field replaces the day dropdown entirely.
+  function applyFreqUi(freq, oneShotDate) {
+    var isOnce = freq === 'once';
+    document.getElementById('cc-day-wrap').hidden = isOnce;
+    document.getElementById('cc-oneshot-date-wrap').hidden = !isOnce;
+    document.getElementById('cc-anchor-wrap').hidden = freq !== 'biweekly';
+    document.getElementById('cc-oneshot-hint').hidden = !isOnce;
+    if (isOnce) document.getElementById('cc-f-oneshot-date').value = oneShotDate || '';
+  }
   document.querySelectorAll('#cc-freq-seg button').forEach(function (b) {
     b.addEventListener('click', function () {
       paintSeg('cc-freq-seg', b.dataset.v);
-      var on = b.dataset.v === 'biweekly';
-      document.getElementById('cc-anchor-wrap').hidden = !on;
-      if (on) buildAnchorChips(parseInt(document.getElementById('cc-f-day').value, 10), null);
+      applyFreqUi(b.dataset.v, null);
+      if (b.dataset.v === 'biweekly') buildAnchorChips(parseInt(document.getElementById('cc-f-day').value, 10), null);
     });
   });
   document.getElementById('cc-f-day').addEventListener('change', function () {
@@ -3301,9 +3314,9 @@ window.AshSlots = (function () {
   // the Session settings tab instead, so editing here can never collide with
   // whichever group she meant.
   function paintFreq(slot) {
-    var freq = slot && slot.freq === 'biweekly' ? 'biweekly' : 'weekly';
+    var freq = slot && slot.freq === 'biweekly' ? 'biweekly' : slot && slot.freq === 'once' ? 'once' : 'weekly';
     paintSeg('cc-freq-seg', freq);
-    document.getElementById('cc-anchor-wrap').hidden = freq !== 'biweekly';
+    applyFreqUi(freq, freq === 'once' ? slot.anchor : null);
     if (freq === 'biweekly') buildAnchorChips(slot.day != null ? slot.day : 6, slot.anchor || null);
   }
 
@@ -3454,6 +3467,12 @@ window.AshSlots = (function () {
       status.className = 'slot-status error';
       return;
     }
+    var freqChoice = document.querySelector('#cc-freq-seg button.on').dataset.v;
+    if (freqChoice === 'once' && slotState && slotState.mode === 'single' && !document.getElementById('cc-f-oneshot-date').value) {
+      status.textContent = 'Pick the date for this one-shot.';
+      status.className = 'slot-status error';
+      return;
+    }
     var body = {
       title: title,
       eyebrow: document.getElementById('cc-f-eyebrow').value,
@@ -3484,14 +3503,16 @@ window.AshSlots = (function () {
       // Best-effort: also save the session time, when this campaign has a single group.
       var timeSaved = Promise.resolve();
       if (slotState && slotState.mode === 'single') {
-        var day = parseInt(document.getElementById('cc-f-day').value, 10);
+        var freq = document.querySelector('#cc-freq-seg button.on').dataset.v;
+        var oneShotYmd = freq === 'once' ? document.getElementById('cc-f-oneshot-date').value : null;
+        // A one-shot has no day dropdown of its own; its one date IS the day, read straight off the calendar.
+        var day = freq === 'once' ? ymdToDate(oneShotYmd).getDay() : parseInt(document.getElementById('cc-f-day').value, 10);
         var parts = document.getElementById('cc-f-time').value.split(':');
         var hour = parseInt(parts[0], 10), minute = parseInt(parts[1], 10);
         var offsetHours = 1;
         var ampmHour = ((hour % 12) || 12);
         var ampm = hour < 12 ? 'AM' : 'PM';
         var sourceLabel = ampmHour + ':' + pad(minute) + ' ' + ampm + ' GMT+' + offsetHours;
-        var freq = document.querySelector('#cc-freq-seg button.on').dataset.v;
         var updated = Object.assign({}, slotState.slot, {
           day: day, hour: hour, minute: minute, offset: offsetHours, source: sourceLabel,
           group: (slotState.slot && slotState.slot.group) || '',
@@ -3500,7 +3521,7 @@ window.AshSlots = (function () {
           enabled: !(slotState.slot && slotState.slot.enabled === false) ,
           planId: (slotState.slot && slotState.slot.planId) || null,
           freq: freq,
-          anchor: freq === 'biweekly' ? selectedAnchorYmd() : null
+          anchor: freq === 'biweekly' ? selectedAnchorYmd() : freq === 'once' ? oneShotYmd : null
         });
         timeSaved = window.AshSlots.set(d.slug, slotState.slotId, updated);
       }

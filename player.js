@@ -21,7 +21,7 @@ const TEST_GAME = {
   title: hasGame ? campaignName + (groupName ? " · " + groupName : "") : "The Test Table",
   eyebrow: hasGame ? "Campaign" : "Test Table",
   day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
-  freq: query.get("freq") === "biweekly" ? "biweekly" : "weekly", anchor: query.get("anchor") || null,
+  freq: query.get("freq") === "biweekly" ? "biweekly" : query.get("freq") === "once" ? "once" : "weekly", anchor: query.get("anchor") || null,
   seatsMax: num("max", 5), seatsMin: num("min", 3), price: num("price", 10), // price here is only what is DISPLAYED; the Worker decides what is charged
 };
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
@@ -79,14 +79,16 @@ let onConfirm = null;
 
 function tokenById(id) { return TOKENS.find((t) => t.id === id) || TOKENS[0]; }
 
-// Matches worker/src/pay.js's nextStart/upcoming: weekly by default, or every 14 days
-// from TEST_GAME.anchor (a real "YYYY-MM-DD" first-session date) when biweekly.
+// Matches worker/src/pay.js's nextStart/upcoming: weekly by default, every 14 days from
+// TEST_GAME.anchor (a real "YYYY-MM-DD" date) when biweekly, or just that one date and
+// nothing else when TEST_GAME.freq is "once".
 function upcomingSessions(count) {
   const utcHour = TEST_GAME.hour - TEST_GAME.offset;
   const targetDay = (TEST_GAME.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
-  const biweekly = TEST_GAME.freq === 'biweekly' && TEST_GAME.anchor;
-  const anchorMatch = biweekly ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(TEST_GAME.anchor) : null;
+  const hasAnchor = (TEST_GAME.freq === 'biweekly' || TEST_GAME.freq === 'once') && TEST_GAME.anchor;
+  const anchorMatch = hasAnchor ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(TEST_GAME.anchor) : null;
   const anchorTs = anchorMatch ? Date.UTC(+anchorMatch[1], +anchorMatch[2] - 1, +anchorMatch[3], utcHour, TEST_GAME.minute) : null;
+  if (TEST_GAME.freq === 'once') return anchorTs != null && anchorTs > Date.now() ? [new Date(anchorTs)] : [];
   const out = [];
   const now = new Date();
   for (let i = 0; i < 60 && out.length < count; i++) {
