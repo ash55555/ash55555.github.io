@@ -50,6 +50,20 @@ async function sessionsWithGm(env, mode, uid, gmUid) {
   return n;
 }
 
+// Every other Game Master this player has been charged for at least one session with, and how many.
+async function gmsPlayedWith(env, mode, uid) {
+  return (await env.DB.prepare(
+    `SELECT cc.owner_uid AS gm_uid, COUNT(*) AS n FROM charges c
+     JOIN campaign_content cc ON (c.game = cc.slug OR c.game LIKE cc.slug || '::%')
+     WHERE c.mode=? AND c.uid=? AND c.status='paid' AND c.refunded_amount < c.amount AND cc.owner_uid IS NOT NULL
+     GROUP BY cc.owner_uid`).bind(mode, uid).all()).results;
+}
+
+// A Game Master's picture as a plain image address, the same way pay.js and home.js serve it.
+function gmAvatarUrl(self, slug, prof) {
+  return String((prof && prof.avatar) || '').startsWith('data:image/') ? `${self}/gm/avatar?slug=${encodeURIComponent(slug)}` : null;
+}
+
 // The Game Master a review is about, from the name on their profile page. Ash is the default.
 async function gmByName(env, name) {
   if (!name || name === 'ash') return null;
@@ -73,7 +87,42 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
 
   const mode = cfg(env).mode;
   const self = new URL(request.url).origin;
+  // A Game Master's own share link (gathered from their Reviews tab) lets anyone signed in
+  // post a review of them, without needing to have played a session together first.
+  const viaLink = body.viaLink === true;
   try {
+    // Every Game Master a player has been charged for at least one session with, Ash included,
+    // so the player's own profile page can list them all and open a review box for each.
+    if (action === 'mine') {
+      const list = [];
+      const ashSessions = await sessionsPlayed(env, mode, user.sub);
+      const ashTest = user.sub === env.ADMIN_UID;
+      if (ashSessions >= 1 || ashTest) {
+        const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
+        const row = await env.DB.prepare('SELECT rating, tags, comment, updated_at, show_public FROM reviews WHERE uid=?').bind(user.sub).first();
+        const mine = row ? { rating: row.rating, tags: parseTags(row.tags), comment: row.comment || '', show: row.show_public !== 0, updatedAt: row.updated_at } : null;
+        list.push({
+          key: 'ash', name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon',
+          avatar: d && d.avatar_id ? `${self}/profile/avatar/${d.avatar_id}` : null, pronouns: (d && d.pronouns) || '',
+          sessions: ashSessions, needed: REVIEW_AFTER, eligible: ashTest || ashSessions >= REVIEW_AFTER, testMode: ashTest, tags: REVIEW_TAGS, review: mine,
+        });
+      }
+      const gmRows = await gmsPlayedWith(env, mode, user.sub);
+      for (const row of gmRows) {
+        if (!row.gm_uid || row.gm_uid === user.sub) continue;
+        const g = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(row.gm_uid).first();
+        if (!g) continue;
+        let prof = {}; try { prof = JSON.parse(g.data || '{}') || {}; } catch { prof = {}; }
+        const mineRow = await env.DB.prepare('SELECT rating, tags, comment, updated_at, show_public FROM gm_reviews WHERE gm_uid=? AND uid=?').bind(row.gm_uid, user.sub).first();
+        const mine = mineRow ? { rating: mineRow.rating, tags: parseTags(mineRow.tags), comment: mineRow.comment || '', show: mineRow.show_public !== 0, updatedAt: mineRow.updated_at } : null;
+        list.push({
+          key: g.slug, name: prof.name || 'Your Game Master', token: 'dragon', avatar: gmAvatarUrl(self, g.slug, prof), pronouns: prof.pronouns || '',
+          sessions: row.n, needed: REVIEW_AFTER, eligible: row.n >= REVIEW_AFTER, tags: REVIEW_TAGS, review: mine,
+        });
+      }
+      return json({ dms: list }, 200, corsHeaders);
+    }
+
     // Ash sees every review of hers, and another Game Master sees only the reviews of them.
     if (action === 'admin/list' || action === 'admin/delete') {
       const who = await gmStatus(env, user.sub, user);
@@ -120,13 +169,13 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
     if (gm) {
       if (gm.uid === user.sub) return json({ error: 'You cannot review yourself.' }, 400, corsHeaders);
       const played = await sessionsWithGm(env, mode, user.sub, gm.uid);
-      const can = played >= REVIEW_AFTER;
+      const can = viaLink || played >= REVIEW_AFTER;
       const mineRow = await env.DB.prepare('SELECT rating, tags, comment, updated_at, show_public FROM gm_reviews WHERE gm_uid=? AND uid=?').bind(gm.uid, user.sub).first();
       const mineGm = mineRow ? { rating: mineRow.rating, tags: parseTags(mineRow.tags), comment: mineRow.comment || '', show: mineRow.show_public !== 0, updatedAt: mineRow.updated_at } : null;
       let prof = {};
       try { prof = JSON.parse(gm.data || '{}') || {}; } catch { prof = {}; }
       if (action === 'status') {
-        return json({ sessions: played, needed: REVIEW_AFTER, eligible: can, testMode: false, tags: REVIEW_TAGS, review: mineGm, dm: { name: prof.name || 'Your Game Master', token: 'dragon', avatar: null, pronouns: prof.pronouns || '' } }, 200, corsHeaders);
+        return json({ sessions: played, needed: REVIEW_AFTER, eligible: can, testMode: false, viaLink, tags: REVIEW_TAGS, review: mineGm, dm: { name: prof.name || 'Your Game Master', token: 'dragon', avatar: gmAvatarUrl(self, gm.slug, prof), pronouns: prof.pronouns || '' } }, 200, corsHeaders);
       }
       if (action === 'delete') {
         await env.DB.prepare('DELETE FROM gm_reviews WHERE gm_uid=? AND uid=?').bind(gm.uid, user.sub).run();
@@ -150,7 +199,7 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
         // Tell that Game Master (not Ash) on their own dashboard.
         await notifyPlayer(env, mode, gm.uid, 'review', null,
           `${mineGm ? 'Updated review' : 'New review'}: ${rating}/5 from ${name}`,
-          `${name} rated you ${rating} out of 5 after ${played} sessions together.` + (tags.length ? ` What stood out: ${tags.join(', ')}.` : '') + (comment ? ` "${comment}"` : '') + (show ? ' It is shown on your page.' : ' They chose to keep it private.'));
+          `${name} rated you ${rating} out of 5` + (played > 0 ? ` after ${played} session${played === 1 ? '' : 's'} together.` : '.') + (tags.length ? ` What stood out: ${tags.join(', ')}.` : '') + (comment ? ` "${comment}"` : '') + (show ? ' It is shown on your page.' : ' They chose to keep it private.'));
         return json({ ok: true, review: { rating, tags, comment, show: !!show, updatedAt: now } }, 200, corsHeaders);
       }
       return json({ error: 'Unknown action' }, 404, corsHeaders);
@@ -159,7 +208,7 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
     const sessions = await sessionsPlayed(env, mode, user.sub);
     // Ash's own account can always open the box, so the whole thing can be tried out for real.
     const testMode = user.sub === env.ADMIN_UID;
-    const eligible = testMode || sessions >= REVIEW_AFTER;
+    const eligible = testMode || viaLink || sessions >= REVIEW_AFTER;
     const row = await env.DB.prepare('SELECT rating, tags, comment, updated_at, show_public FROM reviews WHERE uid=?').bind(user.sub).first();
     const mine = row ? { rating: row.rating, tags: parseTags(row.tags), comment: row.comment || '', show: row.show_public !== 0, updatedAt: row.updated_at } : null;
 
@@ -167,7 +216,7 @@ export async function handleReview(request, env, corsHeaders, origin, action, se
       // Ash's public card (same name, picture and pronouns anyone sees at the table).
       const d = await env.DB.prepare('SELECT name, token, avatar_id, pronouns FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
       const dm = { name: (d && d.name) || 'Ash', token: (d && d.token) || 'dragon', avatar: d && d.avatar_id ? `${self}/profile/avatar/${d.avatar_id}` : null, pronouns: (d && d.pronouns) || '' };
-      return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, tags: REVIEW_TAGS, review: mine, dm }, 200, corsHeaders);
+      return json({ sessions, needed: REVIEW_AFTER, eligible, testMode, viaLink, tags: REVIEW_TAGS, review: mine, dm }, 200, corsHeaders);
     }
 
     // A player can always take their own review back down (only their own, keyed by who they are signed in as).

@@ -476,7 +476,7 @@ async function start(user) {
   loadNotifBadge();
   showTab(window.location.hash === '#me-schedule' ? 'schedule' : window.location.hash === '#me-messages' ? 'messages' : 'profile');
   // Runs after the page is up, so a slow or failed review check never holds the profile back.
-  loadReviewTab().then(() => { if (window.location.hash === '#me-review' && reviewState && reviewState.eligible) showTab('review'); });
+  loadReviewTab().then(() => { if (window.location.hash === '#me-review' && reviewDms && reviewDms.length) showTab('review'); });
 }
 
 /* ---------------------------------------------------------- sidebar tabs */
@@ -496,7 +496,7 @@ document.querySelectorAll('.me-rail-btn').forEach((b) => b.addEventListener('cli
 // Coming from "My schedule" in the nav dropdown, on this page or from another one.
 window.addEventListener('hashchange', () => {
   if (window.location.hash === '#me-schedule') showTab('schedule');
-  if (window.location.hash === '#me-review' && reviewState && reviewState.eligible) showTab('review');
+  if (window.location.hash === '#me-review' && reviewDms && reviewDms.length) showTab('review');
 });
 
 /* ------------------------------------------------------------- My games */
@@ -702,11 +702,12 @@ function startPreview() {
   start({ getIdToken: async () => 'preview', email: 'test.player@example.com', displayName: 'Test Player' }).then(() => showTab('schedule'));
 }
 
-/* ------------------------------------------------------------ review Ash */
+/* ------------------------------------------------------------ reviews */
 
-// The "Review Ash" tab only appears once the Worker says this player has played
-// enough sessions with Ash. Ash's own account always sees it, so it can be tried out.
-let reviewState = null;
+// The "Reviews" tab lists every Game Master this player has played at least one
+// session with (Ash included), each with its own review box. A box only opens for
+// writing once the Worker says this player has played enough sessions with that GM.
+let reviewDms = null;
 async function reviewCall(action, extra) {
   const idToken = await me.getIdToken();
   const res = await fetch(`${WORKER}/review/${action}`, {
@@ -719,32 +720,47 @@ async function reviewCall(action, extra) {
   return data;
 }
 function paintReviewTab() {
-  const open = !!(reviewState && reviewState.eligible);
+  const open = !!(reviewDms && reviewDms.length);
   $('me-review-btn').hidden = !open;
-  // A gold dot while they have not reviewed yet.
-  $('me-review-dot').hidden = !(open && !reviewState.review);
+  // A gold dot while at least one review is still waiting to be written.
+  $('me-review-dot').hidden = !(open && reviewDms.some((d) => d.eligible && !d.review));
 }
 async function loadReviewTab() {
-  try { reviewState = await reviewCall('status'); } catch (err) { reviewState = null; }
+  try { reviewDms = (await reviewCall('mine')).dms || []; } catch (err) { reviewDms = null; }
   paintReviewTab();
 }
 function renderReviewPanel() {
-  if (!reviewState || typeof AshReviews === 'undefined') return;
-  const dm = reviewState.dm || {};
-  AshReviews.renderDmProfile($('me-review-body'), {
-    dm, name: dm.name || 'Ash', pronouns: dm.pronouns,
-    state: { signedIn: true, ...reviewState },
-    onDelete: async () => {
-      await reviewCall('delete');
-      reviewState.review = null;
-      paintReviewTab();
-    },
-    onSubmit: async (payload) => {
-      const saved = (await reviewCall('submit', payload)).review;
-      reviewState.review = saved;
-      paintReviewTab();
-      return saved;
-    },
+  const list = $('me-review-list');
+  list.innerHTML = '';
+  if (!reviewDms || typeof AshReviews === 'undefined') return;
+  if (!reviewDms.length) {
+    const empty = document.createElement('p');
+    empty.className = 'me-muted';
+    empty.textContent = "Once you've played a session with a Game Master, you can leave them a review here.";
+    list.appendChild(empty);
+    return;
+  }
+  reviewDms.forEach((dm) => {
+    const card = document.createElement('div');
+    card.className = 'rv-dm-card';
+    list.appendChild(card);
+    const draw = () => AshReviews.renderDmProfile(card, {
+      dm, name: dm.name, pronouns: dm.pronouns,
+      titleId: 'rv-title-' + dm.key, commentId: 'rv-comment-' + dm.key,
+      state: { signedIn: true, ...dm },
+      onDelete: async () => {
+        await reviewCall('delete', { gm: dm.key === 'ash' ? undefined : dm.key });
+        dm.review = null;
+        paintReviewTab();
+      },
+      onSubmit: async (payload) => {
+        const saved = (await reviewCall('submit', { ...payload, gm: dm.key === 'ash' ? undefined : dm.key })).review;
+        dm.review = saved;
+        paintReviewTab();
+        return saved;
+      },
+    });
+    draw();
   });
 }
 

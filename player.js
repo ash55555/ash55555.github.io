@@ -457,21 +457,27 @@ async function reviewApi(action, extra) {
   return data;
 }
 
+// The DM this table's reviews are about: a Game Master's slug, or undefined for Ash's own games.
+function reviewDmSlug() {
+  const table = realGame ? (serverState || publicState) : null;
+  return table && table.dm && table.dm.slug;
+}
+
 async function loadReviewState() {
   if (preview && !me) return JSON.parse(JSON.stringify({ ...PREVIEW_REVIEWS[previewReview], tags: AshReviews.DEFAULT_TAGS }));
   await authReady;
   if (!me) return { signedIn: false, needed: 5 };
-  try { return { signedIn: true, ...(await reviewApi('status')) }; } catch (err) { return { signedIn: true, error: true }; }
+  try { return { signedIn: true, ...(await reviewApi('status', { gm: reviewDmSlug() })) }; } catch (err) { return { signedIn: true, error: true }; }
 }
 
 async function deleteReview() {
   if (preview && !me) return;
-  await reviewApi('delete');
+  await reviewApi('delete', { gm: reviewDmSlug() });
 }
 
 async function submitReview(payload) {
   if (preview && !me) return { rating: payload.rating, tags: payload.tags, comment: payload.comment };
-  return (await reviewApi('submit', payload)).review;
+  return (await reviewApi('submit', { ...payload, gm: reviewDmSlug() })).review;
 }
 
 async function openDmProfile() {

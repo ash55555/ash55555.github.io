@@ -1040,6 +1040,15 @@
     </div>
 
     <div class="me-panel" data-panel="reviews" hidden>
+      <div class="pay-box" style="margin-bottom:1.4em;" id="rv-link-card" hidden>
+        <h2>🔗 Gather reviews</h2>
+        <p class="note">Share this link with friends who have an account on Ash Tabletop. Anyone who opens it and signs in can leave you a review, even before they have played at your table.</p>
+        <div class="ag-link-row">
+          <input type="text" id="rv-link" readonly>
+          <button type="button" class="btn btn-primary" id="rv-link-copy">Copy link</button>
+          <a class="btn btn-ghost" id="rv-link-open" href="#" target="_blank" rel="noopener">Open it</a>
+        </div>
+      </div>
       <div class="pay-box">
         <h2>⭐ Player reviews</h2>
         <p class="note">What players wrote about you. Reviews they chose to show appear in "What Players Are Saying" on your homepage. Delete one and it disappears from your website too.</p>
@@ -3349,6 +3358,26 @@ window.AshSlots = (function () {
   var TOKENS = { dragon: ['\u{1F409}', '#6b46c1'], wizard: ['\u{1F9D9}', '#2f5fa8'], dagger: ['\u{1F5E1}\uFE0F', '#8a3b3b'], elf: ['\u{1F9DD}', '#2f7a5a'], bat: ['\u{1F987}', '#4a3a6b'], dice: ['\u{1F3B2}', '#a8702f'] };
   var listEl = document.getElementById('rv-admin-list');
   var statusEl = document.getElementById('rv-admin-status');
+
+  if (window.AshRoleReady) {
+    window.AshRoleReady.then(function (role) {
+      if (!role || !role.slug) return;
+      var url = window.location.origin + '/review.html?gm=' + encodeURIComponent(role.slug);
+      document.getElementById('rv-link').value = url;
+      document.getElementById('rv-link-open').href = url;
+      document.getElementById('rv-link-card').hidden = false;
+    });
+  }
+  var rvLinkCopy = document.getElementById('rv-link-copy');
+  if (rvLinkCopy) {
+    rvLinkCopy.addEventListener('click', function () {
+      var input = document.getElementById('rv-link');
+      input.select();
+      try { navigator.clipboard.writeText(input.value); } catch (e) { document.execCommand('copy'); }
+      rvLinkCopy.textContent = 'Copied!';
+      setTimeout(function () { rvLinkCopy.textContent = 'Copy link'; }, 1800);
+    });
+  }
 
   function call(action, extra) {
     return firebase.auth().currentUser.getIdToken().then(function (idToken) {

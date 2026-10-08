@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Leave a Review | Ash Tabletop</title>
+<link rel="icon" href="medie/ash-token.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20261003e">
+<link rel="stylesheet" href="profile.css?v=20261008a">
+<link rel="stylesheet" href="reviews.css?v=20261008a">
+<style>
+  .rv-page { max-width: 600px; margin: 0 auto; padding: 2.6em 2em 4.5em; }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <nav class="nav">
+    <a class="brand" href="index.html">
+      <img class="brand-avatar" src="medie/ash-token.png" alt="Ash's character token" width="44" height="44">
+      <span class="brand-name">Ash Tabletop</span>
+    </a>
+  </nav>
+</header>
+
+<main class="me rv-page">
+
+  <section class="me-card me-login" id="rv-login" hidden>
+    <h1>Leave a review</h1>
+    <p class="me-muted" id="rv-login-lead">Log in with your Ash Tabletop account to leave a review.</p>
+    <button type="button" class="btn btn-google" id="rv-google">Continue with Google</button>
+    <div class="modal-divider"><span>or</span></div>
+    <form id="rv-login-form">
+      <input id="rv-login-email" type="email" required placeholder="Email" autocomplete="username">
+      <input id="rv-login-pass" type="password" required placeholder="Password" autocomplete="current-password">
+      <button type="submit" class="btn btn-primary">Log in</button>
+      <button type="button" class="link-button" id="rv-forgot">Forgot your password?</button>
+      <p class="modal-status" id="rv-login-status" role="status" aria-live="polite"></p>
+    </form>
+    <p class="me-muted">New here? <a href="index.html">Sign up on the home page first</a>.</p>
+  </section>
+
+  <section class="me-card" id="rv-app" hidden>
+    <div id="rv-body"></div>
+  </section>
+
+  <p class="me-muted" id="rv-error" hidden></p>
+
+</main>
+
+<footer class="site-footer">
+  <img class="footer-avatar" src="medie/ash-token.png" alt="" width="32" height="32">
+  <p>&copy; 2026 Ash Tabletop. Roll for initiative.</p>
+</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="firebase-init.js?v=20260926b"></script>
+<script src="reviews-ui.js?v=20261008a"></script>
+<script src="review.js?v=20261008a"></script>
+</body>
+</html>

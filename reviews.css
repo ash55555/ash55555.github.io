@@ -22,7 +22,7 @@
 .rv-tag:hover { border-color: rgba(242, 184, 79, 0.5); color: var(--text); }
 .rv-tag.on { background: rgba(242, 184, 79, 0.16); border-color: var(--gold); color: var(--gold); font-weight: 700; }
 .rv-tags-static .rv-tag { cursor: default; }
-#rv-comment { width: 100%; margin-top: 0.5em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); padding: 0.7em 0.85em; font: inherit; resize: vertical; box-sizing: border-box; }
+.rv-comment-box { width: 100%; margin-top: 0.5em; background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); padding: 0.7em 0.85em; font: inherit; resize: vertical; box-sizing: border-box; }
 .rv-count { text-align: right; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2em; }
 .rv-foot { display: flex; align-items: center; gap: 0.8em; flex-wrap: wrap; margin-top: 1em; }
 .rv-foot .btn[disabled] { opacity: 0.5; cursor: not-allowed; transform: none; }
@@ -44,3 +44,6 @@
 .rv-danger { background: rgba(224, 85, 111, 0.15); color: #ff9db0; border: 1px solid #e0556f; }
 .rv-confirm { margin-top: 1em; padding: 1em 1.1em; border: 1px solid rgba(224, 85, 111, 0.5); background: rgba(224, 85, 111, 0.08); border-radius: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6em; }
 .rv-confirm p { flex: 1 1 100%; margin: 0 0 0.2em; }
+.rv-dm-card { padding: 1.3em 1.4em; margin-bottom: 1.2em; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-panel-2); }
+.rv-dm-card:last-child { margin-bottom: 0; }
+.rv-empty { color: var(--text-muted); margin: 0; }

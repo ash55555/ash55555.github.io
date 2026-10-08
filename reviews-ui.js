@@ -63,11 +63,12 @@ var AshReviews = (function () {
       container.innerHTML = '';
       var state = opts.state || {};
 
+      var dmName = opts.name || 'Ash';
       var head = el('div', 'rv-head');
       head.appendChild(makeToken(opts.dm));
       var who = el('div', 'rv-who');
-      var title = el('h3', null, opts.name || 'Ash');
-      title.id = 'pp-dm-title';
+      var title = el('h3', null, dmName);
+      title.id = opts.titleId || 'pp-dm-title';
       who.appendChild(title);
       var sub = el('div', 'rv-sub');
       if (opts.pronouns) sub.appendChild(el('span', 'pp-pronouns', opts.pronouns));
@@ -85,7 +86,9 @@ var AshReviews = (function () {
 
       var needed = state.needed || 5;
       if (!state.signedIn) {
-        section.appendChild(el('p', 'rv-muted', 'Log in and play ' + needed + ' sessions with ' + 'Ash' + ' to leave a review.'));
+        section.appendChild(el('p', 'rv-muted', state.viaLink
+          ? 'Log in to leave a review for ' + dmName + '.'
+          : 'Log in and play ' + needed + ' sessions with ' + dmName + ' to leave a review.'));
         return;
       }
 
@@ -93,7 +96,7 @@ var AshReviews = (function () {
       var sessions = state.sessions || 0;
 
       if (!state.eligible) {
-        section.appendChild(el('p', 'rv-muted', 'You have played ' + sessions + ' of ' + needed + ' sessions with ' + 'Ash' + '. After ' + needed + ' sessions you can leave a review here.'));
+        section.appendChild(el('p', 'rv-muted', 'You have played ' + sessions + ' of ' + needed + ' sessions with ' + dmName + '. After ' + needed + ' sessions you can leave a review here.'));
         var bar = el('div', 'rv-progress');
         var fill = el('div', 'rv-progress-fill');
         fill.style.width = Math.min(100, (sessions / needed) * 100) + '%';
@@ -103,7 +106,7 @@ var AshReviews = (function () {
       }
 
       if (review && !local.editing) {
-        if (local.thanks) section.appendChild(el('p', 'rv-thanks', 'Thank you! Your review was sent to ' + 'Ash' + '.'));
+        if (local.thanks) section.appendChild(el('p', 'rv-thanks', 'Thank you! Your review was sent to ' + dmName + '.'));
         else section.appendChild(el('p', 'rv-muted', 'Your review. Thank you for sharing it!'));
         var card = el('div', 'rv-mine');
         card.appendChild(starRow(review.rating));
@@ -113,7 +116,7 @@ var AshReviews = (function () {
           card.appendChild(tl);
         }
         if (review.comment) card.appendChild(el('p', 'rv-comment', '“' + review.comment + '”'));
-        card.appendChild(el('p', 'rv-visibility', review.show === false ? 'Only Ash can see this.' : 'Shown on Ash’s website.'));
+        card.appendChild(el('p', 'rv-visibility', review.show === false ? 'Only ' + dmName + ' can see this.' : 'Shown on ' + dmName + '’s website.'));
         section.appendChild(card);
         var edit = el('button', 'btn btn-ghost rv-edit', 'Edit your review');
         edit.type = 'button';
@@ -134,7 +137,7 @@ var AshReviews = (function () {
 
         if (opts.onDelete && local.confirmingDelete) {
           var box = el('div', 'rv-confirm');
-          box.appendChild(el('p', null, 'Delete your review? It will also come off Ash\u2019s website. This cannot be undone.'));
+          box.appendChild(el('p', null, 'Delete your review? It will also come off ' + dmName + '\u2019s website. This cannot be undone.'));
           var yes = el('button', 'btn rv-danger', 'Yes, delete it');
           yes.type = 'button';
           var no = el('button', 'btn btn-ghost', 'Keep it');
@@ -170,8 +173,10 @@ var AshReviews = (function () {
       if (local.notice) section.appendChild(el('p', 'rv-thanks', local.notice));
       section.appendChild(el('p', 'rv-lead', 'How was your game?'));
       section.appendChild(el('p', 'rv-muted', state.testMode
-        ? 'You are Ash, so this box is open to you for testing. Everyone else sees it after ' + needed + ' sessions.'
-        : 'You have played ' + sessions + ' sessions with Ash. Tell us how it has been.'));
+        ? 'You are ' + dmName + ', so this box is open to you for testing. Everyone else sees it after ' + needed + ' sessions.'
+        : state.viaLink
+          ? 'Share what it is like playing with ' + dmName + '.'
+          : 'You have played ' + sessions + ' sessions with ' + dmName + '. Tell us how it has been.'));
 
       var starsWrap = el('div', 'rv-stars');
       starsWrap.setAttribute('role', 'radiogroup');
@@ -204,7 +209,7 @@ var AshReviews = (function () {
       section.appendChild(word);
 
       var tagsHead = el('p', 'rv-lead rv-lead-sm');
-      tagsHead.appendChild(document.createTextNode('What does ' + 'Ash' + ' do best? '));
+      tagsHead.appendChild(document.createTextNode('What does ' + dmName + ' do best? '));
       tagsHead.appendChild(el('span', 'rv-muted', 'Pick any that fit'));
       section.appendChild(tagsHead);
       var tagWrap = el('div', 'rv-tags');
@@ -222,12 +227,14 @@ var AshReviews = (function () {
       });
       section.appendChild(tagWrap);
 
+      var commentId = opts.commentId || 'rv-comment';
       var label = el('label', 'rv-lead rv-lead-sm', 'Anything else you would like to say? ');
       label.appendChild(el('span', 'rv-muted', '(optional)'));
-      label.setAttribute('for', 'rv-comment');
+      label.setAttribute('for', commentId);
       section.appendChild(label);
       var ta = document.createElement('textarea');
-      ta.id = 'rv-comment';
+      ta.id = commentId;
+      ta.className = 'rv-comment-box';
       ta.rows = 3;
       ta.maxLength = MAX_COMMENT;
       ta.placeholder = 'A favorite moment, what you like about the table, anything at all.';
@@ -243,7 +250,7 @@ var AshReviews = (function () {
       cb.checked = form.show;
       cb.addEventListener('change', function () { form.show = cb.checked; });
       showRow.appendChild(cb);
-      showRow.appendChild(el('span', null, 'Show my review on Ash’s website, with my name and picture'));
+      showRow.appendChild(el('span', null, 'Show my review on ' + dmName + '’s website, with my name and picture'));
       section.appendChild(showRow);
 
       var foot = el('div', 'rv-foot');
@@ -259,7 +266,7 @@ var AshReviews = (function () {
       }
       foot.appendChild(status);
       section.appendChild(foot);
-      section.appendChild(el('p', 'rv-note', 'Your review always goes to Ash. If the box above is ticked, it also appears on Ash’s website. Untick it to keep it private.'));
+      section.appendChild(el('p', 'rv-note', 'Your review always goes to ' + dmName + '. If the box above is ticked, it also appears on ' + dmName + '’s website. Untick it to keep it private.'));
 
       function sync() { send.disabled = !form.rating; }
       sync();
