@@ -76,23 +76,31 @@
         chip.className = 'session-chip';
         chip.disabled = true;
         chip.dataset.id = id;
-        var when = (typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') ? formatLocal(nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0)) : 'Weekly session';
+        var when = (typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') ? formatLocal(nextOccurrenceUTC(s.day, s.hour, s.minute || 0, 0, s.freq, s.anchor)) : 'Weekly session';
         chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta">Opening soon</span>';
         chip.querySelector('.session-main').textContent = when;
-        chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' \u00B7 ' : '') + (s.enabled === false ? 'Not running right now' : 'Weekly, shown in your time zone');
+        chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' \u00B7 ' : '') + (s.enabled === false ? 'Not running right now' : (s.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly, shown in your time zone'));
         chip.querySelector('.session-seats').textContent = 'Up to ' + s.max + ' players';
         list.appendChild(chip);
       });
     }
 
+    var price = '$' + (d.price % 1 === 0 ? d.price : d.price.toFixed(2)) + ' USD per session';
+    var opensLater = d.openMode === 'date' && d.openAt && new Date(d.openAt + 'T00:00:00Z').getTime() > Date.now();
     var pay = document.querySelector('.blog-payment');
     if (pay) {
-      pay.innerHTML = '<h2>Interested in this table?</h2><p class="blog-payment-price">$10 per session</p>' +
+      pay.innerHTML = '<h2>Interested in this table?</h2><p class="blog-payment-price">' + price + '</p>' +
+        (opensLater ? '<p class="blog-payment-opens">Opens ' + openDateLong(d.openAt) + '</p>' : '') +
         '<p>Meet the Game Master, read about how they run their tables, and send them a message.</p>' +
         '<div class="blog-payment-actions"><a class="btn btn-primary" href="' + profile + '">Meet the Game Master</a></div>';
     }
     document.querySelectorAll('.js-email-trigger').forEach(function (b) { b.remove(); });
-    if (d.bookable) openSeats(d);
+    if (d.bookable && !opensLater) openSeats(d);
+  }
+
+  function openDateLong(ymd) {
+    var p = ymd.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
   // Once the Game Master's payout account is approved their sessions can be joined like any other.
@@ -109,7 +117,7 @@
         chip.querySelector('.session-seats').textContent = left > 0 ? left + (left === 1 ? ' seat left' : ' seats left') + ' (' + (s.max - left) + '/' + s.max + ')' : 'Full';
         chip.querySelector('.session-chip-cta').textContent = s.enabled === false ? 'Paused' : left > 0 ? 'Join' : 'Full';
         if (canJoin) chip.addEventListener('click', function () {
-          var params = new URLSearchParams({ campaign: d.slug, slot: id === 'default' ? '' : id, group: s.group || '', day: s.day, hour: s.hour, minute: s.minute || 0, offset: 0, embed: '1' });
+          var params = new URLSearchParams({ campaign: d.slug, slot: id === 'default' ? '' : id, group: s.group || '', day: s.day, hour: s.hour, minute: s.minute || 0, offset: 0, freq: s.freq || 'weekly', anchor: s.anchor || '', embed: '1' });
           if (typeof openJoinPopup === 'function') openJoinPopup('../player.html?' + params.toString());
           else window.location.href = '../player.html?' + params.toString();
         });

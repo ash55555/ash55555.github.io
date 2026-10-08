@@ -39,7 +39,9 @@ export async function handleHome(request, env, corsHeaders) {
     if (!slots.length) continue;
     // a Game Master's table can be booked once Whop has approved their payout account; until then it only shows as opening soon
     const soon = !!r.owner_uid && !(await gmPayoutAccount(env, r.owner_uid));
-    const withSeats = soon ? slots : slots.filter((g) => openOf(g) > 0);
+    const opensAt = slots[0].openMode === 'date' && slots[0].openAt && new Date(`${slots[0].openAt}T00:00:00Z`).getTime() > now.getTime() ? slots[0].openAt : null;
+    const gated = soon || !!opensAt;
+    const withSeats = gated ? slots : slots.filter((g) => openOf(g) > 0);
     if (!withSeats.length) continue; // a full table is not shown
     let best = null;
     for (const g of withSeats) {
@@ -47,12 +49,12 @@ export async function handleHome(request, env, corsHeaders) {
       if (n && (!best || n < best.when)) best = { g, when: n };
     }
     if (!best) continue;
-    if (!soon) seatsOpen += withSeats.reduce((n, g) => n + openOf(g), 0);
+    if (!gated) seatsOpen += withSeats.reduce((n, g) => n + openOf(g), 0);
     list.push({
       slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', hook: r.hook || '',
       bannerUrl: r.banner_id ? `${origin}/content/banner/${r.banner_id}` : null,
       gm: r.owner_uid ? null : 'ash', owner: r.owner_uid || null,
-      next: best.when.toISOString(), price: best.g.price, seatsOpen: soon ? null : openOf(best.g), max: best.g.max, soon,
+      next: best.when.toISOString(), price: best.g.price, seatsOpen: gated ? null : openOf(best.g), max: best.g.max, soon, opensAt,
     });
   }
 

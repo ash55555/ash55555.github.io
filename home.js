@@ -40,6 +40,11 @@
     var m = Math.max(0, Math.round((new Date(g.next) - Date.now()) / 60000)), d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
     return d ? d + 'd ' + h + 'h' : h ? h + 'h ' + mm + 'm' : mm + ' min';
   }
+  function openDateLong(ymd) {
+    var p = ymd.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  function badgeText(g) { return g.opensAt ? 'Opens ' + openDateLong(g.opensAt) : (g.soon ? 'Opening soon' : 'Seats open'); }
   function stars(r) { var n = Math.round(r); return '★'.repeat(n) + '☆'.repeat(5 - n); }
   function avatar(m, cls) {
     var inner = m.avatar ? '<img src="' + esc(m.avatar) + '" alt="">' : (m.slug === 'ash' ? '<img src="medie/ash-token.png" alt="">' : '🎲');
@@ -61,10 +66,10 @@
     var artStyle = img ? 'background-image:url(\'' + img.replace(/'/g, '%27') + '\')' : 'background-image:linear-gradient(135deg,#2b1a4d,#6b2a4a)';
     return '<article class="hx-card" style="--accent:' + a + '"><a class="hx-stretch" href="' + gameUrl(g) + '" aria-label="Open ' + esc(g.title) + '"></a>' +
       '<div class="hx-art" style="' + artStyle + '">' + (img ? '' : '<span class="hx-em">' + GLYPH[g.cat] + '</span>') +
-      '<span class="hx-badge' + (g.soon ? '' : ' hx-open') + '">' + (g.soon ? 'Opening soon' : 'Seats open') + '</span><span class="hx-cat">' + esc(g.cat) + '</span></div>' +
+      '<span class="hx-badge' + ((g.soon || g.opensAt) ? '' : ' hx-open') + '">' + badgeText(g) + '</span><span class="hx-cat">' + esc(g.cat) + '</span></div>' +
       '<div class="hx-body"><h3>' + esc(g.title) + '</h3><p class="hx-tags">' + esc(g.eyebrow || g.hook) + '</p>' +
-      '<div class="hx-meta"><span class="hx-when">⏱ Next <b>' + esc(when(g)) + '</b></span><span class="hx-price">$' + g.price + ' <small>/ session</small></span></div>' +
-      (g.soon ? '' : seatDots(g)) +
+      '<div class="hx-meta"><span class="hx-when">⏱ Next <b>' + esc(when(g)) + '</b></span><span class="hx-price">$' + g.price + ' <small>USD / session</small></span></div>' +
+      ((g.soon || g.opensAt) ? '' : seatDots(g)) +
       '<a class="hx-dmrow" href="' + gmUrl(m) + '" title="See ' + esc(m.name) + '\'s page">' + avatar(m, 'hx-av') +
         '<span class="hx-who"><b>' + esc(m.name) + (m.you ? '<i>HOST</i>' : '') + '</b><small>' + (m.pronouns ? esc(m.pronouns) + ' · ' : '') + ratingText(m) + '</small></span>' +
         '<span class="hx-go">Profile ›</span></a></div></article>';

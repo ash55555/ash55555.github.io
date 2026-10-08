@@ -546,6 +546,21 @@
   .cc-banner-btn:hover .cc-banner-overlay { opacity: 1; background: rgba(0,0,0,.45); }
   .cc-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1em; }
   .cc-count { font-size: .7rem; color: var(--text-muted); text-align: right; margin-top: .25em; }
+  .cc-hint { font-size: .78rem; color: var(--text-muted); margin: .4em 0 0; }
+  .cc-hint.warn { color: var(--danger); font-weight: 700; }
+  .cc-money { display: flex; align-items: center; gap: .4em; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0 .6em; }
+  .cc-money span:first-child { color: var(--gold); font-weight: 800; }
+  .cc-money input { flex: 1; min-width: 0; background: none !important; border: 0 !important; padding: .5em 0 !important; }
+  .cc-money input:focus { outline: none; }
+  .cc-money-unit { font-size: .72rem; font-weight: 800; letter-spacing: .05em; color: var(--text-muted); }
+  .cc-seg { display: inline-flex; width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: .25em; gap: .2em; }
+  .cc-seg button { flex: 1; border: 0; background: none; color: var(--text-muted); font: inherit; font-weight: 800; font-size: .84rem; padding: .55em .8em; border-radius: 999px; cursor: pointer; }
+  .cc-seg button.on { background: var(--purple); color: #fff; }
+  .cc-datechips { display: flex; flex-wrap: wrap; gap: .5em; }
+  .cc-datechip { border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-weight: 700; font-size: .84rem; padding: .55em .9em; border-radius: 10px; cursor: pointer; text-align: left; }
+  .cc-datechip span { display: block; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .15em; }
+  .cc-datechip.on { border-color: var(--gold); background: rgba(242, 184, 79, .12); }
+  .cc-datechip.on span { color: var(--gold); }
 </style>
 <style id="admin-glass">
   /* ===== DM side: liquid glass (admin page only) ===== */
@@ -1247,6 +1262,32 @@
           <div class="field"><label>Eyebrow (short tag above the title)</label><input type="text" id="cc-f-eyebrow" maxlength="70" placeholder="e.g. Political Intrigue · Buried City"></div>
         </div>
 
+        <div class="cc-fields" style="margin-top:1em;">
+          <div class="field">
+            <label>Price per session</label>
+            <div class="cc-money"><span>$</span><input type="number" id="cc-f-price" min="5" step="1" placeholder="10"><span class="cc-money-unit">USD</span></div>
+            <p class="cc-hint" id="cc-price-hint">$5 minimum, no maximum. Leave blank for the site default, $10.</p>
+          </div>
+          <div class="field">
+            <label>Minimum players</label>
+            <input type="number" id="cc-f-minplayers" min="1" max="20" placeholder="3">
+            <p class="cc-hint">Shown as "X needed to start." Leave blank for the site default, 3.</p>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>Opening</label>
+          <div class="cc-seg" id="cc-open-seg">
+            <button type="button" class="on" data-v="now">Open now</button>
+            <button type="button" data-v="date">Opens on a date</button>
+          </div>
+          <div class="field" id="cc-open-date-wrap" style="margin-top:.7em;" hidden>
+            <label>Opens on</label>
+            <input type="date" id="cc-f-openat">
+            <p class="cc-hint">Hidden from joining until this date. The page still shows and says when it opens.</p>
+          </div>
+        </div>
+
         <div class="field" style="margin-top:1em;">
           <label>Hook (one or two sentences under the title)</label>
           <textarea id="cc-f-hook" rows="2" maxlength="220" placeholder="The one line that makes someone want to click in."></textarea>
@@ -1281,6 +1322,18 @@
           <div class="slot-fields">
             <div class="field"><label id="cc-day-label">Session day (GMT+1)</label><select id="cc-f-day"></select></div>
             <div class="field"><label id="cc-time-label">Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
+          </div>
+          <div class="field" style="margin-top:.8em;">
+            <label>How often</label>
+            <div class="cc-seg" id="cc-freq-seg">
+              <button type="button" class="on" data-v="weekly">Weekly</button>
+              <button type="button" data-v="biweekly">Every other week</button>
+            </div>
+          </div>
+          <div class="field" id="cc-anchor-wrap" style="margin-top:.6em;" hidden>
+            <label>First session (pick the real date, not a week number)</label>
+            <div class="cc-datechips" id="cc-anchor-chips"></div>
+            <p class="cc-hint" id="cc-cadence-hint"></p>
           </div>
         </div>
         <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so each group has its own time, further down under Players &amp; Payments. <button type="button" class="pay-mini" id="cc-time-goto">Take me there</button></p>
@@ -1350,7 +1403,7 @@ window.AshSlots = (function () {
   }
   // only what a Game Master's session needs; the rest of the form (PayPal fields, GMT+1 labels) is Ash's
   function shape(slot) {
-    return { day: slot.day, hour: slot.hour, minute: slot.minute || 0, tz: myTz, max: slot.max, enabled: slot.enabled !== false, group: slot.group || '' };
+    return { day: slot.day, hour: slot.hour, minute: slot.minute || 0, tz: myTz, max: slot.max, enabled: slot.enabled !== false, group: slot.group || '', freq: slot.freq === 'biweekly' ? 'biweekly' : 'weekly', anchor: slot.freq === 'biweekly' ? (slot.anchor || null) : null };
   }
   function loadAll() {
     return api('all').then(function (d) {
@@ -1500,7 +1553,12 @@ window.AshSlots = (function () {
         filled: parseInt(row.querySelector('.f-filled').value, 10) || 0,
         max: parseInt(row.querySelector('.f-max').value, 10) || 1,
         enabled: row.querySelector('.f-enabled').checked,
-        planId: row.querySelector('.f-plan').value.trim() || null
+        planId: row.querySelector('.f-plan').value.trim() || null,
+        // This simpler, per-group editor has no every-other-week control of its own (that lives in the
+        // main campaign editor, for a campaign's single group); keep whatever cadence was already set
+        // rather than silently reverting a biweekly group back to weekly just because it was saved here.
+        freq: slot.freq === 'biweekly' ? 'biweekly' : 'weekly',
+        anchor: slot.freq === 'biweekly' ? (slot.anchor || null) : null
       };
 
       saveBtn.disabled = true;
@@ -3014,6 +3072,77 @@ window.AshSlots = (function () {
     return e;
   }
 
+  // ---- opening date + every-other-week: shared helpers for the campaign editor ----
+  var DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  function fmtChipDate(d) { return DAY_ABBR[d.getDay()] + ', ' + MONTH_ABBR[d.getMonth()] + ' ' + d.getDate(); }
+  function addLocalDays(d, n) { var r = new Date(d.getTime()); r.setDate(r.getDate() + n); return r; }
+  function nextLocalWeekday(targetDay) {
+    var d = new Date(); d.setHours(0, 0, 0, 0);
+    var diff = (targetDay - d.getDay() + 7) % 7;
+    if (diff === 0) diff = 7; // the next occurrence, not today
+    return addLocalDays(d, diff);
+  }
+  function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function ymdToDate(s) {
+    var p = String(s || '').split('-').map(Number);
+    return p.length === 3 ? new Date(p[0], p[1] - 1, p[2]) : null;
+  }
+
+  function paintSeg(id, value) {
+    document.querySelectorAll('#' + id + ' button').forEach(function (b) { b.classList.toggle('on', b.dataset.v === value); });
+  }
+  function selectedAnchorYmd() {
+    var on = document.querySelector('#cc-anchor-chips .cc-datechip.on');
+    return on ? on.dataset.ymd : null;
+  }
+  function paintCadenceHint(anchorYmd) {
+    var hint = document.getElementById('cc-cadence-hint');
+    var d = ymdToDate(anchorYmd);
+    if (!d) { hint.textContent = ''; return; }
+    var dates = [d, addLocalDays(d, 14), addLocalDays(d, 28), addLocalDays(d, 42)];
+    hint.textContent = 'Then every two weeks: ' + dates.map(function (x) { return MONTH_ABBR[x.getMonth()] + ' ' + x.getDate(); }).join(' · ');
+  }
+  // Two real dates to pick the first session from: the soonest matching weekday, and one week after that.
+  function buildAnchorChips(day, selectedYmd) {
+    var wrap = document.getElementById('cc-anchor-chips');
+    wrap.innerHTML = '';
+    var first = nextLocalWeekday(day);
+    var second = addLocalDays(first, 7);
+    [first, second].forEach(function (d, i) {
+      var val = ymd(d);
+      var b = el('button', 'cc-datechip' + ((selectedYmd ? val === selectedYmd : i === 0) ? ' on' : ''));
+      b.type = 'button';
+      b.dataset.ymd = val;
+      b.innerHTML = '<span>' + (i === 0 ? 'Sooner' : 'One week later') + '</span>' + fmtChipDate(d);
+      b.addEventListener('click', function () {
+        Array.prototype.forEach.call(wrap.children, function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        paintCadenceHint(val);
+      });
+      wrap.appendChild(b);
+    });
+    paintCadenceHint(selectedAnchorYmd());
+  }
+  document.querySelectorAll('#cc-open-seg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      paintSeg('cc-open-seg', b.dataset.v);
+      document.getElementById('cc-open-date-wrap').hidden = b.dataset.v !== 'date';
+    });
+  });
+  document.querySelectorAll('#cc-freq-seg button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      paintSeg('cc-freq-seg', b.dataset.v);
+      var on = b.dataset.v === 'biweekly';
+      document.getElementById('cc-anchor-wrap').hidden = !on;
+      if (on) buildAnchorChips(parseInt(document.getElementById('cc-f-day').value, 10), null);
+    });
+  });
+  document.getElementById('cc-f-day').addEventListener('change', function () {
+    var freqOn = document.querySelector('#cc-freq-seg button.on');
+    if (freqOn && freqOn.dataset.v === 'biweekly') buildAnchorChips(parseInt(this.value, 10), null);
+  });
+
   function call(action, extra) {
     return firebase.auth().currentUser.getIdToken().then(function (idToken) {
       return fetch(CONTENT_URL + action, {
@@ -3132,6 +3261,13 @@ window.AshSlots = (function () {
   // here. One with more than one (like Curse of Strahd's two groups) points to
   // the Session settings tab instead, so editing here can never collide with
   // whichever group she meant.
+  function paintFreq(slot) {
+    var freq = slot && slot.freq === 'biweekly' ? 'biweekly' : 'weekly';
+    paintSeg('cc-freq-seg', freq);
+    document.getElementById('cc-anchor-wrap').hidden = freq !== 'biweekly';
+    if (freq === 'biweekly') buildAnchorChips(slot.day != null ? slot.day : 6, slot.anchor || null);
+  }
+
   function loadSlotState(slug) {
     var single = document.getElementById('cc-time-single');
     var multi = document.getElementById('cc-time-multi');
@@ -3140,6 +3276,7 @@ window.AshSlots = (function () {
       single.hidden = false; multi.hidden = true;
       document.getElementById('cc-f-day').value = 6;
       document.getElementById('cc-f-time').value = '18:00';
+      paintFreq(null);
       return Promise.resolve();
     }
     return window.AshSlots.read(slug).then(function (slots) {
@@ -3151,6 +3288,7 @@ window.AshSlots = (function () {
         single.hidden = false; multi.hidden = true;
         document.getElementById('cc-f-day').value = slot.day != null ? slot.day : 6;
         document.getElementById('cc-f-time').value = pad(slot.hour != null ? slot.hour : 18) + ':' + pad(slot.minute || 0);
+        paintFreq(slot);
       } else {
         slotState = { mode: 'multi' };
         single.hidden = true; multi.hidden = false;
@@ -3158,6 +3296,7 @@ window.AshSlots = (function () {
     }).catch(function () {
       slotState = { mode: 'single', slotId: 'default', slot: {} };
       single.hidden = false; multi.hidden = true;
+      paintFreq(null);
     });
   }
 
@@ -3187,6 +3326,11 @@ window.AshSlots = (function () {
       document.getElementById('cc-f-stakes').value = '';
       document.getElementById('cc-f-audience').value = '';
       document.getElementById('cc-f-published').checked = false;
+      document.getElementById('cc-f-price').value = '';
+      document.getElementById('cc-f-minplayers').value = '';
+      document.getElementById('cc-f-openat').value = '';
+      paintSeg('cc-open-seg', 'now');
+      document.getElementById('cc-open-date-wrap').hidden = true;
       document.getElementById('cc-view-link').style.display = 'none';
       renderBannerPreview(null);
       refreshCounts();
@@ -3206,6 +3350,11 @@ window.AshSlots = (function () {
       document.getElementById('cc-f-stakes').value = d.stakes || '';
       document.getElementById('cc-f-audience').value = d.audience || '';
       document.getElementById('cc-f-published').checked = !!d.published;
+      document.getElementById('cc-f-price').value = d.price || '';
+      document.getElementById('cc-f-minplayers').value = d.minPlayers || '';
+      document.getElementById('cc-f-openat').value = d.openAt || '';
+      paintSeg('cc-open-seg', d.openMode === 'date' ? 'date' : 'now');
+      document.getElementById('cc-open-date-wrap').hidden = d.openMode !== 'date';
       renderBannerPreview(d.bannerUrl || FALLBACK_BANNERS[slug]);
       refreshCounts();
       return loadSlotState(slug).then(function () {
@@ -3252,6 +3401,20 @@ window.AshSlots = (function () {
       status.className = 'slot-status error';
       return;
     }
+    var priceRaw = document.getElementById('cc-f-price').value.trim();
+    if (priceRaw && Number(priceRaw) < 5) {
+      status.textContent = 'Price must be at least $5.';
+      status.className = 'slot-status error';
+      return;
+    }
+    var minRaw = document.getElementById('cc-f-minplayers').value.trim();
+    var openMode = document.querySelector('#cc-open-seg button.on').dataset.v;
+    var openAt = document.getElementById('cc-f-openat').value;
+    if (openMode === 'date' && !openAt) {
+      status.textContent = 'Pick an opening date, or switch back to Open now.';
+      status.className = 'slot-status error';
+      return;
+    }
     var body = {
       title: title,
       eyebrow: document.getElementById('cc-f-eyebrow').value,
@@ -3260,7 +3423,11 @@ window.AshSlots = (function () {
       world: document.getElementById('cc-f-world').value,
       stakes: document.getElementById('cc-f-stakes').value,
       audience: document.getElementById('cc-f-audience').value,
-      published: document.getElementById('cc-f-published').checked
+      published: document.getElementById('cc-f-published').checked,
+      price: priceRaw ? Number(priceRaw) : null,
+      minPlayers: minRaw ? Number(minRaw) : null,
+      openMode: openMode,
+      openAt: openMode === 'date' ? openAt : null
     };
     if (current) body.slug = current;
     if (pendingBanner) body.banner = pendingBanner;
@@ -3285,13 +3452,16 @@ window.AshSlots = (function () {
         var ampmHour = ((hour % 12) || 12);
         var ampm = hour < 12 ? 'AM' : 'PM';
         var sourceLabel = ampmHour + ':' + pad(minute) + ' ' + ampm + ' GMT+' + offsetHours;
+        var freq = document.querySelector('#cc-freq-seg button.on').dataset.v;
         var updated = Object.assign({}, slotState.slot, {
           day: day, hour: hour, minute: minute, offset: offsetHours, source: sourceLabel,
           group: (slotState.slot && slotState.slot.group) || '',
           filled: (slotState.slot && slotState.slot.filled) || 0,
           max: (slotState.slot && slotState.slot.max) || 5,
           enabled: !(slotState.slot && slotState.slot.enabled === false) ,
-          planId: (slotState.slot && slotState.slot.planId) || null
+          planId: (slotState.slot && slotState.slot.planId) || null,
+          freq: freq,
+          anchor: freq === 'biweekly' ? selectedAnchorYmd() : null
         });
         timeSaved = window.AshSlots.set(d.slug, slotState.slotId, updated);
       }

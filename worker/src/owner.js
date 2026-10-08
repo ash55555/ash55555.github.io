@@ -50,17 +50,35 @@ export function validTz(tz) {
   return typeof tz === 'string' && tz.length <= 64 && tzOffsetMinutes(tz, new Date(0)) !== null;
 }
 
+// "YYYY-MM-DD" shifted by a number of days (may be negative), still "YYYY-MM-DD".
+function shiftYmd(ymd, days) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+  if (!m || !days) return ymd;
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 // { day, hour, minute } on the GM's clock + zone  ->  the same moment each week, in UTC.
+// When the shift to UTC crosses midnight, the weekday changes — a biweekly slot's anchor date
+// (also authored on the GM's clock) has to shift by that same number of days, or it would name
+// a calendar date that no longer matches the UTC weekday everything else here now uses.
 export function slotToUtc(slot, now = new Date()) {
   const off = validTz(slot.tz) ? tzOffsetMinutes(slot.tz, now) : 0;
   const local = slot.hour * 60 + (slot.minute || 0);
   const utc = local - off;
   const shift = Math.floor(utc / 1440);
   const inDay = ((utc % 1440) + 1440) % 1440;
-  return { day: (((slot.day + shift) % 7) + 7) % 7, hour: Math.floor(inDay / 60), minute: inDay % 60, offset: 0 };
+  const out = { day: (((slot.day + shift) % 7) + 7) % 7, hour: Math.floor(inDay / 60), minute: inDay % 60, offset: 0 };
+  if (slot.freq === 'biweekly' && slot.anchor) out.anchor = shiftYmd(slot.anchor, shift);
+  return out;
 }
 
 // Check one slot from the browser and return only the fields we keep, or { error }.
+// freq is "weekly" (the default, and the only option before this field existed) or
+// "biweekly". A biweekly slot also carries anchor, the "YYYY-MM-DD" date of its first
+// session — a real date instead of an ambiguous "which week do we start on" rule, and
+// the day that date falls on (UTC) must match the weekday already picked for the slot.
 export function cleanSlot(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
   const day = Number(s.day), hour = Number(s.hour), minute = Number(s.minute || 0), max = Number(s.max);
@@ -68,6 +86,14 @@ export function cleanSlot(raw) {
   if (!Number.isInteger(hour) || hour < 0 || hour > 23 || !Number.isInteger(minute) || minute < 0 || minute > 59) return { error: 'Please pick a start time.' };
   if (!Number.isInteger(max) || max < 1 || max > 12) return { error: 'Max players must be between 1 and 12.' };
   if (!validTz(s.tz)) return { error: 'Your time zone could not be read. Please reload the page and try again.' };
+  const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
+  let anchor = null;
+  if (freq === 'biweekly') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(s.anchor || ''))) return { error: 'Please pick the date of the first session.' };
+    const d = new Date(`${s.anchor}T00:00:00Z`);
+    if (Number.isNaN(d.getTime()) || d.getUTCDay() !== day) return { error: 'The first session date does not fall on the day you picked.' };
+    anchor = String(s.anchor);
+  }
   const group = String(s.group == null ? '' : s.group).replace(/<[^>]*>/g, ' ').replace(/[<>\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30);
-  return { slot: { day, hour, minute, tz: s.tz, max, enabled: s.enabled !== false, group } };
+  return { slot: { day, hour, minute, tz: s.tz, max, enabled: s.enabled !== false, group, freq, anchor } };
 }

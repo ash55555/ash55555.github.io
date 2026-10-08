@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (groupEl && slot.group) groupEl.textContent = slot.group;
 
     if (mainEl && typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') {
-      var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset);
+      var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor);
       if (next) mainEl.textContent = formatLocal(next);
     }
 
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (subEl) {
-      subEl.textContent = 'Weekly session, shown in your time zone';
+      subEl.textContent = slot.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly session, shown in your time zone';
     }
 
     if (typeof slot.max === 'number') {
@@ -154,4 +154,34 @@ document.addEventListener('DOMContentLoaded', function () {
     onlineSeats = (d && d.seats) || {};
     if (lastData) applyData(lastData);
   }).catch(function () { /* the site still shows the manual seat counts */ });
+
+  // Each campaign's own price and opening date (ash.html's price-tag on its card, or
+  // a blog page's single blog-payment-price) are never in Firebase, only in the content
+  // database, so they are fetched separately here rather than through applySlotToChip.
+  var WORKER_CONTENT_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/public?slug=';
+  function openDateLong(ymd) {
+    var p = ymd.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  var seenSlugs = {};
+  chips.forEach(function (chip) {
+    var slug = chip.dataset.campaign;
+    if (!slug || seenSlugs[slug]) return;
+    seenSlugs[slug] = true;
+    var card = chip.closest('.campaign-card');
+    var priceEl = card ? card.querySelector('.price-tag') : document.querySelector('.blog-payment-price');
+    if (!priceEl) return;
+    fetch(WORKER_CONTENT_URL + encodeURIComponent(slug)).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !(d.price > 0)) return;
+      var money = '$' + (d.price % 1 === 0 ? d.price : d.price.toFixed(2)) + ' USD';
+      priceEl.textContent = card ? money + ' / session' : money + ' per session · Session Zero is free';
+      var opensLater = d.openMode === 'date' && d.openAt && new Date(d.openAt + 'T00:00:00Z').getTime() > Date.now();
+      if (opensLater) {
+        var note = priceEl.parentElement.querySelector('.cd-opens-note') || document.createElement(card ? 'span' : 'p');
+        note.className = (card ? 'price-tag cd-opens-note' : 'blog-payment-opens cd-opens-note');
+        note.textContent = 'Opens ' + openDateLong(d.openAt);
+        if (!note.parentElement) priceEl.insertAdjacentElement('afterend', note);
+      }
+    }).catch(function () { /* the page keeps its original price text */ });
+  });
 });

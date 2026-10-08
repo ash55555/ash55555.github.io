@@ -16,6 +16,11 @@
     return e;
   }
 
+  function openDateLong(ymd) {
+    var p = ymd.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
   function buildCard(c) {
     var href = 'blog/campaign.html?slug=' + encodeURIComponent(c.slug);
 
@@ -66,9 +71,12 @@
     link.innerHTML = 'Read the Full Story <svg class="icon icon-sm"><use href="#icon-book"/></svg>';
     body.appendChild(link);
 
+    var price = c.price > 0 ? c.price : 10;
     var footer = el('div', 'campaign-footer');
     footer.innerHTML =
-      '<span class="price-tag">$10 / session</span>' +
+      '<span class="price-tag">$' + (price % 1 === 0 ? price : price.toFixed(2)) + ' USD / session</span>' +
+      (c.openMode === 'date' && c.openAt && new Date(c.openAt + 'T00:00:00Z').getTime() > Date.now()
+        ? '<span class="price-tag cd-opens-note">Opens ' + openDateLong(c.openAt) + '</span>' : '') +
       '<a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>';
     body.appendChild(footer);
 
@@ -89,6 +97,7 @@
       var params = new URLSearchParams({
         campaign: chip.dataset.campaign, slot: '', group: '',
         day: chip.dataset.day, hour: chip.dataset.hour, minute: chip.dataset.minute, offset: chip.dataset.offset,
+        freq: chip.dataset.freq || 'weekly', anchor: chip.dataset.anchor || '',
         embed: '1',
       });
       if (typeof openJoinPopup === 'function') openJoinPopup('player.html?' + params.toString());
@@ -133,10 +142,11 @@
         lastSlot = slot;
         var offset = slot.offset != null ? slot.offset : 1;
         chip.dataset.day = slot.day; chip.dataset.hour = slot.hour; chip.dataset.minute = slot.minute || 0; chip.dataset.offset = offset;
+        chip.dataset.freq = slot.freq || 'weekly'; chip.dataset.anchor = slot.anchor || '';
         if (slot.source) chip.dataset.source = slot.source;
         var mainEl = chip.querySelector('.session-main');
         if (mainEl && typeof nextOccurrenceUTC === 'function' && typeof formatLocal === 'function') {
-          var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset);
+          var next = nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor);
           if (next) mainEl.textContent = formatLocal(next);
         }
         var subEl = chip.querySelector('.session-sub');
@@ -148,7 +158,7 @@
           chip.classList.add('is-full');
           return;
         }
-        if (subEl) subEl.textContent = 'Weekly session, shown in your time zone';
+        if (subEl) subEl.textContent = slot.freq === 'biweekly' ? 'Every other week, shown in your time zone' : 'Weekly session, shown in your time zone';
         chip.disabled = false;
         chip.classList.remove('is-full');
         chip.classList.remove('is-full-hidden');

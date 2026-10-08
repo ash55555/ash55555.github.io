@@ -21,6 +21,7 @@ const TEST_GAME = {
   title: hasGame ? campaignName + (groupName ? " · " + groupName : "") : "The Test Table",
   eyebrow: hasGame ? "Campaign" : "Test Table",
   day: num("day", 3), hour: num("hour", 18), minute: num("minute", 0), offset: num("offset", 1),
+  freq: query.get("freq") === "biweekly" ? "biweekly" : "weekly", anchor: query.get("anchor") || null,
   seatsMax: num("max", 5), seatsMin: num("min", 3), price: num("price", 10), // price here is only what is DISPLAYED; the Worker decides what is charged
 };
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
@@ -78,14 +79,22 @@ let onConfirm = null;
 
 function tokenById(id) { return TOKENS.find((t) => t.id === id) || TOKENS[0]; }
 
+// Matches worker/src/pay.js's nextStart/upcoming: weekly by default, or every 14 days
+// from TEST_GAME.anchor (a real "YYYY-MM-DD" first-session date) when biweekly.
 function upcomingSessions(count) {
   const utcHour = TEST_GAME.hour - TEST_GAME.offset;
+  const targetDay = (TEST_GAME.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
+  const biweekly = TEST_GAME.freq === 'biweekly' && TEST_GAME.anchor;
+  const anchorMatch = biweekly ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(TEST_GAME.anchor) : null;
+  const anchorTs = anchorMatch ? Date.UTC(+anchorMatch[1], +anchorMatch[2] - 1, +anchorMatch[3], utcHour, TEST_GAME.minute) : null;
   const out = [];
   const now = new Date();
-  for (let i = 0; i < 40 && out.length < count; i++) {
+  for (let i = 0; i < 60 && out.length < count; i++) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, utcHour, TEST_GAME.minute));
-    const targetDay = (TEST_GAME.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
-    if (d.getUTCDay() === targetDay && d.getTime() > now.getTime()) out.push(d);
+    if (d.getUTCDay() !== targetDay || d.getTime() <= now.getTime()) continue;
+    if (anchorTs == null) { out.push(d); continue; }
+    const sinceAnchorDays = Math.round((d.getTime() - anchorTs) / 86400000);
+    if (((sinceAnchorDays % 14) + 14) % 14 === 0) out.push(d);
   }
   return out;
 }
@@ -239,7 +248,7 @@ function seatNumbers() {
 }
 
 function billingHtml(next) {
-  return '<strong>You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
+  return '<strong>You will be charged $' + TEST_GAME.price + ' USD on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
     '<span>Then again every ' + weekdayName(next) + ' at ' + fmtTime(next) + ', when each session starts.</span>' +
     '<span>Billing begins once Ash starts the game (it needs enough players). If it has not started by then, you are not charged.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
@@ -275,8 +284,16 @@ function renderGame() {
   $("pp-left-title").textContent = "You left " + TEST_GAME.title + ".";
   const openSeats = seatNumbers().max - seatNumbers().filled;
   $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to Ash about a spot.";
-  const joinClosed = (!preview && !realGame) || bookingClosed;
+  const tableInfo = serverState || publicState;
+  const opensAt = tableInfo && tableInfo.openMode === 'date' && tableInfo.openAt && new Date(tableInfo.openAt + 'T00:00:00Z').getTime() > Date.now() ? tableInfo.openAt : null;
+  const joinClosed = (!preview && !realGame) || bookingClosed || !!opensAt;
   if (joinClosed && openSeats > 0) $("pp-open-seats").textContent = openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left.";
+  if (opensAt) {
+    const p = opensAt.split('-').map(Number);
+    const long = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+    const closedEl = $('pp-join-closed');
+    if (closedEl) closedEl.textContent = 'This table opens on ' + long + '. Come back then to grab a seat.';
+  }
   const full = openSeats <= 0 && view !== "joined" && view !== "skipped";
   ["pp-join-btn", "pp-rejoin-btn"].forEach((id) => { $(id).disabled = full; });
   const sessions = upcomingSessions(4);
@@ -321,9 +338,9 @@ function renderGame() {
   $('pp-billing-active').innerHTML = '<strong>' + (notStarted
     ? "You won't be charged until Ash starts the game."
     : chargeDate
-      ? 'You will be charged $' + TEST_GAME.price + ' on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
+      ? 'You will be charged $' + TEST_GAME.price + ' USD on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
       : 'No charges are scheduled right now.') + '</strong>' +
-    (notStarted && chargeDate ? '<span>After it starts: $' + TEST_GAME.price + ' at the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
+    (notStarted && chargeDate ? '<span>After it starts: $' + TEST_GAME.price + ' USD at the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
     (card ? '<span>' + card.trim() + '</span>' : '');
   $('pp-update-card').hidden = !real;
 
@@ -336,7 +353,7 @@ function renderGame() {
     li.className = 'pp-session' + (skipped ? ' skipped' : '');
     const info = document.createElement('div');
     info.innerHTML = '<span class="pp-session-when">' + fmtDay(d) + ' · ' + fmtTime(d) + '</span>' +
-      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by Ash. You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing. $' + TEST_GAME.price + ' will be charged.') + '</span>';
+      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by Ash. You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing. $' + TEST_GAME.price + ' USD will be charged.') + '</span>';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-ghost btn-small';
@@ -383,6 +400,7 @@ async function api(action, extra) {
 
 function applyStatus(s) {
   serverState = s;
+  if (typeof s.price === 'number') TEST_GAME.price = s.price; // the real, per-campaign price, not the demo default
   if (s.joined) {
     const first = s.sessions && s.sessions[0];
     view = first && first.skipped ? 'skipped' : 'joined';
@@ -399,7 +417,11 @@ async function loadPublicTable() {
   if (!realGame) return;
   try {
     const res = await fetch(WORKER_URL + '/pay/roster?game=' + encodeURIComponent(gameKey));
-    if (res.ok) { publicState = await res.json(); renderAll(); }
+    if (res.ok) {
+      publicState = await res.json();
+      if (typeof publicState.price === 'number') TEST_GAME.price = publicState.price;
+      renderAll();
+    }
   } catch (err) { /* the sample table stays on screen */ }
 }
 
@@ -651,10 +673,11 @@ function fillBooking() {
   $("cb-when").textContent = weekdayName(next) + "s at " + fmtTime(next);
   const filled = SAMPLE_OTHERS.length;
   $("cb-seats").textContent = (filled + 1) + " of " + TEST_GAME.seatsMax + " filled with you";
-  $("cb-price-line").textContent = "$" + TEST_GAME.price + ".00 x 1 player";
-  $("cb-price-amount").textContent = "$" + TEST_GAME.price + ".00";
-  $("cb-total").textContent = "$" + TEST_GAME.price + ".00 / session";
-  $("cb-charge-line").textContent = "Nothing today. $" + TEST_GAME.price + " on " + fmtDay(next) + " at " + fmtTime(next) + ", then every " + weekdayName(next) + " at " + fmtTime(next) + ".";
+  const priceStr = "$" + TEST_GAME.price.toFixed(2) + " USD";
+  $("cb-price-line").textContent = priceStr + " x 1 player";
+  $("cb-price-amount").textContent = priceStr;
+  $("cb-total").textContent = priceStr + " / session";
+  $("cb-charge-line").textContent = "Nothing today. " + priceStr + " on " + fmtDay(next) + " at " + fmtTime(next) + ", then every " + weekdayName(next) + " at " + fmtTime(next) + ".";
   $("cb-first").textContent = "Nothing is charged today. Your first charge is on " + fmtDay(next) + " at " + fmtTime(next) + ", when the session starts.";
 }
 

@@ -40,8 +40,18 @@ async function uniqueSlug(env, base) {
   }
 }
 
+// A null/0 price or min_players means "use the site default" — see pay.js's SESSION_PRICE/MIN_PLAYERS.
+const DEFAULT_PRICE = 10;
+const DEFAULT_MIN_PLAYERS = 3;
+
 function view(row, origin) {
-  const out = { slug: row.slug, updatedAt: row.updated_at, bannerUrl: row.banner_id ? `${origin}/content/banner/${row.banner_id}` : null };
+  const out = {
+    slug: row.slug, updatedAt: row.updated_at, bannerUrl: row.banner_id ? `${origin}/content/banner/${row.banner_id}` : null,
+    price: row.price > 0 ? row.price : DEFAULT_PRICE,
+    minPlayers: row.min_players > 0 ? row.min_players : DEFAULT_MIN_PLAYERS,
+    openMode: row.open_mode === 'date' ? 'date' : 'now',
+    openAt: row.open_mode === 'date' ? row.open_at : null,
+  };
   FIELDS.forEach((f) => { out[f] = row[f] || ''; });
   return out;
 }
@@ -57,7 +67,8 @@ function publicSlots(row) {
   Object.entries(parseSlots(row)).forEach(([id, s]) => {
     if (!s || !Number.isInteger(s.day) || !Number.isInteger(s.hour)) return;
     const u = slotToUtc(s, now);
-    out[id] = { day: u.day, hour: u.hour, minute: u.minute, offset: 0, max: s.max, filled: 0, enabled: s.enabled !== false, group: s.group || '' };
+    const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
+    out[id] = { day: u.day, hour: u.hour, minute: u.minute, offset: 0, max: s.max, filled: 0, enabled: s.enabled !== false, group: s.group || '', freq, anchor: freq === 'biweekly' ? (u.anchor || null) : null };
   });
   return out;
 }
@@ -100,18 +111,23 @@ export async function handleContentPublicList(request, env, corsHeaders) {
   // asks for them by their profile name (?gm=their-slug) and gets only theirs, with their sessions.
   const gmSlug = String(url.searchParams.get('gm') || '');
   let rows;
+  const META_COLS = 'price, min_players, open_mode, open_at';
   if (gmSlug && gmSlug !== 'ash') {
     const gm = await env.DB.prepare('SELECT uid FROM gm_profiles WHERE slug=?').bind(gmSlug).first();
     rows = gm ? (await env.DB.prepare(
-      'SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid FROM campaign_content WHERE published=1 AND owner_uid=? ORDER BY created_at ASC').bind(gm.uid).all()).results : [];
+      `SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid=? ORDER BY created_at ASC`).bind(gm.uid).all()).results : [];
   } else {
     rows = (await env.DB.prepare(
-      'SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid FROM campaign_content WHERE published=1 AND owner_uid IS NULL ORDER BY created_at ASC').all()).results;
+      `SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid IS NULL ORDER BY created_at ASC`).all()).results;
   }
   const ready = {};
   for (const r of rows) if (r.owner_uid && !(r.owner_uid in ready)) ready[r.owner_uid] = !!(await gmPayoutAccount(env, r.owner_uid));
   const campaigns = rows.map((r) => ({
     slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook,
+    price: r.price > 0 ? r.price : DEFAULT_PRICE,
+    minPlayers: r.min_players > 0 ? r.min_players : DEFAULT_MIN_PLAYERS,
+    openMode: r.open_mode === 'date' ? 'date' : 'now',
+    openAt: r.open_mode === 'date' ? r.open_at : null,
     ...(r.owner_uid ? { bookable: ready[r.owner_uid] } : {}),
     bannerUrl: r.banner_id ? `${url.origin}/content/banner/${r.banner_id}` : null,
     ...(r.owner_uid ? { slots: publicSlots(r) } : {}),
@@ -237,16 +253,52 @@ async function saveCampaign(env, actor, body, self, corsHeaders) {
 
   const published = body.published === false ? 0 : 1;
 
+  // Price and the seat floor: $5 minimum, no ceiling. A blank field (sent as null)
+  // means "use the site default"; field left out of the request entirely (undefined)
+  // means "don't touch it", so a banner-only save can't accidentally wipe the price.
+  let price = existing ? existing.price : null;
+  if (body.price !== undefined) {
+    if (body.price === null || body.price === '') {
+      price = null;
+    } else {
+      const n = Math.round(Number(body.price) * 100) / 100;
+      if (!(n >= 5)) return json({ error: 'Price must be at least $5.' }, 400, corsHeaders);
+      price = n;
+    }
+  }
+  let minPlayers = existing ? existing.min_players : null;
+  if (body.minPlayers !== undefined) {
+    if (body.minPlayers === null || body.minPlayers === '') {
+      minPlayers = null;
+    } else {
+      const n = Math.round(Number(body.minPlayers));
+      if (!(Number.isInteger(n) && n >= 1 && n <= 20)) return json({ error: 'Minimum players must be between 1 and 20.' }, 400, corsHeaders);
+      minPlayers = n;
+    }
+  }
+  let openMode = existing ? existing.open_mode : 'now';
+  let openAt = existing ? existing.open_at : null;
+  if (body.openMode !== undefined) {
+    if (body.openMode === 'date') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.openAt || ''))) return json({ error: 'Please pick an opening date.' }, 400, corsHeaders);
+      openMode = 'date';
+      openAt = String(body.openAt);
+    } else {
+      openMode = 'now';
+      openAt = null;
+    }
+  }
+
   if (isNew) {
     await env.DB.prepare(
-      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, banner_id, banner_data, published, created_at, updated_at, owner_uid)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid)
+      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
       .run();
   } else {
     await env.DB.prepare(
-      `UPDATE campaign_content SET title=?, eyebrow=?, hook=?, intro=?, world=?, stakes=?, audience=?, banner_id=?, banner_data=?, published=?, updated_at=? WHERE slug=?`)
-      .bind(title, fields.eyebrow ?? existing.eyebrow, fields.hook ?? existing.hook, fields.intro ?? existing.intro, fields.world ?? existing.world, fields.stakes ?? existing.stakes, fields.audience ?? existing.audience, bannerId, bannerData, published, now, slug)
+      `UPDATE campaign_content SET title=?, eyebrow=?, hook=?, intro=?, world=?, stakes=?, audience=?, banner_id=?, banner_data=?, published=?, updated_at=?, price=?, min_players=?, open_mode=?, open_at=? WHERE slug=?`)
+      .bind(title, fields.eyebrow ?? existing.eyebrow, fields.hook ?? existing.hook, fields.intro ?? existing.intro, fields.world ?? existing.world, fields.stakes ?? existing.stakes, fields.audience ?? existing.audience, bannerId, bannerData, published, now, price, minPlayers, openMode, openAt, slug)
       .run();
   }
   const row = await env.DB.prepare('SELECT * FROM campaign_content WHERE slug=?').bind(slug).first();

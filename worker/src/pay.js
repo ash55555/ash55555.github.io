@@ -66,38 +66,47 @@ export async function loadGames(env, fresh = false) {
   if (!res.ok) throw new Error('Could not load the game schedule.');
   const data = await res.json();
 
-  // CAMPAIGN_TITLES only knows the site's 5 original campaigns. Anything made
-  // later through the admin Campaigns tab isn't in it, and without this,
-  // every email and notification about that campaign (join, leave, skip,
-  // declined card, session reminders) would show the raw slug instead of its
-  // real title. Looks up the real title from the content database for any
-  // slug CAMPAIGN_TITLES doesn't recognize.
-  const unknownSlugs = Object.keys(data || {}).filter((slug) => !CAMPAIGN_TITLES[slug]);
-  const titleOverrides = {};
-  if (unknownSlugs.length && env.DB) {
-    for (const slug of unknownSlugs) {
+  // Every campaign's title (for slugs the site doesn't hard-code), its own price,
+  // its own minimum players and whether it opens later all live in campaign_content,
+  // Firebase-scheduled (Ash) or not. A missing row, or a null field on one, just
+  // means "use the site default" (the hardcoded price/minimum this always had).
+  const slugs = Object.keys(data || {});
+  const metaBySlug = {};
+  if (slugs.length && env.DB) {
+    for (const slug of slugs) {
       try {
-        const row = await env.DB.prepare('SELECT title FROM campaign_content WHERE slug=?').bind(slug).first();
-        if (row && row.title) titleOverrides[slug] = row.title;
-      } catch { /* falls back to the raw slug below */ }
+        const row = await env.DB.prepare('SELECT title, price, min_players, open_mode, open_at FROM campaign_content WHERE slug=?').bind(slug).first();
+        if (row) metaBySlug[slug] = row;
+      } catch { /* falls back to the raw slug and site defaults below */ }
     }
   }
 
   const games = {};
   for (const [slug, campaign] of Object.entries(data || {})) {
+    const meta = metaBySlug[slug] || {};
+    const price = meta.price > 0 ? meta.price : SESSION_PRICE;
+    const min = meta.min_players > 0 ? meta.min_players : MIN_PLAYERS;
+    const openMode = meta.open_mode === 'date' ? 'date' : 'now';
+    const openAt = openMode === 'date' ? meta.open_at : null;
     for (const [slotId, s] of Object.entries((campaign && campaign.slots) || {})) {
       if (!s || !Number.isInteger(s.day) || !Number.isInteger(s.hour) || s.day < 0 || s.day > 6 || s.hour < 0 || s.hour > 23) continue;
       const key = slotId === 'default' ? slug : `${slug}::${slotId}`;
+      const minute = Number.isInteger(s.minute) ? s.minute : 0;
+      const offset = typeof s.offset === 'number' ? s.offset : 1;
+      const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
       games[key] = {
         key,
-        title: (CAMPAIGN_TITLES[slug] || titleOverrides[slug] || slug) + (s.group ? `, ${s.group}` : ''),
+        title: (CAMPAIGN_TITLES[slug] || meta.title || slug) + (s.group ? `, ${s.group}` : ''),
         day: s.day,
         hour: s.hour,
-        minute: Number.isInteger(s.minute) ? s.minute : 0,
-        offset: typeof s.offset === 'number' ? s.offset : 1,
-        price: SESSION_PRICE,
+        minute,
+        offset,
+        freq,
+        anchorTs: freq === 'biweekly' ? anchorTimestamp(s.anchor, s.hour, minute, offset) : null,
+        price,
         max: Number.isInteger(s.max) && s.max > 0 ? s.max : 5,
-        min: MIN_PLAYERS,
+        min,
+        openMode, openAt,
         legacyFilled: Number.isInteger(s.filled) && s.filled > 0 ? s.filled : 0,
         enabled: s.enabled !== false,
       };
@@ -110,22 +119,29 @@ export async function loadGames(env, fresh = false) {
     // Ash's own games must never be held up by this: if the lookup fails (for example the database has not been
     // updated yet), her schedule loads exactly as before and only the other Game Masters' games are missing.
     let owned = [];
-    try { owned = (await env.DB.prepare('SELECT slug, title, owner_uid, slots_json FROM campaign_content WHERE owner_uid IS NOT NULL').all()).results; } catch (err) { console.error('could not read the other Game Masters games', err && err.message); }
+    try { owned = (await env.DB.prepare('SELECT slug, title, owner_uid, slots_json, price, min_players, open_mode, open_at FROM campaign_content WHERE owner_uid IS NOT NULL').all()).results; } catch (err) { console.error('could not read the other Game Masters games', err && err.message); }
     for (const c of owned) {
       let slots = {};
       try { slots = JSON.parse(c.slots_json || '{}') || {}; } catch { slots = {}; }
+      const price = c.price > 0 ? c.price : SESSION_PRICE;
+      const min = c.min_players > 0 ? c.min_players : MIN_PLAYERS;
+      const openMode = c.open_mode === 'date' ? 'date' : 'now';
+      const openAt = openMode === 'date' ? c.open_at : null;
       for (const [slotId, s] of Object.entries(slots)) {
         if (!s || !Number.isInteger(s.day) || !Number.isInteger(s.hour)) continue;
         const u = slotToUtc(s, now);
         const key = slotId === 'default' ? c.slug : `${c.slug}::${slotId}`;
         if (games[key]) continue; // never take over one of Ash's own games
+        const freq = s.freq === 'biweekly' ? 'biweekly' : 'weekly';
         games[key] = {
           key,
           title: c.title + (s.group ? `, ${s.group}` : ''),
           day: u.day, hour: u.hour, minute: u.minute, offset: 0,
-          price: SESSION_PRICE,
+          freq, anchorTs: freq === 'biweekly' ? anchorTimestamp(u.anchor, u.hour, u.minute, 0) : null,
+          price,
           max: Number.isInteger(s.max) && s.max > 0 ? s.max : 5,
-          min: MIN_PLAYERS,
+          min,
+          openMode, openAt,
           legacyFilled: 0,
           enabled: s.enabled !== false,
           owner: c.owner_uid,
@@ -194,13 +210,35 @@ function isAllowed(env, user) {
   return allowed.includes((user.email || '').toLowerCase());
 }
 
-// First session start strictly after `after`.
+// The date (in ms since epoch) of a slot's very first session, from its "YYYY-MM-DD"
+// anchor plus the hour/minute/offset already resolved for that slot. Only biweekly
+// slots have an anchor; everyone else gets null and nextStart below just runs weekly.
+function anchorTimestamp(anchorYmd, hour, minute, offset) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchorYmd || '');
+  if (!m) return null;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), hour - offset, minute);
+}
+
+// "2027-01-15" -> "January 15, 2027", for messages about a campaign's opening date.
+function fmtOpenDate(ymd) {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' }).format(d);
+}
+
+// First session start strictly after `after`. Weekly by default; a biweekly game only
+// counts the occurrence every 14 days from its anchor date, so there's never a "which
+// week" guess — the cadence is always counted from one real, GM-picked date.
 function nextStart(game, after) {
   const utcHour = game.hour - game.offset;
   const targetDay = (game.day + (utcHour < 0 ? -1 : 0) + 7) % 7;
-  for (let i = -1; i < 9; i++) {
+  const biweekly = game.freq === 'biweekly' && Number.isFinite(game.anchorTs);
+  const horizon = biweekly ? 16 : 9; // two full weeks of candidates is enough to find the one that lands on the anchor's parity
+  for (let i = -1; i < horizon; i++) {
     const d = new Date(Date.UTC(after.getUTCFullYear(), after.getUTCMonth(), after.getUTCDate() + i, utcHour, game.minute));
-    if (d.getUTCDay() === targetDay && d.getTime() > after.getTime()) return d;
+    if (d.getUTCDay() !== targetDay || d.getTime() <= after.getTime()) continue;
+    if (!biweekly) return d;
+    const sinceAnchorDays = Math.round((d.getTime() - game.anchorTs) / DAY_MS);
+    if (((sinceAnchorDays % 14) + 14) % 14 === 0) return d;
   }
   return null;
 }
@@ -208,9 +246,10 @@ function nextStart(game, after) {
 export function upcoming(game, from, count) {
   const out = [];
   let d = nextStart(game, from);
+  const stepMs = (game.freq === 'biweekly' ? 14 : 7) * DAY_MS;
   for (let i = 0; i < count && d; i++) {
     out.push(d);
-    d = new Date(d.getTime() + 7 * DAY_MS);
+    d = new Date(d.getTime() + stepMs);
   }
   return out;
 }
@@ -219,9 +258,10 @@ export function upcoming(game, from, count) {
 export function sessionsBetween(game, from, to) {
   const out = [];
   let d = nextStart(game, from);
+  const stepMs = (game.freq === 'biweekly' ? 14 : 7) * DAY_MS;
   while (d && d.getTime() <= to.getTime()) {
     out.push(d);
-    d = new Date(d.getTime() + 7 * DAY_MS);
+    d = new Date(d.getTime() + stepMs);
   }
   return out;
 }
@@ -405,6 +445,9 @@ async function doSetup(ctx) {
   const account = await accountFor(env, game);
   if (!account) return json({ error: 'This game master has not finished setting up payouts yet, so seats cannot be booked.' }, 409, corsHeaders);
   if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
+  if (!updating && game.openMode === 'date' && game.openAt && new Date(`${game.openAt}T00:00:00Z`).getTime() > Date.now()) {
+    return json({ error: `This campaign opens on ${fmtOpenDate(game.openAt)}. Come back then to join.` }, 409, corsHeaders);
+  }
   if (!updating) {
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
     if (seats.open <= 0) return json({ error: 'This game is full right now. Talk to Ash about a spot.' }, 409, corsHeaders);
@@ -501,7 +544,7 @@ async function doStatus(ctx) {
   const { roster, dm } = await tableFor(env, ctx.mode, gameKey, new URL(ctx.request.url).origin, user.sub, game);
   const me = await getPlayer(ctx);
   const gs = await gameState(env, ctx.mode, gameKey);
-  const base = { seats, roster, dm, price: game.price, mode: ctx.mode, running: gs.running };
+  const base = { seats, roster, dm, price: game.price, mode: ctx.mode, running: gs.running, openMode: game.openMode, openAt: game.openAt };
   if (!me || me.status !== 'active') return json({ ...base, joined: false, left: !!(me && me.status === 'left') }, 200, corsHeaders);
 
   const sessions = await upcomingFor(env, ctx.mode, gameKey, game, now, SESSIONS_SHOWN);
@@ -620,7 +663,7 @@ async function adminRoster(ctx) {
     stoppedAt: gs.stoppedAt,
     playing,
     charging: env.CHARGING_MODE || 'off',
-    game: { key: gameKey, title: game.title, price: game.price, max: game.max, min: game.min, legacyFilled: game.legacyFilled },
+    game: { key: gameKey, title: game.title, price: game.price, max: game.max, min: game.min, legacyFilled: game.legacyFilled, freq: game.freq, openMode: game.openMode, openAt: game.openAt },
     seats: seatInfo(game, players.filter((p) => p.status === 'active').length),
     sessions,
     pastSessions,
@@ -839,7 +882,7 @@ export async function handleRoster(request, env, corsHeaders) {
   const mode = cfg(env).mode;
   const { roster, dm } = await tableFor(env, mode, gameKey, url.origin, null, game);
   const seats = seatInfo(game, await activeCount(env, mode, gameKey));
-  return new Response(JSON.stringify({ seats, roster, dm }), {
+  return new Response(JSON.stringify({ seats, roster, dm, price: game.price, openMode: game.openMode, openAt: game.openAt }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=20', ...corsHeaders },
   });

@@ -2,7 +2,10 @@
 // reference. This finds each session's next real-world occurrence in UTC, then
 // lets the browser render it in the visitor's own local timezone automatically.
 
-function nextOccurrenceUTC(sourceDay, sourceHour, minute, offsetHours) {
+// freq ("weekly", the default, or "biweekly") and anchor (a slot's "YYYY-MM-DD" first-session
+// date, biweekly only) are optional, mirroring the Worker's own nextStart/anchorTimestamp in
+// worker/src/pay.js — a biweekly slot only counts the occurrence every 14 days from that date.
+function nextOccurrenceUTC(sourceDay, sourceHour, minute, offsetHours, freq, anchor) {
   let utcHour = sourceHour - offsetHours;
   let dayShift = 0;
   if (utcHour < 0) {
@@ -14,8 +17,12 @@ function nextOccurrenceUTC(sourceDay, sourceHour, minute, offsetHours) {
   }
   const utcDay = (sourceDay + dayShift + 7) % 7;
   const now = new Date();
+  const biweekly = freq === 'biweekly' && anchor;
+  const anchorMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(anchor || '');
+  const anchorTs = biweekly && anchorMatch ? Date.UTC(+anchorMatch[1], +anchorMatch[2] - 1, +anchorMatch[3], utcHour, minute) : null;
+  const horizon = biweekly && anchorTs != null ? 16 : 8;
 
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < horizon; i++) {
     const candidate = new Date(Date.UTC(
       now.getUTCFullYear(),
       now.getUTCMonth(),
@@ -25,9 +32,10 @@ function nextOccurrenceUTC(sourceDay, sourceHour, minute, offsetHours) {
       0,
       0
     ));
-    if (candidate.getUTCDay() === utcDay && candidate.getTime() > now.getTime()) {
-      return candidate;
-    }
+    if (candidate.getUTCDay() !== utcDay || candidate.getTime() <= now.getTime()) continue;
+    if (anchorTs == null) return candidate;
+    const sinceAnchorDays = Math.round((candidate.getTime() - anchorTs) / 86400000);
+    if (((sinceAnchorDays % 14) + 14) % 14 === 0) return candidate;
   }
   return null;
 }

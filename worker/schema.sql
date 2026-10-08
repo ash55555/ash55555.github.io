@@ -234,3 +234,16 @@ CREATE TABLE IF NOT EXISTS tips (
   paid_at TEXT
 );
 CREATE INDEX IF NOT EXISTS tips_gm ON tips (gm_uid, status);
+
+-- A campaign's own price and seat floor, and when it starts taking players.
+-- NULL/0 means "use the site default" (price $10, minimum 3), so every campaign that
+-- existed before this column behaves exactly as it did. open_mode 'now' (the default)
+-- is today's behavior: open as soon as it's published. 'date' holds it closed until open_at.
+-- The weekly slot shape (campaign_content.slots_json, and Ash's own Firebase slots) also
+-- grows two new optional fields from here on: freq ('weekly' default, or 'biweekly') and,
+-- for biweekly, anchor (the "YYYY-MM-DD" date of the first session, so there is a real date
+-- to count every-other-week from instead of an ambiguous "which week" rule).
+ALTER TABLE campaign_content ADD COLUMN price REAL;
+ALTER TABLE campaign_content ADD COLUMN min_players INTEGER;
+ALTER TABLE campaign_content ADD COLUMN open_mode TEXT NOT NULL DEFAULT 'now';
+ALTER TABLE campaign_content ADD COLUMN open_at TEXT;

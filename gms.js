@@ -63,7 +63,7 @@
   }
   function priceText(m) {
     if (m.priceMin == null) return '—';
-    return m.priceMin === m.priceMax ? '$' + m.priceMin + ' / session' : '$' + m.priceMin + ' to $' + m.priceMax + ' / session';
+    return (m.priceMin === m.priceMax ? '$' + m.priceMin : '$' + m.priceMin + ' to $' + m.priceMax) + ' USD / session';
   }
 
   function card(m) {
