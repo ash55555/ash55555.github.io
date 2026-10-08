@@ -111,6 +111,34 @@
     }).catch(function (err) { note.textContent = err.message; });
   }
 
+  // Whop sometimes sends the whole page through a redirect to finish a payment instead of completing
+  // inside the embedded form (see stepPay's onComplete). That lands here with ?tip=thanks&tip_id=...,
+  // and the payment still needs to be confirmed with the Worker — it is not safe to just say thanks.
+  function confirmAfterRedirect(tipId) {
+    function run() {
+      modal = null; open();
+      if (!modal) return;
+      var b = body();
+      b.innerHTML = '';
+      b.appendChild(el('h3', null, 'Confirming your tip...'));
+      var note = el('p', 'tip-sub', 'Just a moment while we check with Whop.');
+      b.appendChild(note);
+      function poll(tries) {
+        api('confirm', { tipId: tipId }).then(function (r) {
+          if (r.ok) { stepThanks(r.amount || 0); return; }
+          if (tries > 0) setTimeout(function () { poll(tries - 1); }, 2500);
+          else note.textContent = 'We are still waiting for Whop to confirm your payment. If you were charged, it will be counted within a few minutes — no need to try again.';
+        }).catch(function () {
+          if (tries > 0) setTimeout(function () { poll(tries - 1); }, 2500);
+          else note.textContent = 'We could not confirm your payment right now. If you were charged, it will be counted within a few minutes.';
+        });
+      }
+      poll(8);
+    }
+    if (window.firebase && firebase.auth && firebase.auth().currentUser) run();
+    else if (window.firebase && firebase.auth) { var off = firebase.auth().onAuthStateChanged(function (user) { off(); if (user) run(); }); }
+  }
+
   function stepThanks(paid) {
     var b = body();
     b.innerHTML = '';
@@ -132,6 +160,11 @@
     btn.lastChild.textContent = 'Tip ' + d.name;
     btn.addEventListener('click', open);
     actions.appendChild(btn);
-    if (new URLSearchParams(window.location.search).get('tip') === 'thanks') { modal = null; open(); if (modal) stepThanks(0); }
+    var tipParams = new URLSearchParams(window.location.search);
+    if (tipParams.get('tip') === 'thanks') {
+      var tipId = tipParams.get('tip_id');
+      if (tipId) confirmAfterRedirect(tipId);
+      else { modal = null; open(); if (modal) stepThanks(0); } // an older link with no tip_id: nothing left to confirm
+    }
   }).catch(function () {});
 })();

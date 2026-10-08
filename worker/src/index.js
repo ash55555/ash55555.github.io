@@ -14,7 +14,7 @@ import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { handleGm } from './gm.js';
 import { handleHome } from './home.js';
-import { handleTip, handleTipStatus } from './tip.js';
+import { handleTip, handleTipStatus, runPendingTips } from './tip.js';
 import { handleMessages } from './messages.js';
 import { handleDmAgreement, runAgreementReminders } from './dm-agreement.js';
 import { handleConnect } from './connect.js';
@@ -171,6 +171,9 @@ export default {
         .then(() => runAgreementReminders(env, sendEmail))
         .then((r) => console.log('agreement reminder run', JSON.stringify(r)))
         .catch((err) => console.error('agreement reminder run failed', err && err.message))
+        .then(() => runPendingTips(env, sendEmail))
+        .then((r) => console.log('pending tips run', JSON.stringify(r)))
+        .catch((err) => console.error('pending tips run failed', err && err.message))
     );
   },
 };

@@ -34,6 +34,39 @@ async function target(env, slug) {
   return { slug, uid: row.uid, name, account: await gmPayoutAccount(env, row.uid), own: false };
 }
 
+async function tellGm(env, sendEmail, mode, tip) {
+  const title = 'Tip: ' + money(tip.amount) + ' from ' + tip.from_name;
+  const text = tip.from_name + ' tipped you ' + money(tip.amount) + '.' + (tip.message ? ' They wrote: ' + tip.message : '');
+  if (tip.gm_slug === 'ash') await notify(env, sendEmail, mode, 'tip', null, title, text);
+  else await notifyPlayer(env, mode, tip.gm_uid, 'tip', null, title, text);
+}
+
+// Catches tips the browser never confirmed — usually because the payment sent the whole page through
+// a redirect instead of completing inside the embedded form, so tip-ui.js's normal confirm call never
+// ran. Runs on the same 5 minute timer as charges. A tip gets a couple of minutes' grace first, so this
+// never races the player's own browser doing the same check right after paying.
+export async function runPendingTips(env, sendEmail) {
+  const mode = cfg(env).mode;
+  const grace = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const giveUp = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(); // older than this, stop re-checking an abandoned attempt
+  const rows = (await env.DB.prepare("SELECT * FROM tips WHERE mode=? AND status='pending' AND created_at < ? AND created_at > ?").bind(mode, grace, giveUp).all()).results;
+  const report = { checked: rows.length, paid: 0 };
+  for (const tip of rows) {
+    const t = await target(env, tip.gm_slug);
+    if (!t || !t.account) continue;
+    const r = await whop(env, '/payments?account_id=' + encodeURIComponent(t.account) + '&first=30&direction=desc');
+    if (!r.ok) continue;
+    const pay = (r.data.data || []).find((p) => p.checkout_configuration_id === tip.config_id || (p.metadata && p.metadata.tip_id === tip.id));
+    if (!pay || pay.status !== 'paid' || pay.substatus === 'failed') continue;
+    const claim = await env.DB.prepare("UPDATE tips SET status='paid', payment_id=?, paid_at=? WHERE id=? AND status='pending'").bind(pay.id || null, new Date().toISOString(), tip.id).run();
+    if (claim.meta && claim.meta.changes === 1) {
+      report.paid++;
+      await tellGm(env, sendEmail, mode, tip);
+    }
+  }
+  return report;
+}
+
 // Public: can this Game Master take tips right now?
 export async function handleTipStatus(request, env, corsHeaders) {
   const slug = String(new URL(request.url).searchParams.get('slug') || '').toLowerCase();
@@ -80,7 +113,10 @@ export async function handleTip(request, env, corsHeaders, origin, action, sendE
       ...(!t.own && fee > 0 && fee < amount ? { application_fee_amount: fee } : {}),
       ...(t.own ? {} : { product: { external_identifier: 'ash-tabletop-tip', title: 'Tip' } }),
     };
-    const back = t.slug === 'ash' ? 'https://ashtabletop.com/ash.html?tip=thanks' : 'https://ashtabletop.com/gm.html?slug=' + encodeURIComponent(t.slug) + '&tip=thanks';
+    // tip_id travels in the URL because some payment methods send the browser through a full page
+    // redirect instead of completing inside the embedded form (see tip-ui.js onComplete vs this
+    // redirect handling) — without it, the page that comes back has no way to confirm the payment.
+    const back = (t.slug === 'ash' ? 'https://ashtabletop.com/ash.html?tip=thanks' : 'https://ashtabletop.com/gm.html?slug=' + encodeURIComponent(t.slug) + '&tip=thanks') + '&tip_id=' + encodeURIComponent(id);
     const r = await whop(env, '/checkout_configurations', {
       method: 'POST',
       body: JSON.stringify({ account_id: t.account, redirect_url: back, plan, metadata: { kind: 'tip', tip_id: id, from_uid: user.sub, gm_slug: t.slug } }),
@@ -94,7 +130,7 @@ export async function handleTip(request, env, corsHeaders, origin, action, sendE
   if (action === 'confirm') {
     const tip = await env.DB.prepare('SELECT * FROM tips WHERE id=? AND from_uid=?').bind(String(body.tipId || ''), user.sub).first();
     if (!tip) return json({ error: 'Tip not found.' }, 404, corsHeaders);
-    if (tip.status === 'paid') return json({ ok: true, status: 'paid' }, 200, corsHeaders);
+    if (tip.status === 'paid') return json({ ok: true, status: 'paid', amount: tip.amount }, 200, corsHeaders);
     const t = await target(env, tip.gm_slug);
     if (!t || !t.account) return json({ ok: false, status: 'pending' }, 200, corsHeaders);
     const r = await whop(env, '/payments?account_id=' + encodeURIComponent(t.account) + '&first=30&direction=desc');
@@ -103,13 +139,8 @@ export async function handleTip(request, env, corsHeaders, origin, action, sendE
     if (!pay || pay.status !== 'paid' || pay.substatus === 'failed') return json({ ok: false, status: 'pending' }, 200, corsHeaders);
     // Only the first request to see the paid payment records it (and tells the Game Master).
     const claim = await env.DB.prepare("UPDATE tips SET status='paid', payment_id=?, paid_at=? WHERE id=? AND status='pending'").bind(pay.id || null, new Date().toISOString(), tip.id).run();
-    if (claim.meta && claim.meta.changes === 1) {
-      const title = 'Tip: ' + money(tip.amount) + ' from ' + tip.from_name;
-      const text = tip.from_name + ' tipped you ' + money(tip.amount) + '.' + (tip.message ? ' They wrote: ' + tip.message : '');
-      if (tip.gm_slug === 'ash') await notify(env, sendEmail, c.mode, 'tip', null, title, text);
-      else await notifyPlayer(env, c.mode, tip.gm_uid, 'tip', null, title, text);
-    }
-    return json({ ok: true, status: 'paid' }, 200, corsHeaders);
+    if (claim.meta && claim.meta.changes === 1) await tellGm(env, sendEmail, c.mode, tip);
+    return json({ ok: true, status: 'paid', amount: tip.amount }, 200, corsHeaders);
   }
 
   return json({ error: 'Not found' }, 404, corsHeaders);
