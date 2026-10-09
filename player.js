@@ -76,6 +76,7 @@ let profile = store.get('pp-profile', { name: '', token: 'wizard', about: '' });
 let view = query.get("paid") === "1" ? "joined" : "notjoined";
 let skippedIdx = new Set();
 let onConfirm = null;
+let dmName = 'Ash'; // replaced by personalizeDm() on another Game Master's table
 
 function tokenById(id) { return TOKENS.find((t) => t.id === id) || TOKENS[0]; }
 
@@ -91,7 +92,9 @@ function upcomingSessions(count) {
   if (TEST_GAME.freq === 'once') return anchorTs != null && anchorTs > Date.now() ? [new Date(anchorTs)] : [];
   const out = [];
   const now = new Date();
-  for (let i = 0; i < 60 && out.length < count; i++) {
+  // 400 days, not 60: a table that opens months out still needs its first real
+  // session to turn up when something is filtering for one on/after that date.
+  for (let i = 0; i < 400 && out.length < count; i++) {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + i, utcHour, TEST_GAME.minute));
     if (d.getUTCDay() !== targetDay || d.getTime() <= now.getTime()) continue;
     if (anchorTs == null) { out.push(d); continue; }
@@ -252,7 +255,7 @@ function seatNumbers() {
 function billingHtml(next) {
   return '<strong>You will be charged $' + TEST_GAME.price + ' USD on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
     '<span>Then again every ' + weekdayName(next) + ' at ' + fmtTime(next) + ', when each session starts.</span>' +
-    '<span>Billing begins once Ash starts the game (it needs enough players). If it has not started by then, you are not charged.</span>' +
+    '<span>Billing begins once ' + dmName + ' starts the game (it needs enough players). If it has not started by then, you are not charged.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
 }
 
@@ -262,6 +265,7 @@ function personalizeDm() {
   const dm = table && table.dm;
   if (!dm || !dm.slug || dm.slug === 'ash') return;
   const name = dm.name || 'your Game Master';
+  dmName = name;
   const sub = document.querySelector('#pp-game-card .pp-muted');
   if (sub) sub.textContent = 'A game run by ' + name;
   const ask = document.querySelector('.pp-talk span');
@@ -285,23 +289,35 @@ function renderGame() {
   document.title = TEST_GAME.title + " | Ash Tabletop";
   $("pp-left-title").textContent = "You left " + TEST_GAME.title + ".";
   const openSeats = seatNumbers().max - seatNumbers().filled;
-  $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to Ash about a spot.";
+  $("pp-open-seats").textContent = openSeats > 0 ? openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left. Add a payment method below to grab yours." : "This game is full right now. Talk to " + dmName + " about a spot.";
   const tableInfo = serverState || publicState;
   const opensAt = tableInfo && tableInfo.openMode === 'date' && tableInfo.openAt && new Date(tableInfo.openAt + 'T00:00:00Z').getTime() > Date.now() ? tableInfo.openAt : null;
-  const joinClosed = (!preview && !realGame) || bookingClosed || !!opensAt;
+  // Opening later is no longer a reason joining is closed: a seat can be reserved now,
+  // and the real block (payouts not ready yet) still has its own message below.
+  const joinClosed = (!preview && !realGame) || bookingClosed;
   if (joinClosed && openSeats > 0) $("pp-open-seats").textContent = openSeats + " open seat" + (openSeats === 1 ? "" : "s") + " left.";
-  if (opensAt) {
-    const p = opensAt.split('-').map(Number);
-    const long = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
-    const closedEl = $('pp-join-closed');
-    if (closedEl) closedEl.textContent = 'This table opens on ' + long + '. Come back then to grab a seat.';
+  const opensNoteEl = $('pp-opens-note');
+  if (opensNoteEl) {
+    if (opensAt) {
+      const p = opensAt.split('-').map(Number);
+      const long = new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
+      opensNoteEl.textContent = 'This table opens ' + long + '. Reserve your seat now — you will not be charged until sessions begin.';
+    }
+    opensNoteEl.hidden = !opensAt;
   }
   const full = openSeats <= 0 && view !== "joined" && view !== "skipped";
   ["pp-join-btn", "pp-rejoin-btn"].forEach((id) => { $(id).disabled = full; });
-  const sessions = upcomingSessions(4);
+  // A table that opens later has no real session before that date, so the "next" shown
+  // here is the first one on or after it, not just the nearest weekday from today.
+  let sessions = upcomingSessions(opensAt ? 40 : 4);
+  if (opensAt) {
+    const openTs = new Date(opensAt + 'T00:00:00Z').getTime();
+    const afterOpen = sessions.filter((d) => d.getTime() >= openTs);
+    sessions = (afterOpen.length ? afterOpen : sessions).slice(0, 4);
+  }
   const next = sessions[0];
   $('pp-when').textContent = weekdayName(next) + 's at ' + fmtTime(next);
-  $('pp-when-sub').textContent = 'Next: ' + fmtDay(next);
+  $('pp-when-sub').textContent = (opensAt ? 'First session: ' : 'Next: ') + fmtDay(next);
 
   const badge = $('pp-status-badge');
   const states = {
@@ -338,7 +354,7 @@ function renderGame() {
   const card = real && serverState.card && serverState.card.last4 ? ' Card on file: ' + (serverState.card.brand || 'card') + ' ending ' + serverState.card.last4 + '.' : '';
   const notStarted = real && serverState.running === false;
   $('pp-billing-active').innerHTML = '<strong>' + (notStarted
-    ? "You won't be charged until Ash starts the game."
+    ? "You won't be charged until " + dmName + " starts the game."
     : chargeDate
       ? 'You will be charged $' + TEST_GAME.price + ' USD on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
       : 'No charges are scheduled right now.') + '</strong>' +
@@ -355,7 +371,7 @@ function renderGame() {
     li.className = 'pp-session' + (skipped ? ' skipped' : '');
     const info = document.createElement('div');
     info.innerHTML = '<span class="pp-session-when">' + fmtDay(d) + ' · ' + fmtTime(d) + '</span>' +
-      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by Ash. You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing. $' + TEST_GAME.price + ' USD will be charged.') + '</span>';
+      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by " + dmName + ". You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing. $' + TEST_GAME.price + ' USD will be charged.') + '</span>';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-ghost btn-small';

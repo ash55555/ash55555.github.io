@@ -219,17 +219,20 @@ function anchorTimestamp(anchorYmd, hour, minute, offset) {
   return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), hour - offset, minute);
 }
 
-// "2027-01-15" -> "January 15, 2027", for messages about a campaign's opening date.
-function fmtOpenDate(ymd) {
-  const d = new Date(`${ymd}T00:00:00Z`);
-  return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', month: 'long', day: 'numeric', year: 'numeric' }).format(d);
-}
-
 // First session start strictly after `after`. Weekly by default; a biweekly game only
 // counts the occurrence every 14 days from its anchor date, so there's never a "which
 // week" guess — the cadence is always counted from one real, GM-picked date. A one-shot
 // game has exactly one session, its anchor date, and nothing before or after it.
+//
+// A campaign that opens on a future date has no session before that date, no matter what
+// the weekly schedule would otherwise say — a player can reserve a seat the moment it's
+// published, but the first real (and first chargeable) session still can't land earlier
+// than the date the Game Master actually chose to open.
 function nextStart(game, after) {
+  if (game.openMode === 'date' && game.openAt) {
+    const openTs = Date.parse(`${game.openAt}T00:00:00Z`);
+    if (Number.isFinite(openTs) && openTs > after.getTime()) after = new Date(openTs);
+  }
   if (game.freq === 'once') {
     return Number.isFinite(game.anchorTs) && game.anchorTs > after.getTime() ? new Date(game.anchorTs) : null;
   }
@@ -453,9 +456,8 @@ async function doSetup(ctx) {
   const account = await accountFor(env, game);
   if (!account) return json({ error: 'This game master has not finished setting up payouts yet, so seats cannot be booked.' }, 409, corsHeaders);
   if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
-  if (!updating && game.openMode === 'date' && game.openAt && new Date(`${game.openAt}T00:00:00Z`).getTime() > Date.now()) {
-    return json({ error: `This campaign opens on ${fmtOpenDate(game.openAt)}. Come back then to join.` }, 409, corsHeaders);
-  }
+  // A campaign that opens later can still be reserved now — the seat is theirs, nextStart()
+  // (above) already keeps the first real, chargeable session from landing before it opens.
   if (!updating) {
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
     if (seats.open <= 0) return json({ error: 'This game is full right now. Talk to Ash about a spot.' }, 409, corsHeaders);

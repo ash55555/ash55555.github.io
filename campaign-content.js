@@ -69,7 +69,11 @@
     var hk = document.getElementById('cc-hook');
     if (hk && !d.hook) hk.textContent = 'Details are on their way. Message the Game Master to hear more.';
 
-    // the sessions, on the visitor's own clock
+    var opensLater = d.openMode === 'date' && d.openAt && new Date(d.openAt + 'T00:00:00Z').getTime() > Date.now();
+
+    // the sessions, on the visitor's own clock. A table that opens later still shows its
+    // sessions, with the open date up front instead of a session time that would otherwise
+    // look like it's happening this week \u2014 seats can still be reserved for it right now.
     var list = document.querySelector('.article-schedule .session-list');
     if (list) {
       list.innerHTML = '';
@@ -84,7 +88,7 @@
         chip.className = 'session-chip';
         chip.disabled = true;
         chip.dataset.id = id;
-        var when = (next && typeof formatLocal === 'function') ? formatLocal(next) : 'Weekly session';
+        var when = opensLater ? 'Opens ' + openDateLong(d.openAt) : (next && typeof formatLocal === 'function') ? formatLocal(next) : 'Weekly session';
         chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta">Opening soon</span>';
         chip.querySelector('.session-main').textContent = when;
         chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' \u00B7 ' : '') + (s.enabled === false ? 'Not running right now' : freqLabel(s.freq));
@@ -95,7 +99,6 @@
     }
 
     var price = '$' + (d.price % 1 === 0 ? d.price : d.price.toFixed(2)) + ' USD per session';
-    var opensLater = d.openMode === 'date' && d.openAt && new Date(d.openAt + 'T00:00:00Z').getTime() > Date.now();
     var pay = document.querySelector('.blog-payment');
     if (pay) {
       pay.innerHTML = '<h2>Interested in this table?</h2><p class="blog-payment-price">' + price + '</p>' +
@@ -104,7 +107,7 @@
         '<div class="blog-payment-actions"><a class="btn btn-primary" href="' + profile + '">Meet the Game Master</a></div>';
     }
     document.querySelectorAll('.js-email-trigger').forEach(function (b) { b.remove(); });
-    if (d.bookable && !opensLater) openSeats(d);
+    if (d.bookable) openSeats(d, opensLater);
   }
 
   function openDateLong(ymd) {
@@ -112,8 +115,9 @@
     return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
-  // Once the Game Master's payout account is approved their sessions can be joined like any other.
-  function openSeats(d) {
+  // Once the Game Master's payout account is approved their sessions can be joined like any other,
+  // even one that opens later — the seat is reserved now, the chip just says so.
+  function openSeats(d, opensLater) {
     fetch(WORKER + '/pay/seats').then(function (r) { return r.ok ? r.json() : null; }).then(function (res) {
       var online = (res && res.seats) || {};
       document.querySelectorAll('.article-schedule .session-chip').forEach(function (chip) {
@@ -124,7 +128,7 @@
         var canJoin = s.enabled !== false && left > 0;
         chip.disabled = !canJoin;
         chip.querySelector('.session-seats').textContent = left > 0 ? left + (left === 1 ? ' seat left' : ' seats left') + ' (' + (s.max - left) + '/' + s.max + ')' : 'Full';
-        chip.querySelector('.session-chip-cta').textContent = s.enabled === false ? 'Paused' : left > 0 ? 'Join' : 'Full';
+        chip.querySelector('.session-chip-cta').textContent = s.enabled === false ? 'Paused' : left > 0 ? (opensLater ? 'Reserve seat' : 'Join') : 'Full';
         if (canJoin) chip.addEventListener('click', function () {
           var params = new URLSearchParams({ campaign: d.slug, slot: id === 'default' ? '' : id, group: s.group || '', day: s.day, hour: s.hour, minute: s.minute || 0, offset: 0, freq: s.freq || 'weekly', anchor: s.anchor || '', embed: '1' });
           if (typeof openJoinPopup === 'function') openJoinPopup('../player.html?' + params.toString());

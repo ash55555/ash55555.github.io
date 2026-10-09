@@ -157,6 +157,7 @@
 .pp-trouble-note { flex-basis: 100%; font-size: 0.78rem; }
 .pp-danger-zone { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin-top: 1.6em; padding-top: 1.2em; border-top: 1px solid var(--border); }
 .pp-notice { background: rgba(242, 184, 79, 0.08); border: 1px solid rgba(242, 184, 79, 0.3); border-radius: 14px; padding: 1.2em 1.4em; margin-top: 1.2em; }
+.pp-opens-note { background: rgba(242, 184, 79, 0.1); border: 1.5px solid rgba(242, 184, 79, 0.45); border-radius: 12px; padding: 0.8em 1em; margin: 0 0 0.9em; color: var(--text); font-size: 0.88rem; font-weight: 600; }
 
 .pp-toast {
   position: fixed; bottom: 1.5em; left: 50%; transform: translateX(-50%);

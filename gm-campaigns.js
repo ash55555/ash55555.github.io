@@ -37,13 +37,15 @@
     var key = id === 'default' ? c.slug : c.slug + '::' + id;
     var left = Math.max(0, (s.max || 0) - (online[key] || 0));
     var later = opensLater(c);
-    var canJoin = !!c.bookable && !later && s.enabled !== false && left > 0;
+    // A table that opens later can still be reserved now; only payouts-not-ready, paused
+    // or full actually block the seat.
+    var canJoin = !!c.bookable && s.enabled !== false && left > 0;
     var chip = el('button', 'session-chip');
     chip.type = 'button';
     chip.disabled = !canJoin;
-    var cta = later ? 'Opens ' + openDateLong(c.openAt) : !c.bookable ? 'Opening soon' : s.enabled === false ? 'Paused' : left > 0 ? 'Join' : 'Full';
+    var cta = !c.bookable ? 'Opening soon' : s.enabled === false ? 'Paused' : left <= 0 ? 'Full' : later ? 'Reserve seat' : 'Join';
     chip.innerHTML = '<svg class="icon icon-sm"><use href="#icon-clock"/></svg><span class="session-text"><span class="session-main"></span><span class="session-sub"></span><span class="session-seats"></span></span><span class="session-chip-cta"></span>';
-    var main = next && typeof formatLocal === 'function' ? formatLocal(next) : 'Weekly session';
+    var main = later ? 'Opens ' + openDateLong(c.openAt) : next && typeof formatLocal === 'function' ? formatLocal(next) : 'Weekly session';
     chip.querySelector('.session-main').textContent = main;
     chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' ' + DOT + ' ' : '') + (s.enabled === false ? 'Not running right now' : freqLabel(s.freq));
     chip.querySelector('.session-seats').textContent = c.bookable ? (left > 0 ? left + (left === 1 ? ' seat left' : ' seats left') + ' (' + (s.max - left) + '/' + s.max + ')' : 'Full') : 'Up to ' + s.max + ' players';
@@ -82,7 +84,7 @@
     body.appendChild(more);
     var price = c.price > 0 ? c.price : 10;
     var priceStr = '$' + (price % 1 === 0 ? price : price.toFixed(2)) + ' USD per session';
-    body.appendChild(el('p', 'campaign-note', opensLater(c) ? 'Opens ' + openDateLong(c.openAt) + '. ' + priceStr + ' once it does.'
+    body.appendChild(el('p', 'campaign-note', opensLater(c) ? 'Opens ' + openDateLong(c.openAt) + '. Reserve a seat above now — ' + priceStr + ' once sessions begin.'
       : c.bookable ? 'Pick a session above to take a seat. ' + priceStr + ', and you can skip up to an hour before.'
       : 'Seats at this table open soon. Chat with the Game Master below to ask about availability.'));
     art.appendChild(body);
