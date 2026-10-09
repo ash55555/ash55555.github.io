@@ -8,8 +8,9 @@ import { gmPayoutAccount } from './connect.js';
 import { actorFor, MAX_GM_CAMPAIGNS, MAX_GM_SLOTS, cleanSlot, slotToUtc } from './owner.js';
 
 const MAX_BANNER_CHARS = 260000; // a landscape banner, base64 text (~190KB of image)
-const FIELDS = ['title', 'eyebrow', 'hook', 'intro', 'world', 'stakes', 'audience'];
-const FIELD_MAX = { title: 80, eyebrow: 70, hook: 220, intro: 2500, world: 2500, stakes: 2500, audience: 2500 };
+const FIELDS = ['title', 'eyebrow', 'hook', 'intro', 'world', 'stakes', 'audience', 'tag'];
+const FIELD_MAX = { title: 80, eyebrow: 70, hook: 220, intro: 2500, world: 2500, stakes: 2500, audience: 2500, tag: 24 };
+const DEFAULT_TAG = 'Adventure'; // a Game Master picks their own; this is just the fallback for one that hasn't yet
 
 // The 5 campaigns that already have their own hand-built page and URL. New
 // campaigns created from the admin get a shared template page instead (see
@@ -53,6 +54,7 @@ function view(row, origin) {
     openAt: row.open_mode === 'date' ? row.open_at : null,
   };
   FIELDS.forEach((f) => { out[f] = row[f] || ''; });
+  out.tag = row.tag || DEFAULT_TAG;
   return out;
 }
 
@@ -115,15 +117,15 @@ export async function handleContentPublicList(request, env, corsHeaders) {
   if (gmSlug && gmSlug !== 'ash') {
     const gm = await env.DB.prepare('SELECT uid FROM gm_profiles WHERE slug=?').bind(gmSlug).first();
     rows = gm ? (await env.DB.prepare(
-      `SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid=? ORDER BY created_at ASC`).bind(gm.uid).all()).results : [];
+      `SELECT slug, title, eyebrow, hook, tag, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid=? ORDER BY created_at ASC`).bind(gm.uid).all()).results : [];
   } else {
     rows = (await env.DB.prepare(
-      `SELECT slug, title, eyebrow, hook, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid IS NULL ORDER BY created_at ASC`).all()).results;
+      `SELECT slug, title, eyebrow, hook, tag, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid IS NULL ORDER BY created_at ASC`).all()).results;
   }
   const ready = {};
   for (const r of rows) if (r.owner_uid && !(r.owner_uid in ready)) ready[r.owner_uid] = !!(await gmPayoutAccount(env, r.owner_uid));
   const campaigns = rows.map((r) => ({
-    slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook,
+    slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook, tag: r.tag || DEFAULT_TAG,
     price: r.price > 0 ? r.price : DEFAULT_PRICE,
     minPlayers: r.min_players > 0 ? r.min_players : DEFAULT_MIN_PLAYERS,
     openMode: r.open_mode === 'date' ? 'date' : 'now',
@@ -291,14 +293,14 @@ async function saveCampaign(env, actor, body, self, corsHeaders) {
 
   if (isNew) {
     await env.DB.prepare(
-      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
+      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, tag, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', fields.tag || DEFAULT_TAG, bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
       .run();
   } else {
     await env.DB.prepare(
-      `UPDATE campaign_content SET title=?, eyebrow=?, hook=?, intro=?, world=?, stakes=?, audience=?, banner_id=?, banner_data=?, published=?, updated_at=?, price=?, min_players=?, open_mode=?, open_at=? WHERE slug=?`)
-      .bind(title, fields.eyebrow ?? existing.eyebrow, fields.hook ?? existing.hook, fields.intro ?? existing.intro, fields.world ?? existing.world, fields.stakes ?? existing.stakes, fields.audience ?? existing.audience, bannerId, bannerData, published, now, price, minPlayers, openMode, openAt, slug)
+      `UPDATE campaign_content SET title=?, eyebrow=?, hook=?, intro=?, world=?, stakes=?, audience=?, tag=?, banner_id=?, banner_data=?, published=?, updated_at=?, price=?, min_players=?, open_mode=?, open_at=? WHERE slug=?`)
+      .bind(title, fields.eyebrow ?? existing.eyebrow, fields.hook ?? existing.hook, fields.intro ?? existing.intro, fields.world ?? existing.world, fields.stakes ?? existing.stakes, fields.audience ?? existing.audience, fields.tag || existing.tag || DEFAULT_TAG, bannerId, bannerData, published, now, price, minPlayers, openMode, openAt, slug)
       .run();
   }
   const row = await env.DB.prepare('SELECT * FROM campaign_content WHERE slug=?').bind(slug).first();

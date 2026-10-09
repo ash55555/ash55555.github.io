@@ -588,6 +588,11 @@
   .cc-highlight.purple .cc-seg button.on { background: linear-gradient(135deg, var(--purple), var(--purple-deep)); color: #fff; box-shadow: 0 8px 18px rgba(155, 109, 255, .32); }
   .cc-seg button:not(.on):hover { color: var(--text); background: rgba(255, 255, 255, .06); }
 
+  .cc-tagpick { display: flex; flex-wrap: wrap; gap: .5em; margin-top: .4em; }
+  .cc-tag-pill { border: 1px solid var(--border); background: rgba(10, 6, 20, .55); color: var(--text-muted); font: inherit; font-weight: 800; font-size: .8rem; padding: .5em 1.1em; border-radius: 999px; cursor: pointer; transition: all .15s ease; }
+  .cc-tag-pill.on { background: linear-gradient(135deg, var(--gold), #d99a2e); color: #241407; border-color: transparent; box-shadow: 0 8px 18px rgba(242, 184, 79, .32); }
+  .cc-tag-pill:not(.on):hover { color: var(--text); background: rgba(255, 255, 255, .06); }
+
   .cc-datechips { display: flex; flex-wrap: wrap; gap: .6em; }
   .cc-datechip { border: 1px solid var(--border); background: rgba(10, 6, 20, .55); color: var(--text); font: inherit; font-weight: 700; font-size: .85rem; padding: .65em 1em; border-radius: 12px; cursor: pointer; text-align: left; transition: all .15s ease; }
   .cc-datechip:hover { border-color: rgba(242, 184, 79, .5); transform: translateY(-1px); }
@@ -1295,6 +1300,13 @@
         <div class="cc-fields" style="margin-top:1em;">
           <div class="field"><label>Title</label><input type="text" id="cc-f-title" maxlength="80" placeholder="e.g. The Prophecy of the Flying City"></div>
           <div class="field"><label>Eyebrow (short tag above the title)</label><input type="text" id="cc-f-eyebrow" maxlength="70" placeholder="e.g. Political Intrigue · Buried City"></div>
+        </div>
+
+        <div class="field" style="margin-top:1em;">
+          <label>Genre (shown on the game's card)</label>
+          <div class="cc-tagpick" id="cc-tagpick"></div>
+          <input type="text" id="cc-f-tag-custom" maxlength="24" placeholder="Not listed? Type your own and press Enter" style="margin-top:.6em;">
+          <input type="hidden" id="cc-f-tag">
         </div>
 
         <div class="cc-highlight">
@@ -3100,10 +3112,12 @@ window.AshSlots = (function () {
     'witchlight': 'medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp'
   };
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var TAG_PRESETS = ['Horror', 'Mystery', 'Political', 'Fey', 'Survival', 'Adventure', 'Comedy'];
   var campaigns = [];
   var current = null;        // slug being edited, or null for a brand-new campaign
   var pendingBanner = null;  // data URL waiting to be saved
   var slotState = null;      // { mode: 'single'|'multi', slotId, slot }
+  var tagValue = 'Adventure'; // the one genre tag this campaign is shown under
   var editSeq = 0;           // guards against a slow response from a previous campaign
                               // landing after a newer one was already opened
 
@@ -3356,6 +3370,34 @@ window.AshSlots = (function () {
     if (current && window.AshAdminOpenCampaign) window.AshAdminOpenCampaign(current);
   });
 
+  function paintTagPicker() {
+    var box = document.getElementById('cc-tagpick');
+    var list = TAG_PRESETS.slice();
+    if (tagValue && list.indexOf(tagValue) === -1) list.push(tagValue);
+    box.innerHTML = '';
+    list.forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cc-tag-pill' + (t === tagValue ? ' on' : '');
+      b.textContent = t;
+      b.addEventListener('click', function () { setTag(t); });
+      box.appendChild(b);
+    });
+  }
+  function setTag(t) {
+    tagValue = t;
+    document.getElementById('cc-f-tag').value = t;
+    paintTagPicker();
+  }
+  document.getElementById('cc-f-tag-custom').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    var v = this.value.trim().slice(0, 24);
+    if (!v) return;
+    this.value = '';
+    setTag(v);
+  });
+
   function openEditor(slug) {
     var z = window.AshSlots.zone();
     document.getElementById('cc-day-label').textContent = 'Session day (' + z + ')';
@@ -3383,6 +3425,7 @@ window.AshSlots = (function () {
       document.getElementById('cc-f-openat').value = '';
       paintSeg('cc-open-seg', 'now');
       document.getElementById('cc-open-date-wrap').hidden = true;
+      setTag('Adventure');
       document.getElementById('cc-view-link').style.display = 'none';
       renderBannerPreview(null);
       refreshCounts();
@@ -3407,6 +3450,7 @@ window.AshSlots = (function () {
       document.getElementById('cc-f-openat').value = d.openAt || '';
       paintSeg('cc-open-seg', d.openMode === 'date' ? 'date' : 'now');
       document.getElementById('cc-open-date-wrap').hidden = d.openMode !== 'date';
+      setTag(d.tag || 'Adventure');
       renderBannerPreview(d.bannerUrl || FALLBACK_BANNERS[slug]);
       refreshCounts();
       return loadSlotState(slug).then(function () {
@@ -3476,6 +3520,7 @@ window.AshSlots = (function () {
     var body = {
       title: title,
       eyebrow: document.getElementById('cc-f-eyebrow').value,
+      tag: tagValue || 'Adventure',
       hook: document.getElementById('cc-f-hook').value,
       intro: document.getElementById('cc-f-intro').value,
       world: document.getElementById('cc-f-world').value,

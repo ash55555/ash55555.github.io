@@ -25,7 +25,7 @@ export async function handleHome(request, env, corsHeaders) {
   const now = new Date();
   const games = await loadGames(env);
   const owners = {};
-  const rows = (await env.DB.prepare('SELECT slug, title, eyebrow, hook, banner_id, owner_uid FROM campaign_content WHERE published=1 ORDER BY created_at ASC').all()).results;
+  const rows = (await env.DB.prepare('SELECT slug, title, eyebrow, hook, tag, banner_id, owner_uid FROM campaign_content WHERE published=1 ORDER BY created_at ASC').all()).results;
   rows.forEach((r) => { owners[r.slug] = r.owner_uid || null; });
 
   const online = {};
@@ -51,7 +51,7 @@ export async function handleHome(request, env, corsHeaders) {
     if (!best) continue;
     if (!gated) seatsOpen += withSeats.reduce((n, g) => n + openOf(g), 0);
     list.push({
-      slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', hook: r.hook || '',
+      slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', hook: r.hook || '', tag: r.tag || 'Adventure',
       bannerUrl: r.banner_id ? `${origin}/content/banner/${r.banner_id}` : null,
       gm: r.owner_uid ? null : 'ash', owner: r.owner_uid || null,
       next: best.when.toISOString(), price: best.g.price, seatsOpen: gated ? null : openOf(best.g), max: best.g.max, soon, opensAt,

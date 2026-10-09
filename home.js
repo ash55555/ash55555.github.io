@@ -11,24 +11,19 @@
     'crooked-moon': 'medie/daaeef05-e995-40b5-84d6-4d6f5670fa47.webp',
     'witchlight': 'medie/d4e2868e-d17f-4a04-aeb1-ba6ce7fd3ea3.webp'
   };
-  var ACCENT = { Horror: '#ff6b81', Mystery: '#7ecbff', Fey: '#d98bff', Survival: '#7be0a3', Adventure: '#ffd479' };
-  var GLYPH = { Horror: '🧛', Mystery: '🕵️', Fey: '🧚', Survival: '🏕️', Adventure: '🗺️' };
+  // A color and an emoji for each genre tag a Game Master can pick in their campaign editor.
+  // A custom, hand-typed tag (anything not in this list) just gets the plain fallback below,
+  // nothing here guesses a game's genre from its own words anymore.
+  var ACCENT = { Horror: '#ff6b81', Mystery: '#7ecbff', Political: '#f2b84f', Fey: '#d98bff', Survival: '#7be0a3', Adventure: '#ffd479', Comedy: '#ffb199' };
+  var GLYPH = { Horror: '🧛', Mystery: '🕵️', Political: '🏛️', Fey: '🧚', Survival: '🏕️', Adventure: '🗺️', Comedy: '🎭' };
+  var FALLBACK_ACCENT = '#9b6dff', FALLBACK_GLYPH = '🎲';
   var CHIP_ICON = { All: '✨', 'Seats open': '🪑' };
+  var CAT_ORDER = ['Horror', 'Mystery', 'Political', 'Fey', 'Survival', 'Adventure', 'Comedy'];
 
   var games = [], gms = {}, cat = 'All', q = '';
 
   function $(id) { return document.getElementById(id); }
   function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
-
-  // A rough mood for the filter buttons, read from the campaign's own words.
-  function categoryOf(g) {
-    var t = (g.title + ' ' + g.eyebrow + ' ' + g.hook).toLowerCase();
-    if (/horror|vampir|undead|zombie|ravenloft|strahd|haunt|witch|curse/.test(t)) return 'Horror';
-    if (/fey|whimsical|cozy|fairy|lantern|wonder/.test(t)) return 'Fey';
-    if (/survival|dungeon|crawl|jungle|lethal/.test(t)) return 'Survival';
-    if (/mystery|intrigue|heist|detective|political/.test(t)) return 'Mystery';
-    return 'Adventure';
-  }
   function gameUrl(g) { return RESERVED[g.slug] ? 'blog/' + g.slug + '.html' : 'blog/campaign.html?slug=' + encodeURIComponent(g.slug); }
   function gmUrl(m) { return m.slug === 'ash' ? 'ash.html' : 'gm.html?slug=' + encodeURIComponent(m.slug); }
   function art(g) { return g.bannerUrl || ART[g.slug] || ''; }
@@ -62,10 +57,10 @@
 
   function card(g) {
     var m = gms[g.gm] || { slug: g.gm, name: 'Game Master', pronouns: '', reviews: 0 };
-    var a = ACCENT[g.cat], img = art(g);
+    var a = ACCENT[g.cat] || FALLBACK_ACCENT, img = art(g);
     var artStyle = img ? 'background-image:url(\'' + img.replace(/'/g, '%27') + '\')' : 'background-image:linear-gradient(135deg,#2b1a4d,#6b2a4a)';
     return '<article class="hx-card" style="--accent:' + a + '"><a class="hx-stretch" href="' + gameUrl(g) + '" aria-label="Open ' + esc(g.title) + '"></a>' +
-      '<div class="hx-art" style="' + artStyle + '">' + (img ? '' : '<span class="hx-em">' + GLYPH[g.cat] + '</span>') +
+      '<div class="hx-art" style="' + artStyle + '">' + (img ? '' : '<span class="hx-em">' + (GLYPH[g.cat] || FALLBACK_GLYPH) + '</span>') +
       '<span class="hx-badge' + ((g.soon || g.opensAt) ? '' : ' hx-open') + '">' + badgeText(g) + '</span><span class="hx-cat">' + esc(g.cat) + '</span></div>' +
       '<div class="hx-body"><h3>' + esc(g.title) + '</h3><p class="hx-tags">' + esc(g.eyebrow || g.hook) + '</p>' +
       '<div class="hx-meta"><span class="hx-when">⏱ Next <b>' + esc(when(g)) + '</b></span><span class="hx-price">$' + g.price + ' <small>USD / session</small></span></div>' +
@@ -76,10 +71,10 @@
   }
 
   function soonCard(g, i) {
-    var m = gms[g.gm] || { name: 'Game Master' }, a = ACCENT[g.cat], img = art(g);
+    var m = gms[g.gm] || { name: 'Game Master' }, a = ACCENT[g.cat] || FALLBACK_ACCENT, img = art(g);
     var bg = img ? 'background-image:url(\'' + img.replace(/'/g, '%27') + '\')' : 'background-image:linear-gradient(135deg,#2b1a4d,#6b2a4a)';
     return '<a class="hx-big" href="' + gameUrl(g) + '" style="--accent:' + a + ';' + bg + '">' +
-      (img ? '' : '<div class="hx-emoji-art">' + GLYPH[g.cat] + '</div>') +
+      (img ? '' : '<div class="hx-emoji-art">' + (GLYPH[g.cat] || FALLBACK_GLYPH) + '</div>') +
       '<span class="hx-tag">' + (i === 0 ? 'Next up' : esc(g.cat)) + '</span>' +
       '<h3>' + esc(g.title) + '</h3><div class="hx-who"><small>with ' + esc(m.name) + ' · ' + g.seatsOpen + (g.seatsOpen === 1 ? ' seat' : ' seats') + ' open</small></div>' +
       '<div class="hx-count"><b>' + countdown(g) + '</b><span>until the next session</span></div></a>';
@@ -109,8 +104,10 @@
   }
 
   function drawChips() {
-    var cats = ['All'];
-    ['Horror', 'Mystery', 'Fey', 'Survival', 'Adventure'].forEach(function (c) { if (games.some(function (g) { return g.cat === c; })) cats.push(c); });
+    var cats = ['All'], seen = {};
+    CAT_ORDER.forEach(function (c) { if (games.some(function (g) { return g.cat === c; })) { cats.push(c); seen[c] = 1; } });
+    // Any hand-typed tag that isn't one of the common ones above still gets its own chip.
+    games.forEach(function (g) { if (!seen[g.cat]) { seen[g.cat] = 1; cats.push(g.cat); } });
     cats.push('Seats open');
     var box = $('hx-chips');
     box.innerHTML = '';
@@ -118,7 +115,7 @@
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'hx-chip' + (c === cat ? ' hx-on' : '');
-      b.innerHTML = '<span>' + (CHIP_ICON[c] || GLYPH[c]) + '</span>' + c;
+      b.innerHTML = '<span>' + (CHIP_ICON[c] || GLYPH[c] || FALLBACK_GLYPH) + '</span>' + c;
       b.addEventListener('click', function () {
         cat = c;
         Array.prototype.forEach.call(box.children, function (x) { x.classList.toggle('hx-on', x === b); });
@@ -152,7 +149,7 @@
     .then(function (r) { if (!r.ok) throw new Error('no'); return r.json(); })
     .then(function (d) {
       d.gms.forEach(function (m) { gms[m.slug] = m; });
-      games = d.games.map(function (g) { g.cat = categoryOf(g); return g; }).sort(function (a, b) { return new Date(a.next) - new Date(b.next); });
+      games = d.games.map(function (g) { g.cat = g.tag || 'Adventure'; return g; }).sort(function (a, b) { return new Date(a.next) - new Date(b.next); });
       drawStats(d.stats);
       drawChips();
       drawSoon();

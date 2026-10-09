@@ -247,3 +247,7 @@ ALTER TABLE campaign_content ADD COLUMN price REAL;
 ALTER TABLE campaign_content ADD COLUMN min_players INTEGER;
 ALTER TABLE campaign_content ADD COLUMN open_mode TEXT NOT NULL DEFAULT 'now';
 ALTER TABLE campaign_content ADD COLUMN open_at TEXT;
+
+-- A single genre tag the Game Master picks by hand (Horror, Mystery, Political, etc, or
+-- their own word). Shown as-is on the game's card. NULL falls back to "Adventure".
+ALTER TABLE campaign_content ADD COLUMN tag TEXT;
