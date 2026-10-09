@@ -48,6 +48,26 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
   try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
   const st = await gmStatus(env, user.sub);
   if (!st.isGm) return json({ error: 'This is for Game Masters.' }, 403, corsHeaders);
+
+  // Ash checking why a specific Game Master's table still shows "opening soon": the same
+  // account lookup as 'status' below, just for someone else's uid, and with the full
+  // verification/capabilities detail so she can see exactly what Whop is waiting on.
+  if (action === 'admin-status') {
+    if (!st.isAdmin) return json({ error: 'Not authorized' }, 403, corsHeaders);
+    const uid = String(body.uid || '');
+    if (!uid) return json({ error: 'Missing uid' }, 400, corsHeaders);
+    const row = await env.DB.prepare('SELECT account_id FROM gm_accounts WHERE uid=?').bind(uid).first();
+    if (!row) return json({ state: 'none' }, 200, corsHeaders);
+    const key = env.WHOP_CONNECT_API_KEY || env.WHOP_BALANCE_API_KEY;
+    let r = null;
+    if (key) {
+      const res = await fetch(`https://api.whop.com/api/v1/accounts/${encodeURIComponent(row.account_id)}`, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } });
+      r = { ok: res.ok, data: await res.json().catch(() => ({})) };
+    }
+    if (!r || !r.ok) return json({ state: 'unknown' }, 200, corsHeaders);
+    return json({ state: stateFrom(r.data), verification: r.data.verification || null, capabilities: r.data.capabilities || null }, 200, corsHeaders);
+  }
+
   // Ash's own money already works through her own Whop account.
   if (st.isAdmin) return json({ state: 'owner' }, 200, corsHeaders);
 

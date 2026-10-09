@@ -788,23 +788,52 @@ function buildPlayerReviewCard(r) {
   return card;
 }
 
+// Fewer cards than this and a slow loop never really reads as "rotating" — they
+// just sit in the static wrapped grid as before.
+const REVIEWS_MARQUEE_MIN = 4;
+const REVIEWS_MARQUEE_PX_PER_S = 40;
+
+function setupReviewsMarquee(track) {
+  const marquee = track.closest('.reviews-marquee');
+  const cards = Array.from(track.children);
+  if (!marquee || cards.length < REVIEWS_MARQUEE_MIN) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  // A silent copy of the same cards right after the real ones, so the loop has
+  // no visible seam. Never reachable by keyboard or a screen reader.
+  cards.forEach((card) => {
+    const clone = card.cloneNode(true);
+    clone.setAttribute('aria-hidden', 'true');
+    clone.querySelectorAll('button, a').forEach((el) => { el.tabIndex = -1; });
+    track.appendChild(clone);
+  });
+  track.classList.add('reviews-track-scroll');
+  marquee.classList.add('reviews-marquee-scroll');
+  const travel = track.scrollWidth / 2; // real cards only; the clones mirror it exactly
+  track.style.animationDuration = Math.max(20, travel / REVIEWS_MARQUEE_PX_PER_S) + 's';
+}
+
 async function loadPlayerReviews() {
   const track = document.querySelector('.reviews-track');
   if (!track) return;
   try {
     const res = await fetch(reviewsUrl());
-    if (!res.ok) return;
-    const data = await res.json();
-    if (!data.reviews || !data.reviews.length) return;
-    const firstReal = track.querySelector('.review-card');
-    if (!firstReal) {
-      data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r)));
-    } else {
-      data.reviews.forEach((r) => track.insertBefore(buildPlayerReviewCard(r), firstReal));
+    if (res.ok) {
+      const data = await res.json();
+      if (data.reviews && data.reviews.length) {
+        const firstReal = track.querySelector('.review-card');
+        if (!firstReal) {
+          data.reviews.forEach((r) => track.appendChild(buildPlayerReviewCard(r)));
+        } else {
+          data.reviews.forEach((r) => track.insertBefore(buildPlayerReviewCard(r), firstReal));
+        }
+      }
     }
+  } catch (err) { /* the written reviews stay as they are */ }
+  if (track.querySelector('.review-card')) {
     const section = track.closest('.reviews');
     if (section) section.hidden = false;
-  } catch (err) { /* the written reviews stay as they are */ }
+    setupReviewsMarquee(track);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

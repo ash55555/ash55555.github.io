@@ -474,6 +474,7 @@ p { margin: 0 0 1em; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  max-width: 460px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .campaign-card:hover {
@@ -482,6 +483,12 @@ p { margin: 0 0 1em; }
 }
 .campaign-card[data-href] {
   cursor: pointer;
+}
+/* A Game Master with only one published campaign would otherwise have it stretch
+   edge to edge (auto-fit grows a lone column to fill the row); keep it the same
+   size as everyone else's cards and center it instead. */
+.campaign-grid .campaign-card:only-child {
+  justify-self: center;
 }
 
 .campaign-banner {
@@ -678,6 +685,13 @@ p { margin: 0 0 1em; }
 .reviews-marquee {
   width: 100%;
 }
+/* Only while a track is actually scrolling (enough cards to loop) does the edge
+   fade and clipping apply; a short, static list of cards is never cropped. */
+.reviews-marquee.reviews-marquee-scroll {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
+}
 
 .reviews-track {
   display: flex;
@@ -687,6 +701,27 @@ p { margin: 0 0 1em; }
   gap: 1.5em;
   width: 100%;
   padding: 0 1.5em;
+}
+/* Enough cards to loop: a single slow-scrolling row (the real cards, then an
+   aria-hidden copy of them so the loop has no seam), pausing on hover to read. */
+.reviews-track.reviews-track-scroll {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  width: max-content;
+  animation-name: reviews-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.reviews-track.reviews-track-scroll:hover,
+.reviews-track.reviews-track-scroll:focus-within {
+  animation-play-state: paused;
+}
+@keyframes reviews-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reviews-track.reviews-track-scroll { animation: none; }
 }
 
 .review-card {
