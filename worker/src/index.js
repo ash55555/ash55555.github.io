@@ -22,6 +22,7 @@ import { runReminders } from './reminders.js';
 import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
 import { noteAccount } from './accounts.js';
 import { handleContentAdmin, handleContentPublic, handleContentPublicList, handleContentBanner } from './content.js';
+import { handleFollow } from './follow.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -63,6 +64,9 @@ export default {
     }
     if (url.pathname.startsWith('/msg/')) {
       return handleMessages(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/msg/'.length), sendEmail);
+    }
+    if (url.pathname.startsWith('/follow/')) {
+      return handleFollow(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/follow/'.length));
     }
     if (url.pathname === '/tip/status' && request.method === 'GET') {
       return handleTipStatus(request, env, corsHeaders);

@@ -251,3 +251,14 @@ ALTER TABLE campaign_content ADD COLUMN open_at TEXT;
 -- A single genre tag the Game Master picks by hand (Horror, Mystery, Political, etc, or
 -- their own word). Shown as-is on the game's card. NULL falls back to "Adventure".
 ALTER TABLE campaign_content ADD COLUMN tag TEXT;
+
+-- Following a Game Master: a player can ask to hear the moment that GM publishes a new
+-- campaign, without having to check their page by hand. Anyone can see how many people
+-- follow a GM; only a signed-in player's own row says whether they do.
+CREATE TABLE IF NOT EXISTS gm_followers (
+  uid TEXT NOT NULL,
+  gm_uid TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (uid, gm_uid)
+);
+CREATE INDEX IF NOT EXISTS gm_followers_gm ON gm_followers (gm_uid);

@@ -766,7 +766,7 @@ function renderReviewPanel() {
 
 /* ----------------------------------------------------------- notifications */
 
-const KIND_LABEL = { declined: 'Card declined', extra_session: 'Extra session', tip: 'Tip', extra_session_removed: 'Session cancelled', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game',
+const KIND_LABEL = { declined: 'Card declined', extra_session: 'Extra session', tip: 'Tip', extra_session_removed: 'Session cancelled', skipped_admin: 'Session skipped', skipped_self: 'Session skipped', review_invite: 'How was your game?', removed: 'Removed from a game', new_campaign: 'New campaign',
   joined: 'New player', left: 'Left', skipped_player: 'Skipped', review: 'Review', new_account: 'New account', charge_failed: 'Charge failed', gave_up: 'Gave up', unknown: 'Check Whop', reminder: 'Reminder' };
 // The DM-side ones only ever show up for Ash's own account; clicking one opens the admin page.
 function adminLink(n) {
@@ -774,6 +774,11 @@ function adminLink(n) {
   return 'admin.html#tab=' + (n.kind === 'review' ? 'reviews' : 'notifications');
 }
 const DM_KINDS = { joined: 1, left: 1, skipped_player: 1, review: 1, new_account: 1, charge_failed: 1, gave_up: 1, unknown: 1, reminder: 1 };
+// A followed Game Master's new campaign is the one player-side notification worth a
+// click: straight to the campaign everyone else uses the shared template page for.
+function playerLink(n) {
+  return n.kind === 'new_campaign' && n.game ? 'blog/campaign.html?slug=' + encodeURIComponent(n.game) : '';
+}
 function timeAgo(iso) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
   if (s < 90) return 'just now';
@@ -808,6 +813,9 @@ async function loadNotifications() {
         if (DM_KINDS[n.kind]) {
           item.style.cursor = 'pointer';
           item.addEventListener('click', () => { window.location.href = adminLink(n); });
+        } else {
+          const to = playerLink(n);
+          if (to) { item.style.cursor = 'pointer'; item.addEventListener('click', () => { window.location.href = to; }); }
         }
         list.appendChild(item);
       });

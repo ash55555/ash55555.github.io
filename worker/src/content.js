@@ -3,9 +3,10 @@
 // with no sign-in needed. Ash writes her own campaigns; every other Game Master writes only
 // their own (each campaign row remembers its owner, and every route below checks it).
 
-import { verifyUser } from './pay.js';
+import { verifyUser, cfg, notifyPlayer } from './pay.js';
 import { gmPayoutAccount } from './connect.js';
 import { actorFor, MAX_GM_CAMPAIGNS, MAX_GM_SLOTS, cleanSlot, slotToUtc } from './owner.js';
+import { followersOf } from './follow.js';
 
 const MAX_BANNER_CHARS = 260000; // a landscape banner, base64 text (~190KB of image)
 const FIELDS = ['title', 'eyebrow', 'hook', 'intro', 'world', 'stakes', 'audience', 'tag'];
@@ -304,5 +305,25 @@ async function saveCampaign(env, actor, body, self, corsHeaders) {
       .run();
   }
   const row = await env.DB.prepare('SELECT * FROM campaign_content WHERE slug=?').bind(slug).first();
+
+  // The moment a campaign first appears on a Game Master's public page (not on every
+  // later edit of an already-published one), tell anyone who follows them.
+  const wasPublished = existing ? !!existing.published : false;
+  if (published && !wasPublished) {
+    const followedUid = actor.isAdmin ? env.ADMIN_UID : actor.uid;
+    const followers = await followersOf(env, followedUid);
+    if (followers.length) {
+      let gmName = 'Ash';
+      if (!actor.isAdmin) {
+        const prof = await env.DB.prepare('SELECT data FROM gm_profiles WHERE uid=?').bind(actor.uid).first();
+        try { gmName = (prof && JSON.parse(prof.data).name) || 'Your Game Master'; } catch { gmName = 'Your Game Master'; }
+      }
+      const mode = cfg(env).mode;
+      for (const uid of followers) {
+        await notifyPlayer(env, mode, uid, 'new_campaign', slug, `${gmName} posted a new game`, `${title} just went up on ${gmName}'s page. Take a look and grab a seat.`);
+      }
+    }
+  }
+
   return json({ ...view(row, self), published: !!row.published, reserved: RESERVED_SLUGS.has(row.slug), ...(row.owner_uid ? { slots: parseSlots(row) } : {}) }, 200, corsHeaders);
 }
