@@ -793,11 +793,13 @@ function buildPlayerReviewCard(r) {
 const REVIEWS_MARQUEE_MIN = 4;
 const REVIEWS_MARQUEE_PX_PER_S = 40;
 
+// Runs the actual scrolling (track.scrollLeft), not a CSS transform, specifically so a
+// finger or a mouse can still grab the row and drag it — a transform-only marquee looks
+// identical but has nothing a touch or a click can take hold of.
 function setupReviewsMarquee(track) {
   const marquee = track.closest('.reviews-marquee');
   const cards = Array.from(track.children);
   if (!marquee || cards.length < REVIEWS_MARQUEE_MIN) return;
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   // A silent copy of the same cards right after the real ones, so the loop has
   // no visible seam. Never reachable by keyboard or a screen reader.
   cards.forEach((card) => {
@@ -808,8 +810,55 @@ function setupReviewsMarquee(track) {
   });
   track.classList.add('reviews-track-scroll');
   marquee.classList.add('reviews-marquee-scroll');
-  const travel = track.scrollWidth / 2; // real cards only; the clones mirror it exactly
-  track.style.animationDuration = Math.max(20, travel / REVIEWS_MARQUEE_PX_PER_S) + 's';
+  const half = track.scrollWidth / 2; // real cards only; the clones mirror it exactly
+
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let paused = false;
+  let resumeTimer = null;
+  const pause = () => { paused = true; clearTimeout(resumeTimer); };
+  const resumeSoon = () => { resumeTimer = setTimeout(() => { paused = false; }, 2500); };
+  track.addEventListener('pointerdown', pause);
+  track.addEventListener('pointerup', resumeSoon);
+  track.addEventListener('pointercancel', resumeSoon);
+  track.addEventListener('touchstart', pause, { passive: true });
+  track.addEventListener('touchend', resumeSoon, { passive: true });
+  track.addEventListener('wheel', () => { pause(); resumeSoon(); }, { passive: true });
+  track.addEventListener('mouseenter', pause);
+  track.addEventListener('mouseleave', () => { if (!resumeTimer) paused = false; });
+
+  // A finger scrolls the row natively (overflow-x does that for free). A mouse has no
+  // native click-and-drag for horizontal scroll, so that part is done by hand here.
+  let dragging = false, dragStartX = 0, dragStartScroll = 0;
+  track.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'mouse') return;
+    dragging = true;
+    dragStartX = e.clientX;
+    dragStartScroll = track.scrollLeft;
+    track.setPointerCapture(e.pointerId);
+    track.classList.add('is-dragging');
+  });
+  track.addEventListener('pointermove', (e) => {
+    if (!dragging || e.pointerType !== 'mouse') return;
+    track.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
+  });
+  const stopDrag = () => { dragging = false; track.classList.remove('is-dragging'); };
+  track.addEventListener('pointerup', stopDrag);
+  track.addEventListener('pointercancel', stopDrag);
+
+  if (reduceMotion) return; // still fully scrollable by hand, just nothing moves on its own
+
+  let last = null;
+  function tick(ts) {
+    if (last == null) last = ts;
+    const dt = ts - last;
+    last = ts;
+    if (!paused && track.isConnected) {
+      track.scrollLeft += (REVIEWS_MARQUEE_PX_PER_S * dt) / 1000;
+      if (track.scrollLeft >= half) track.scrollLeft -= half;
+    }
+    if (track.isConnected) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 async function loadPlayerReviews() {

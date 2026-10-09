@@ -707,22 +707,14 @@ p { margin: 0 0 1em; }
 .reviews-track.reviews-track-scroll {
   flex-wrap: nowrap;
   justify-content: flex-start;
-  width: max-content;
-  animation-name: reviews-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  overflow-x: auto;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  cursor: grab;
 }
-.reviews-track.reviews-track-scroll:hover,
-.reviews-track.reviews-track-scroll:focus-within {
-  animation-play-state: paused;
-}
-@keyframes reviews-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .reviews-track.reviews-track-scroll { animation: none; }
-}
+.reviews-track.reviews-track-scroll::-webkit-scrollbar { display: none; }
+.reviews-track.reviews-track-scroll.is-dragging { cursor: grabbing; }
 
 .review-card {
   background: var(--bg-panel);
