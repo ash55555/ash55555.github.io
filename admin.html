@@ -2139,6 +2139,16 @@ window.AshSlots = (function () {
           if (!confirm('Remove ' + (p.name || p.email) + ' from this game? They will not be charged again.')) return Promise.reject(new Error('Cancelled.'));
           return call('admin/remove', { uid: p.uid });
         }));
+        var msgBtn = el('button', 'pay-mini', 'Message');
+        msgBtn.type = 'button';
+        msgBtn.addEventListener('click', function () {
+          Messages.openCompose({
+            toUid: p.uid, name: p.name || p.email,
+            getToken: function () { return firebase.auth().currentUser.getIdToken(); },
+            backHref: 'admin.html#tab=messages', backLabel: 'Open Messages',
+          });
+        });
+        actions.append(msgBtn);
         row.append(actions);
         left.append(row);
       });
@@ -3886,7 +3896,7 @@ window.AshSlots = (function () {
   firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
 })();
 </script>
-<script src="messages-ui.js?v=20261005c"></script>
+<script src="messages-ui.js?v=20261010a"></script>
 <script src="tips-admin.js?v=20261009c"></script>
 <script>
 (function () {

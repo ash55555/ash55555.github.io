@@ -29,6 +29,16 @@ async function isGmUid(env, uid) {
   return !!row;
 }
 
+// Whether playerUid has ever been on the roster of one of gmUid's own campaigns (any
+// group, any mode) — the only players a Game Master is allowed to message first.
+async function hasPlayedWith(env, playerUid, gmUid) {
+  const row = await env.DB.prepare(
+    `SELECT 1 AS x FROM players p JOIN campaign_content c ON p.game = c.slug OR p.game LIKE c.slug || '::%'
+     WHERE p.uid = ? AND (c.owner_uid = ? OR (c.owner_uid IS NULL AND ? = ?)) LIMIT 1`
+  ).bind(playerUid, gmUid, gmUid, env.ADMIN_UID).first();
+  return !!row;
+}
+
 // Name, picture and (for GMs) profile page of each person, for the lists and thread headers.
 async function people(env, origin, uids) {
   const out = {};
@@ -139,8 +149,12 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
 
       const conv = convKey(me, to);
       const existing = await env.DB.prepare('SELECT 1 AS x FROM messages WHERE conv=? LIMIT 1').bind(conv).first();
-      if (!existing && !(await isGmUid(env, to))) {
-        return json({ error: 'You can start a conversation with a Game Master from their profile page.' }, 403, corsHeaders);
+      // Starting fresh is allowed in two directions: a player writing to any Game Master,
+      // or a Game Master writing to someone who has actually been on their own roster.
+      if (!existing) {
+        const toGm = await isGmUid(env, to);
+        const meGm = !toGm && (await isGmUid(env, me)) && (await hasPlayedWith(env, to, me));
+        if (!toGm && !meGm) return json({ error: 'You can start a conversation with a Game Master from their profile page.' }, 403, corsHeaders);
       }
       const recent = await env.DB.prepare('SELECT COUNT(*) AS n FROM messages WHERE from_uid=? AND created_at > ?').bind(me, new Date(Date.now() - 3600000).toISOString()).first();
       if (recent && recent.n >= PER_HOUR) return json({ error: 'You are sending messages very fast. Please wait a little and try again.' }, 429, corsHeaders);

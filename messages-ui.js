@@ -258,12 +258,13 @@
     return setInterval(go, 60000);
   }
 
-  // ------------------------------------------------------------------ "Message <name>" on a GM's profile page
+  // ------------------------------------------------------------------ "Message <name>": a GM's profile page
+  // (toSlug) for a player writing to them, or a GM's own player roster (toUid) for the reverse.
   function openCompose(o) {
     var back = el('div', 'msg-modal');
     var box = el('form', 'msg-modal-box');
     box.appendChild(el('h3', null, 'Chat with ' + o.name));
-    box.appendChild(el('p', 'msg-modal-help', 'Your message goes straight to ' + o.name + '. Their reply will be waiting in Messages on your profile, and we will email you too.'));
+    box.appendChild(el('p', 'msg-modal-help', 'Your message goes straight to ' + o.name + '. Their reply will show up in your Messages, and we will email you too.'));
     var ta = el('textarea'); ta.rows = 5; ta.maxLength = 1000; ta.placeholder = 'Hi ' + o.name + '! I would like to ask about...';
     box.appendChild(ta);
     var status = el('p', 'msg-modal-status');
@@ -285,11 +286,12 @@
       var text = ta.value.trim();
       if (!text) { status.textContent = 'Please write a message first.'; return; }
       send.disabled = true; status.textContent = 'Sending...';
-      api('send', { toSlug: o.toSlug, text: text }, o.getToken).then(function () {
+      var payload = o.toUid ? { toUid: o.toUid, text: text } : { toSlug: o.toSlug, text: text };
+      api('send', payload, o.getToken).then(function () {
         box.innerHTML = '';
         box.appendChild(el('h3', null, 'Sent!'));
-        box.appendChild(el('p', 'msg-modal-help', 'Your message is on its way to ' + o.name + '. You will find the conversation in Messages on your profile.'));
-        var go = el('a', 'btn btn-primary', 'Open my messages'); go.href = 'profile.html#me-messages';
+        box.appendChild(el('p', 'msg-modal-help', 'Your message is on its way to ' + o.name + '.'));
+        var go = el('a', 'btn btn-primary', o.backLabel || 'Open my messages'); go.href = o.backHref || 'profile.html#me-messages';
         var ok = el('button', 'gm-pill', 'Close'); ok.type = 'button'; ok.addEventListener('click', close);
         var r2 = el('div', 'msg-modal-btns'); r2.append(ok, go); box.appendChild(r2);
       }).catch(function (err) { status.textContent = err.message; send.disabled = false; });
