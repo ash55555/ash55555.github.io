@@ -800,17 +800,23 @@ function setupReviewsMarquee(track) {
   const marquee = track.closest('.reviews-marquee');
   const cards = Array.from(track.children);
   if (!marquee || cards.length < REVIEWS_MARQUEE_MIN) return;
-  // A silent copy of the same cards right after the real ones, so the loop has
-  // no visible seam. Never reachable by keyboard or a screen reader.
-  cards.forEach((card) => {
-    const clone = card.cloneNode(true);
-    clone.setAttribute('aria-hidden', 'true');
-    clone.querySelectorAll('button, a').forEach((el) => { el.tabIndex = -1; });
-    track.appendChild(clone);
-  });
+  // A silent copy of the same cards on BOTH sides of the real ones, so dragging either
+  // direction by hand always has more of the same loop waiting, never a dead end. Neither
+  // copy is reachable by keyboard or a screen reader.
+  function cloneSet() {
+    return cards.map((card) => {
+      const clone = card.cloneNode(true);
+      clone.setAttribute('aria-hidden', 'true');
+      clone.querySelectorAll('button, a').forEach((el) => { el.tabIndex = -1; });
+      return clone;
+    });
+  }
+  cloneSet().forEach((c) => track.insertBefore(c, track.firstChild));
+  cloneSet().forEach((c) => track.appendChild(c));
   track.classList.add('reviews-track-scroll');
   marquee.classList.add('reviews-marquee-scroll');
-  const half = track.scrollWidth / 2; // real cards only; the clones mirror it exactly
+  const setWidth = track.scrollWidth / 3; // one copy's worth; the clones mirror it exactly
+  track.scrollLeft = setWidth; // start on the real, middle copy
 
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let paused = false;
@@ -845,6 +851,20 @@ function setupReviewsMarquee(track) {
   track.addEventListener('pointerup', stopDrag);
   track.addEventListener('pointercancel', stopDrag);
 
+  // The actual loop: drift too far into either silent copy (from a drag, a swipe, the
+  // wheel, or the automatic scroll below) and the position quietly jumps back by one
+  // copy's width. Invisible, since that's exactly where the same cards already are —
+  // and it applies no matter what moved scrollLeft, so neither direction ever runs out.
+  track.addEventListener('scroll', () => {
+    if (track.scrollLeft < setWidth * 0.5) {
+      track.scrollLeft += setWidth;
+      if (dragging) dragStartScroll += setWidth;
+    } else if (track.scrollLeft > setWidth * 1.5) {
+      track.scrollLeft -= setWidth;
+      if (dragging) dragStartScroll -= setWidth;
+    }
+  }, { passive: true });
+
   if (reduceMotion) return; // still fully scrollable by hand, just nothing moves on its own
 
   let last = null;
@@ -852,10 +872,7 @@ function setupReviewsMarquee(track) {
     if (last == null) last = ts;
     const dt = ts - last;
     last = ts;
-    if (!paused && track.isConnected) {
-      track.scrollLeft += (REVIEWS_MARQUEE_PX_PER_S * dt) / 1000;
-      if (track.scrollLeft >= half) track.scrollLeft -= half;
-    }
+    if (!paused && track.isConnected) track.scrollLeft += (REVIEWS_MARQUEE_PX_PER_S * dt) / 1000;
     if (track.isConnected) requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
