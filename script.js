@@ -811,8 +811,12 @@ function setupReviewsMarquee(track) {
       return clone;
     });
   }
-  cloneSet().forEach((c) => track.insertBefore(c, track.firstChild));
-  cloneSet().forEach((c) => track.appendChild(c));
+  // prepend/append (not a loop of insertBefore(firstChild)) so each copy keeps the
+  // real cards' own order — inserting one at a time before firstChild reverses it,
+  // which put the end of one copy and the start of the next right next to each
+  // other showing the same reviewer twice in a row with no scrolling needed at all.
+  track.prepend(...cloneSet());
+  track.append(...cloneSet());
   track.classList.add('reviews-track-scroll');
   marquee.classList.add('reviews-marquee-scroll');
   const setWidth = track.scrollWidth / 3; // one copy's worth; the clones mirror it exactly
