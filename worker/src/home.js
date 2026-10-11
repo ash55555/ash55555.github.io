@@ -25,7 +25,7 @@ export async function handleHome(request, env, corsHeaders) {
   const now = new Date();
   const games = await loadGames(env);
   const owners = {};
-  const rows = (await env.DB.prepare('SELECT slug, title, eyebrow, hook, tag, banner_id, owner_uid FROM campaign_content WHERE published=1 ORDER BY created_at ASC').all()).results;
+  const rows = (await env.DB.prepare('SELECT slug, title, eyebrow, hook, tag, banner_id, owner_uid, type, price FROM campaign_content WHERE published=1 ORDER BY created_at ASC').all()).results;
   rows.forEach((r) => { owners[r.slug] = r.owner_uid || null; });
 
   const online = {};
@@ -35,10 +35,21 @@ export async function handleHome(request, env, corsHeaders) {
   const list = [];
   let seatsOpen = 0;
   for (const r of rows) {
-    const slots = Object.values(games).filter((g) => g.key === r.slug || g.key.startsWith(r.slug + '::')).filter((g) => g.enabled);
-    if (!slots.length) continue;
+    const type = r.type === 'oneshot' || r.type === 'pbp' ? r.type : 'campaign';
     // a Game Master's table can be booked once Whop has approved their payout account; until then it only shows as opening soon
     const soon = !!r.owner_uid && !(await gmPayoutAccount(env, r.owner_uid));
+    if (type === 'pbp') {
+      // No sessions to schedule around at all: it's simply open (once payouts are ready) or not, no seat cap.
+      list.push({
+        slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', hook: r.hook || '', tag: r.tag || 'Adventure', type,
+        bannerUrl: r.banner_id ? `${origin}/content/banner/${r.banner_id}` : null,
+        gm: r.owner_uid ? null : 'ash', owner: r.owner_uid || null,
+        next: null, price: r.price > 0 ? r.price : 10, seatsOpen: null, max: null, soon, opensAt: null,
+      });
+      continue;
+    }
+    const slots = Object.values(games).filter((g) => g.key === r.slug || g.key.startsWith(r.slug + '::')).filter((g) => g.enabled);
+    if (!slots.length) continue;
     const opensAt = slots[0].openMode === 'date' && slots[0].openAt && new Date(`${slots[0].openAt}T00:00:00Z`).getTime() > now.getTime() ? slots[0].openAt : null;
     const gated = soon || !!opensAt;
     const withSeats = gated ? slots : slots.filter((g) => openOf(g) > 0);
@@ -51,7 +62,7 @@ export async function handleHome(request, env, corsHeaders) {
     if (!best) continue;
     if (!gated) seatsOpen += withSeats.reduce((n, g) => n + openOf(g), 0);
     list.push({
-      slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', hook: r.hook || '', tag: r.tag || 'Adventure',
+      slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', hook: r.hook || '', tag: r.tag || 'Adventure', type,
       bannerUrl: r.banner_id ? `${origin}/content/banner/${r.banner_id}` : null,
       gm: r.owner_uid ? null : 'ash', owner: r.owner_uid || null,
       next: best.when.toISOString(), price: best.g.price, seatsOpen: gated ? null : openOf(best.g), max: best.g.max, soon, opensAt,

@@ -39,7 +39,12 @@
     var p = ymd.split('-').map(Number);
     return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }
-  function badgeText(g) { return g.opensAt ? 'Opens ' + openDateLong(g.opensAt) : (g.soon ? 'Opening soon' : 'Seats open'); }
+  function badgeText(g) {
+    if (g.opensAt) return 'Opens ' + openDateLong(g.opensAt);
+    if (g.soon) return 'Opening soon';
+    return g.type === 'pbp' ? 'Open to join' : 'Seats open';
+  }
+  var TYPE_LABEL = { oneshot: 'One-shot', pbp: 'Play-by-post' };
   function stars(r) { var n = Math.round(r); return '★'.repeat(n) + '☆'.repeat(5 - n); }
   function avatar(m, cls) {
     var inner = m.avatar ? '<img src="' + esc(m.avatar) + '" alt="">' : (m.slug === 'ash' ? '<img src="medie/ash-token.png" alt="">' : '🎲');
@@ -59,12 +64,15 @@
     var m = gms[g.gm] || { slug: g.gm, name: 'Game Master', pronouns: '', reviews: 0 };
     var a = ACCENT[g.cat] || FALLBACK_ACCENT, img = art(g);
     var artStyle = img ? 'background-image:url(\'' + img.replace(/'/g, '%27') + '\')' : 'background-image:linear-gradient(135deg,#2b1a4d,#6b2a4a)';
+    var typeBadge = TYPE_LABEL[g.type] ? '<span class="hx-type-badge">' + TYPE_LABEL[g.type] + '</span>' : '';
+    var metaWhen = g.type === 'pbp' ? '<span class="hx-when">💬 <b>Text-based</b></span>' : '<span class="hx-when">⏱ Next <b>' + esc(when(g)) + '</b></span>';
+    var metaPrice = '<span class="hx-price">$' + g.price + ' <small>USD' + (g.type === 'pbp' ? ', once' : ' / session') + '</small></span>';
     return '<article class="hx-card" style="--accent:' + a + '"><a class="hx-stretch" href="' + gameUrl(g) + '" aria-label="Open ' + esc(g.title) + '"></a>' +
       '<div class="hx-art" style="' + artStyle + '">' + (img ? '' : '<span class="hx-em">' + (GLYPH[g.cat] || FALLBACK_GLYPH) + '</span>') +
       '<span class="hx-badge' + ((g.soon || g.opensAt) ? '' : ' hx-open') + '">' + badgeText(g) + '</span><span class="hx-cat">' + esc(g.cat) + '</span></div>' +
-      '<div class="hx-body"><h3>' + esc(g.title) + '</h3><p class="hx-tags">' + esc(g.eyebrow || g.hook) + '</p>' +
-      '<div class="hx-meta"><span class="hx-when">⏱ Next <b>' + esc(when(g)) + '</b></span><span class="hx-price">$' + g.price + ' <small>USD / session</small></span></div>' +
-      ((g.soon || g.opensAt) ? '' : seatDots(g)) +
+      '<div class="hx-body"><h3>' + esc(g.title) + typeBadge + '</h3><p class="hx-tags">' + esc(g.eyebrow || g.hook) + '</p>' +
+      '<div class="hx-meta">' + metaWhen + metaPrice + '</div>' +
+      (g.type === 'pbp' || g.soon || g.opensAt ? '' : seatDots(g)) +
       '<a class="hx-dmrow" href="' + gmUrl(m) + '" title="See ' + esc(m.name) + '\'s page">' + avatar(m, 'hx-av') +
         '<span class="hx-who"><b>' + esc(m.name) + (m.you ? '<i>HOST</i>' : '') + '</b><small>' + (m.pronouns ? esc(m.pronouns) + ' · ' : '') + ratingText(m) + '</small></span>' +
         '<span class="hx-go">Profile ›</span></a></div></article>';
@@ -90,7 +98,7 @@
 
   function drawGrid() {
     var list = games.filter(function (g) {
-      if (cat === 'Seats open' && (g.soon || g.seatsOpen <= 0)) return false;
+      if (cat === 'Seats open' && (g.soon || (g.type !== 'pbp' && g.seatsOpen <= 0))) return false;
       if (cat !== 'All' && cat !== 'Seats open' && g.cat !== cat) return false;
       if (!q) return true;
       var m = gms[g.gm] || {};
@@ -149,7 +157,11 @@
     .then(function (r) { if (!r.ok) throw new Error('no'); return r.json(); })
     .then(function (d) {
       d.gms.forEach(function (m) { gms[m.slug] = m; });
-      games = d.games.map(function (g) { g.cat = g.tag || 'Adventure'; return g; }).sort(function (a, b) { return new Date(a.next) - new Date(b.next); });
+      games = d.games.map(function (g) { g.cat = g.tag || 'Adventure'; return g; }).sort(function (a, b) {
+        // Play-by-post has no session to sort by; it just settles at the end, after every dated table.
+        var an = a.next ? new Date(a.next).getTime() : Infinity, bn = b.next ? new Date(b.next).getTime() : Infinity;
+        return an - bn;
+      });
       drawStats(d.stats);
       drawChips();
       drawSoon();

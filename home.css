@@ -94,6 +94,7 @@ html { scroll-behavior: smooth; }
   .hx-cat { position: absolute; z-index: 2; top: .9em; right: .9em; padding: .3em .85em; border-radius: 999px; font-size: .72rem; font-weight: 800; background: color-mix(in srgb, var(--accent) 22%, rgba(10,6,20,.8)); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); }
   .hx-body { position: relative; padding: 1.1em 1.25em 1.25em; display: flex; flex-direction: column; gap: .55em; flex: 1; }
   .hx-body h3 { margin: -2.3em 0 0; position: relative; z-index: 2; font-family: var(--display); font-weight: 900; font-size: 1.28rem; line-height: 1.12; text-shadow: 0 2px 14px rgba(0,0,0,.8); }
+  .hx-type-badge { display: inline-block; margin-left: .5em; padding: .22em .6em; border-radius: 999px; font-family: var(--body); font-size: .6rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: rgba(10,6,20,.78); border: 1px solid var(--line); color: var(--muted); vertical-align: middle; text-shadow: none; }
   .hx-body .hx-tags { margin: .55em 0 0; color: var(--muted); font-size: .88rem; }
   .hx-meta { display: flex; align-items: center; justify-content: space-between; gap: .6em; margin-top: .2em; }
   .hx-when { display: inline-flex; align-items: center; gap: .5em; padding: .35em .8em; border-radius: 12px; background: rgba(255,255,255,.07); border: 1px solid var(--line); font-size: .84rem; font-weight: 700; }
