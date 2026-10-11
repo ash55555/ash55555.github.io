@@ -186,7 +186,10 @@
       .then(function (d) {
         if (!d || !d.campaigns) return;
         d.campaigns.forEach(function (c) {
-          if (RESERVED[c.slug]) return;
+          // A play-by-post game has no schedule at all, so this card (built entirely
+          // around a session-time chip) doesn't fit it. It still shows on its own page;
+          // skipped here until the homepage has a card shape that doesn't assume one.
+          if (RESERVED[c.slug] || c.type === 'pbp') return;
           var built = buildCard(c);
           grid.appendChild(built.art);
           watchLiveTime(c.slug, built.chip);

@@ -75,6 +75,35 @@
     body.appendChild(el('h3', null, c.title));
     if (c.eyebrow) body.appendChild(el('p', 'campaign-tone', c.eyebrow));
     if (c.hook) body.appendChild(el('p', 'campaign-hook', c.hook));
+    var price = c.price > 0 ? c.price : 10;
+    if (c.type === 'pbp') {
+      // No schedule at all: text-based and asynchronous. One flat payment joins, instead
+      // of picking a session.
+      var btnId = 'pbp-join-' + c.slug, statusId = 'pbp-status-' + c.slug;
+      var joinBtn = el('button', 'btn btn-small', c.bookable ? 'Join this story' : 'Opening soon');
+      joinBtn.type = 'button';
+      joinBtn.id = btnId;
+      joinBtn.disabled = !c.bookable;
+      body.appendChild(joinBtn);
+      var statusP = el('p', 'slot-status');
+      statusP.id = statusId;
+      body.appendChild(statusP);
+      var more = el('a', 'story-link', 'Read the Full Story');
+      more.href = href;
+      body.appendChild(more);
+      var priceStr = '$' + (price % 1 === 0 ? price : price.toFixed(2)) + ' USD, paid once';
+      body.appendChild(el('p', 'campaign-note', c.bookable ? priceStr + ' to join. Play whenever you can, no scheduled sessions.' : 'Chat with the Game Master below to ask about joining.'));
+      art.appendChild(body);
+      // joinBtn/statusP aren't in the document yet at this point (art isn't appended
+      // until the caller does grid.appendChild below), so wireJoin takes the elements
+      // directly rather than ids — document.getElementById would find nothing here.
+      if (c.bookable && window.AshPbp) window.AshPbp.wireJoin(c.slug, joinBtn, statusP);
+      art.addEventListener('click', function (e) {
+        if (e.target.closest('a, button')) return;
+        window.location.href = href;
+      });
+      return art;
+    }
     var list = el('div', 'session-list');
     Object.keys(c.slots || {}).forEach(function (id) { var chip = sessionChip(c.slots[id], c, id); if (chip) list.appendChild(chip); });
     if (!list.children.length) list.appendChild(el('p', 'campaign-note', 'No upcoming sessions right now.'));
@@ -82,7 +111,6 @@
     var more = el('a', 'story-link', 'Read the Full Story');
     more.href = href;
     body.appendChild(more);
-    var price = c.price > 0 ? c.price : 10;
     var priceStr = '$' + (price % 1 === 0 ? price : price.toFixed(2)) + ' USD per session';
     body.appendChild(el('p', 'campaign-note', opensLater(c) ? 'Opens ' + openDateLong(c.openAt) + '. Reserve a seat above now — ' + priceStr + ' once sessions begin.'
       : c.bookable ? 'Pick a session above to take a seat. ' + priceStr + ', and you can skip up to an hour before.'

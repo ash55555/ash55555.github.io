@@ -69,6 +69,8 @@
     var hk = document.getElementById('cc-hook');
     if (hk && !d.hook) hk.textContent = 'Details are on their way. Message the Game Master to hear more.';
 
+    if (d.type === 'pbp') { applyPbpUi(d); return; }
+
     var opensLater = d.openMode === 'date' && d.openAt && new Date(d.openAt + 'T00:00:00Z').getTime() > Date.now();
 
     // the sessions, on the visitor's own clock. A table that opens later still shows its
@@ -115,6 +117,23 @@
     return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
+  // Play-by-post has no schedule at all: text-based and asynchronous, so the "Session Time"
+  // section never applies, and joining is one flat payment instead of picking a session.
+  function applyPbpUi(d) {
+    var schedule = document.querySelector('.article-schedule');
+    if (schedule) schedule.hidden = true;
+    var pay = document.querySelector('.blog-payment');
+    if (pay) {
+      var price = '$' + (d.price % 1 === 0 ? d.price : d.price.toFixed(2)) + ' USD, paid once';
+      pay.innerHTML = '<h2>Want in?</h2><p class="blog-payment-price">' + price + '</p>' +
+        '<p>This is a play-by-post game: text-based and asynchronous, with no scheduled sessions. Pay once to join, then play whenever you can.</p>' +
+        '<div class="blog-payment-actions"><button type="button" class="btn btn-primary" id="pbp-join-btn">Join this story</button></div>' +
+        '<p class="slot-status" id="pbp-join-status"></p>';
+    }
+    document.querySelectorAll('.js-email-trigger').forEach(function (b) { b.remove(); });
+    if (window.AshPbp) window.AshPbp.wireJoin(d.slug, 'pbp-join-btn', 'pbp-join-status');
+  }
+
   // Once the Game Master's payout account is approved their sessions can be joined like any other,
   // even one that opens later — the seat is reserved now, the chip just says so.
   function openSeats(d, opensLater) {
@@ -143,6 +162,7 @@
     .then(function (d) {
       if (!d) return;
       if (d.gm) gmMode(d);
+      else if (d.type === 'pbp') applyPbpUi(d);
       if (d.title) {
         document.title = d.title + ' | Ash Tabletop';
         var t = document.getElementById('cc-title');

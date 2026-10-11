@@ -531,14 +531,40 @@
     min-height: 176px; border: 1px dashed var(--border); color: var(--text-muted); font-weight: 700; background: transparent;
   }
   .cc-new-card:hover { border-color: var(--gold); color: var(--gold); background: transparent; }
+  .cc-type-picker { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 1.4em 1.6em; margin-top: 1.2em; }
+  .cc-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1em; margin-top: .4em; }
+  .cc-type-card {
+    display: flex; flex-direction: column; align-items: flex-start; gap: .4em; text-align: left; cursor: pointer;
+    background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 14px; padding: 1.3em 1.2em;
+    font-family: 'Nunito', sans-serif; color: var(--text); transition: border-color .15s, transform .15s;
+  }
+  .cc-type-card:hover { border-color: var(--purple); transform: translateY(-2px); }
+  .cc-type-ico { font-size: 1.6rem; }
+  .cc-type-card b { font-family: var(--font-display, inherit); font-size: 1.02rem; }
+  .cc-type-card span:last-child { font-size: .82rem; color: var(--text-muted); font-weight: 400; }
+  .cc-type-badge {
+    display: inline-block; font-size: .68rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase;
+    padding: .2em .55em; border-radius: 999px; background: rgba(155, 109, 255, .18); color: var(--purple); margin-left: .4em;
+  }
   .cc-editor { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 16px; padding: 1.4em 1.6em; margin-top: 1.2em; }
   .cc-editor-head { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin-bottom: 1.2em; }
+  .cc-editor-head .pay-mini, .cc-type-picker .pay-mini { font-size: .92rem; padding: .5em 1.1em; font-weight: 700; }
   .cc-banner-btn {
-    position: relative; display: block; width: 100%; max-width: 480px; padding: 0; margin-bottom: .5em;
-    border-radius: 14px; overflow: hidden; border: 1px dashed var(--border); background: var(--bg-panel-2); cursor: pointer;
+    position: relative; display: block; width: 100%; max-width: 560px; padding: 0; margin-bottom: .5em;
+    border-radius: 16px; overflow: hidden; border: 1px dashed var(--border); background: var(--bg-panel-2); cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
   }
-  .cc-banner-btn img { width: 100%; height: 190px; object-fit: cover; display: block; }
-  .cc-banner-empty { height: 190px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: .85rem; text-align: center; padding: 0 1em; }
+  .cc-banner-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(8,3,24,.4); }
+  /* :not([hidden]) matters here: without it this rule's display:block beats the hidden
+     attribute's own display:none, so an <img> with no banner yet (src never set) still
+     renders its broken-image glyph instead of staying invisible. */
+  .cc-banner-btn img:not([hidden]) { width: 100%; height: 190px; object-fit: cover; display: block; }
+  .cc-banner-empty:not([hidden]) {
+    height: 190px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .5em;
+    color: var(--text-muted); font-size: .85rem; text-align: center; padding: 0 1em;
+    background: linear-gradient(145deg, rgba(155,109,255,.1), rgba(110,231,247,.06));
+  }
+  .cc-banner-empty-ico { font-size: 1.9rem; line-height: 1; opacity: .8; }
   .cc-banner-overlay {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
     background: rgba(0,0,0,0); color: #fff; font-weight: 700; font-size: .85rem; opacity: 0; transition: opacity .15s, background .15s;
@@ -1283,6 +1309,31 @@
       <p class="slot-status" id="cc-list-status"></p>
       <div class="cc-grid" id="cc-grid"></div>
 
+      <div class="cc-type-picker" id="cc-type-picker" hidden>
+        <div class="cc-editor-head">
+          <button type="button" class="pay-mini" id="cc-type-back">← All campaigns</button>
+        </div>
+        <h3 style="margin:0 0 .3em;">What kind of game is this?</h3>
+        <p class="note" style="margin:0 0 1.2em;">This sets up the right tools for it. You can add as many campaigns, one-shots and play-by-post games as you like.</p>
+        <div class="cc-type-grid">
+          <button type="button" class="cc-type-card" data-type="campaign">
+            <span class="cc-type-ico">📖</span>
+            <b>Campaign</b>
+            <span>An ongoing story, weekly or every other week.</span>
+          </button>
+          <button type="button" class="cc-type-card" data-type="oneshot">
+            <span class="cc-type-ico">🎲</span>
+            <b>One-shot</b>
+            <span>A single, complete session on one date, then it's done.</span>
+          </button>
+          <button type="button" class="cc-type-card" data-type="pbp">
+            <span class="cc-type-ico">💬</span>
+            <b>Play-by-post</b>
+            <span>Text-based and asynchronous. No scheduled sessions, players post whenever they can.</span>
+          </button>
+        </div>
+      </div>
+
       <div class="cc-editor" id="cc-editor" hidden>
         <div class="cc-editor-head">
           <button type="button" class="pay-mini" id="cc-back">← All campaigns</button>
@@ -1291,7 +1342,7 @@
 
         <button type="button" class="cc-banner-btn" id="cc-banner-btn">
           <img id="cc-edit-banner-img" hidden alt="Campaign banner">
-          <div class="cc-banner-empty" id="cc-edit-banner-empty">Click to upload a banner picture</div>
+          <div class="cc-banner-empty" id="cc-edit-banner-empty"><span class="cc-banner-empty-ico">📷</span>Click to upload a banner picture</div>
           <div class="cc-banner-overlay">Click to change picture</div>
         </button>
         <input type="file" id="cc-file" accept="image/*" hidden>
@@ -1313,11 +1364,11 @@
           <div class="cc-highlight-head"><span class="ico">💰</span><h3>Price &amp; seats</h3></div>
           <div class="cc-fields">
             <div class="field">
-              <label>Price per session</label>
+              <label id="cc-price-label">Price per session</label>
               <div class="cc-money"><span>$</span><input type="number" id="cc-f-price" min="5" step="1" placeholder="10"><span class="cc-money-unit">USD</span></div>
               <p class="cc-hint" id="cc-price-hint">$5 minimum, no maximum. Leave blank for the site default, $10.</p>
             </div>
-            <div class="field">
+            <div class="field" id="cc-minplayers-field">
               <label>Minimum players</label>
               <input type="number" id="cc-f-minplayers" min="1" max="20" placeholder="3">
               <p class="cc-hint">Shown as "X needed to start." Leave blank for the site default, 3.</p>
@@ -1375,7 +1426,7 @@
             <div class="field" id="cc-oneshot-date-wrap" hidden><label>Session date</label><input type="date" id="cc-f-oneshot-date"></div>
             <div class="field"><label id="cc-time-label">Session time (GMT+1)</label><input type="time" id="cc-f-time" value="18:00"></div>
           </div>
-          <div class="field" style="margin-top:.9em;">
+          <div class="field" id="cc-freq-field" style="margin-top:.9em;">
             <label>How often</label>
             <div class="cc-seg" id="cc-freq-seg">
               <button type="button" class="on" data-v="weekly">Weekly</button>
@@ -1391,6 +1442,13 @@
           <p class="cc-hint" id="cc-oneshot-hint" hidden>A one-shot runs once, on this date, then it's done. It stops showing as joinable the day after.</p>
         </div>
         <p class="note" id="cc-time-multi" hidden>This campaign runs more than one weekly group, so each group has its own time, further down under Players &amp; Payments. <button type="button" class="pay-mini" id="cc-time-goto">Take me there</button></p>
+
+        <div class="cc-highlight" id="cc-pbp-members-box" hidden>
+          <div class="cc-highlight-head"><span class="ico">💬</span><h3>Members</h3></div>
+          <p class="cc-hint" style="margin:0 0 .8em;">Everyone who has paid to join this play-by-post game.</p>
+          <p class="slot-status" id="cc-pbp-members-status"></p>
+          <div id="cc-pbp-members-list"></div>
+        </div>
 
         <div class="field-checkbox" style="margin-top:1.2em;">
           <input type="checkbox" id="cc-f-published"> <label for="cc-f-published" style="text-transform:none;font-size:0.9rem;">Published (visible on the live page)</label>
@@ -3109,6 +3167,7 @@ window.AshSlots = (function () {
 <script>
 (function () {
   var CONTENT_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/content/admin/';
+  var PBP_URL = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pbp/';
   var RESERVED_SLUGS = { 'flying-city': 1, 'curse-of-strahd': 1, 'ravenloft-undead-survival': 1, 'crooked-moon': 1, 'witchlight': 1 };
   // The 5 original campaigns' banner picture still lives as a static file on their
   // page (nobody has uploaded a replacement through this tab yet). Shown here and
@@ -3123,8 +3182,10 @@ window.AshSlots = (function () {
   };
   var DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   var TAG_PRESETS = ['Horror', 'Mystery', 'Political', 'Fey', 'Survival', 'Adventure', 'Comedy'];
+  var TYPE_LABEL = { campaign: 'Campaign', oneshot: 'One-shot', pbp: 'Play-by-post' };
   var campaigns = [];
   var current = null;        // slug being edited, or null for a brand-new campaign
+  var currentType = 'campaign'; // 'campaign' | 'oneshot' | 'pbp', set by the type picker or loaded with the campaign
   var pendingBanner = null;  // data URL waiting to be saved
   var slotState = null;      // { mode: 'single'|'multi', slotId, slot }
   var tagValue = 'Adventure'; // the one genre tag this campaign is shown under
@@ -3230,6 +3291,17 @@ window.AshSlots = (function () {
     });
   }
 
+  function callPbp(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(PBP_URL + action, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ idToken: idToken }, extra || {}))
+      });
+    }).then(function (res) {
+      return res.json().then(function (data) { if (!res.ok) throw new Error(data.error || 'Something went wrong.'); return data; });
+    });
+  }
+
   function viewUrl(slug) {
     return RESERVED_SLUGS[slug] ? 'blog/' + slug + '.html' : 'blog/campaign.html?slug=' + encodeURIComponent(slug);
   }
@@ -3240,7 +3312,7 @@ window.AshSlots = (function () {
     var addCard = el('button', 'cc-card cc-new-card');
     addCard.type = 'button';
     addCard.innerHTML = '<span style="font-size:1.6rem;">+</span><span>New campaign</span>';
-    addCard.addEventListener('click', function () { openEditor(null); });
+    addCard.addEventListener('click', openTypePicker);
     grid.appendChild(addCard);
 
     campaigns.forEach(function (c) {
@@ -3252,13 +3324,30 @@ window.AshSlots = (function () {
       img.alt = '';
       card.appendChild(img);
       var body = el('div', 'cc-card-body');
-      body.appendChild(el('div', 'cc-card-title', c.title || '(untitled)'));
+      var titleRow = el('div', 'cc-card-title', c.title || '(untitled)');
+      if (c.type && c.type !== 'campaign') titleRow.appendChild(el('span', 'cc-type-badge', TYPE_LABEL[c.type] || c.type));
+      body.appendChild(titleRow);
       body.appendChild(el('div', 'cc-card-sub', c.eyebrow || (c.published ? 'Live' : 'Draft')));
       card.appendChild(body);
       card.addEventListener('click', function () { openEditor(c.slug); });
       grid.appendChild(card);
     });
   }
+
+  function openTypePicker() {
+    document.getElementById('cc-grid').hidden = true;
+    document.getElementById('cc-type-picker').hidden = false;
+  }
+  document.getElementById('cc-type-back').addEventListener('click', function () {
+    document.getElementById('cc-type-picker').hidden = true;
+    document.getElementById('cc-grid').hidden = false;
+  });
+  document.querySelectorAll('.cc-type-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      document.getElementById('cc-type-picker').hidden = true;
+      openEditor(null, card.dataset.type);
+    });
+  });
 
   function loadList() {
     var status = document.getElementById('cc-list-status');
@@ -3344,15 +3433,55 @@ window.AshSlots = (function () {
     if (freq === 'biweekly') buildAnchorChips(slot.day != null ? slot.day : 6, slot.anchor || null);
   }
 
+  // What the editor shows depends on the campaign's type, set once by the type picker
+  // (or read back with the campaign) and never changed after — switching a live
+  // play-by-post to a scheduled campaign or back would strand its members or sessions.
+  function applyTypeUi(type) {
+    var isPbp = type === 'pbp';
+    var isOneshot = type === 'oneshot';
+    document.getElementById('cc-time-single').hidden = isPbp;
+    document.getElementById('cc-freq-field').hidden = isOneshot;
+    document.getElementById('cc-minplayers-field').hidden = isPbp;
+    document.getElementById('cc-price-label').textContent = isPbp ? 'Price to join' : 'Price per session';
+    document.getElementById('cc-price-hint').textContent = isPbp
+      ? '$5 minimum, no maximum. Paid once, when a player joins — never billed again.'
+      : '$5 minimum, no maximum. Leave blank for the site default, $10.';
+    document.getElementById('cc-pbp-members-box').hidden = !isPbp || !current;
+    if (isPbp && current) loadPbpMembers(current);
+  }
+
+  function loadPbpMembers(slug) {
+    var status = document.getElementById('cc-pbp-members-status');
+    var list = document.getElementById('cc-pbp-members-list');
+    status.textContent = 'Loading…';
+    status.className = 'slot-status';
+    list.innerHTML = '';
+    callPbp('mine', { slug: slug }).then(function (d) {
+      status.textContent = '';
+      if (!d.members.length) { list.appendChild(el('p', 'cc-hint', 'Nobody has joined yet.')); return; }
+      d.members.forEach(function (m) {
+        var row = el('div', 'rb-row');
+        var who = el('div', 'rb-who');
+        who.append(el('div', 'rb-name', m.name), el('div', 'pay-muted', new Date(m.at).toLocaleDateString()));
+        row.append(who, el('span', 'pay-muted', '$' + m.amount));
+        list.appendChild(row);
+      });
+    }).catch(function (err) {
+      status.textContent = err.message;
+      status.className = 'slot-status error';
+    });
+  }
+
   function loadSlotState(slug) {
     var single = document.getElementById('cc-time-single');
     var multi = document.getElementById('cc-time-multi');
+    if (currentType === 'pbp') { slotState = null; return Promise.resolve(); }
     if (!slug) {
       slotState = { mode: 'single', slotId: 'default', slot: {} };
       single.hidden = false; multi.hidden = true;
       document.getElementById('cc-f-day').value = 6;
       document.getElementById('cc-f-time').value = '18:00';
-      paintFreq(null);
+      paintFreq(currentType === 'oneshot' ? { freq: 'once' } : null);
       return Promise.resolve();
     }
     return window.AshSlots.read(slug).then(function (slots) {
@@ -3408,11 +3537,12 @@ window.AshSlots = (function () {
     setTag(v);
   });
 
-  function openEditor(slug) {
+  function openEditor(slug, forcedType) {
     var z = window.AshSlots.zone();
     document.getElementById('cc-day-label').textContent = 'Session day (' + z + ')';
     document.getElementById('cc-time-label').textContent = 'Session time (' + z + ')';
     current = slug;
+    currentType = forcedType || 'campaign';
     pendingBanner = null;
     slotState = null;
     var seq = ++editSeq;
@@ -3439,6 +3569,7 @@ window.AshSlots = (function () {
       document.getElementById('cc-view-link').style.display = 'none';
       renderBannerPreview(null);
       refreshCounts();
+      applyTypeUi(currentType);
       loadSlotState(null);
       return;
     }
@@ -3447,6 +3578,7 @@ window.AshSlots = (function () {
     document.getElementById('cc-view-link').href = viewUrl(slug);
     call('get', { slug: slug }).then(function (d) {
       if (seq !== editSeq) return; // a newer campaign was opened while this was loading
+      currentType = d.type || 'campaign';
       document.getElementById('cc-f-title').value = d.title || '';
       document.getElementById('cc-f-eyebrow').value = d.eyebrow || '';
       document.getElementById('cc-f-hook').value = d.hook || '';
@@ -3459,6 +3591,7 @@ window.AshSlots = (function () {
       document.getElementById('cc-f-minplayers').value = d.minPlayers || '';
       document.getElementById('cc-f-openat').value = d.openAt || '';
       paintSeg('cc-open-seg', d.openMode === 'date' ? 'date' : 'now');
+      applyTypeUi(currentType);
       document.getElementById('cc-open-date-wrap').hidden = d.openMode !== 'date';
       setTag(d.tag || 'Adventure');
       renderBannerPreview(d.bannerUrl || FALLBACK_BANNERS[slug]);
@@ -3529,6 +3662,7 @@ window.AshSlots = (function () {
     }
     var body = {
       title: title,
+      type: currentType,
       eyebrow: document.getElementById('cc-f-eyebrow').value,
       tag: tagValue || 'Adventure',
       hook: document.getElementById('cc-f-hook').value,

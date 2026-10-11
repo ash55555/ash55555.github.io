@@ -262,3 +262,28 @@ CREATE TABLE IF NOT EXISTS gm_followers (
   PRIMARY KEY (uid, gm_uid)
 );
 CREATE INDEX IF NOT EXISTS gm_followers_gm ON gm_followers (gm_uid);
+
+-- What kind of campaign this is: 'campaign' (the original, ongoing-sessions shape),
+-- 'oneshot' (a single scheduled session, same slot system as a campaign's freq='once'),
+-- or 'pbp' (play-by-post: asynchronous, text-only, no session schedule at all). NULL/''
+-- behaves exactly like 'campaign', so every row made before this column existed is unaffected.
+ALTER TABLE campaign_content ADD COLUMN type TEXT;
+
+-- Joining a play-by-post game: one flat payment, once, no card kept on file and no
+-- per-session billing (there are no sessions). A member is simply in or not.
+CREATE TABLE IF NOT EXISTS pbp_members (
+  id TEXT PRIMARY KEY,
+  mode TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  owner_uid TEXT,
+  from_uid TEXT NOT NULL,
+  from_name TEXT NOT NULL,
+  amount REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  config_id TEXT,
+  payment_id TEXT,
+  created_at TEXT NOT NULL,
+  joined_at TEXT
+);
+CREATE INDEX IF NOT EXISTS pbp_members_slug ON pbp_members (mode, slug, status);
+CREATE INDEX IF NOT EXISTS pbp_members_owner ON pbp_members (owner_uid);

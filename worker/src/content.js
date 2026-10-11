@@ -13,6 +13,13 @@ const FIELDS = ['title', 'eyebrow', 'hook', 'intro', 'world', 'stakes', 'audienc
 const FIELD_MAX = { title: 80, eyebrow: 70, hook: 220, intro: 2500, world: 2500, stakes: 2500, audience: 2500, tag: 24 };
 const DEFAULT_TAG = 'Adventure'; // a Game Master picks their own; this is just the fallback for one that hasn't yet
 
+// 'campaign' (ongoing weekly/biweekly sessions), 'oneshot' (a single scheduled session,
+// the same freq='once' slot underneath) or 'pbp' (play-by-post: no schedule at all, joined
+// with one flat payment instead). Anything else, including a row from before this column
+// existed, is treated as 'campaign'.
+const VALID_TYPES = new Set(['campaign', 'oneshot', 'pbp']);
+const cleanType = (v) => (VALID_TYPES.has(v) ? v : 'campaign');
+
 // The 5 campaigns that already have their own hand-built page and URL. New
 // campaigns created from the admin get a shared template page instead (see
 // blog/campaign.html), so these slugs can never be reassigned to something else.
@@ -56,6 +63,7 @@ function view(row, origin) {
   };
   FIELDS.forEach((f) => { out[f] = row[f] || ''; });
   out.tag = row.tag || DEFAULT_TAG;
+  out.type = cleanType(row.type);
   return out;
 }
 
@@ -114,7 +122,7 @@ export async function handleContentPublicList(request, env, corsHeaders) {
   // asks for them by their profile name (?gm=their-slug) and gets only theirs, with their sessions.
   const gmSlug = String(url.searchParams.get('gm') || '');
   let rows;
-  const META_COLS = 'price, min_players, open_mode, open_at';
+  const META_COLS = 'price, min_players, open_mode, open_at, type';
   if (gmSlug && gmSlug !== 'ash') {
     const gm = await env.DB.prepare('SELECT uid FROM gm_profiles WHERE slug=?').bind(gmSlug).first();
     rows = gm ? (await env.DB.prepare(
@@ -126,7 +134,7 @@ export async function handleContentPublicList(request, env, corsHeaders) {
   const ready = {};
   for (const r of rows) if (r.owner_uid && !(r.owner_uid in ready)) ready[r.owner_uid] = !!(await gmPayoutAccount(env, r.owner_uid));
   const campaigns = rows.map((r) => ({
-    slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook, tag: r.tag || DEFAULT_TAG,
+    slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook, tag: r.tag || DEFAULT_TAG, type: cleanType(r.type),
     price: r.price > 0 ? r.price : DEFAULT_PRICE,
     minPlayers: r.min_players > 0 ? r.min_players : DEFAULT_MIN_PLAYERS,
     openMode: r.open_mode === 'date' ? 'date' : 'now',
@@ -154,9 +162,9 @@ export async function handleContentAdmin(request, env, corsHeaders, origin, acti
   try {
     if (action === 'list') {
       const rows = actor.isAdmin
-        ? (await env.DB.prepare('SELECT slug, title, eyebrow, banner_id, published, updated_at FROM campaign_content WHERE owner_uid IS NULL ORDER BY updated_at DESC').all()).results
-        : (await env.DB.prepare('SELECT slug, title, eyebrow, banner_id, published, updated_at FROM campaign_content WHERE owner_uid=? ORDER BY updated_at DESC').bind(actor.uid).all()).results;
-      return json({ campaigns: rows.map((r) => ({ slug: r.slug, title: r.title, eyebrow: r.eyebrow, published: !!r.published, updatedAt: r.updated_at, bannerUrl: r.banner_id ? `${self}/content/banner/${r.banner_id}` : null, reserved: RESERVED_SLUGS.has(r.slug) })) }, 200, corsHeaders);
+        ? (await env.DB.prepare('SELECT slug, title, eyebrow, type, banner_id, published, updated_at FROM campaign_content WHERE owner_uid IS NULL ORDER BY updated_at DESC').all()).results
+        : (await env.DB.prepare('SELECT slug, title, eyebrow, type, banner_id, published, updated_at FROM campaign_content WHERE owner_uid=? ORDER BY updated_at DESC').bind(actor.uid).all()).results;
+      return json({ campaigns: rows.map((r) => ({ slug: r.slug, title: r.title, eyebrow: r.eyebrow, type: cleanType(r.type), published: !!r.published, updatedAt: r.updated_at, bannerUrl: r.banner_id ? `${self}/content/banner/${r.banner_id}` : null, reserved: RESERVED_SLUGS.has(r.slug) })) }, 200, corsHeaders);
     }
     if (action === 'get') {
       const slug = String(body.slug || '');
@@ -292,11 +300,16 @@ async function saveCampaign(env, actor, body, self, corsHeaders) {
     }
   }
 
+  // A brand-new campaign's type is set once, from the type-picker screen, and never
+  // changes after that — switching a live play-by-post to a scheduled campaign (or back)
+  // would strand its members/sessions, so an update just keeps whatever it already was.
+  const type = isNew ? cleanType(body.type) : cleanType(existing.type);
+
   if (isNew) {
     await env.DB.prepare(
-      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, tag, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', fields.tag || DEFAULT_TAG, bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
+      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, tag, type, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', fields.tag || DEFAULT_TAG, type, bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
       .run();
   } else {
     await env.DB.prepare(

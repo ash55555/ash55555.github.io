@@ -23,6 +23,7 @@ import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.j
 import { noteAccount } from './accounts.js';
 import { handleContentAdmin, handleContentPublic, handleContentPublicList, handleContentBanner } from './content.js';
 import { handleFollow } from './follow.js';
+import { handlePbp, handlePbpStatus, runPendingPbp } from './pbp.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -73,6 +74,12 @@ export default {
     }
     if (url.pathname.startsWith('/tip/')) {
       return handleTip(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/tip/'.length), sendEmail);
+    }
+    if (url.pathname === '/pbp/status' && request.method === 'GET') {
+      return handlePbpStatus(request, env, corsHeaders);
+    }
+    if (url.pathname.startsWith('/pbp/')) {
+      return handlePbp(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/pbp/'.length), sendEmail);
     }
     if (url.pathname === '/home/public' && request.method === 'GET') {
       return handleHome(request, env, corsHeaders);
@@ -178,6 +185,9 @@ export default {
         .then(() => runPendingTips(env, sendEmail))
         .then((r) => console.log('pending tips run', JSON.stringify(r)))
         .catch((err) => console.error('pending tips run failed', err && err.message))
+        .then(() => runPendingPbp(env, sendEmail))
+        .then((r) => console.log('pending pbp run', JSON.stringify(r)))
+        .catch((err) => console.error('pending pbp run failed', err && err.message))
     );
   },
 };
