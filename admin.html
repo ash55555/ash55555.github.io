@@ -165,8 +165,8 @@
   .slot-when { font-weight: 800; font-size: 1rem; }
   .slot-meta { color: var(--text-muted); font-size: .82rem; }
   .slot-sum .camp-pill { background: rgba(255,255,255,.06); }
-  .slot-sum::after { content: 'Open page \203A'; margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; }
-  .slot-sum:hover::after { background: var(--gold); color: #1a1230; }
+  .slot-open-link { margin-left: auto; font-size: .78rem; font-weight: 800; color: var(--gold); border: 1px solid rgba(242,184,79,.45); border-radius: 999px; padding: .2em .85em; white-space: nowrap; text-decoration: none; }
+  .slot-open-link:hover { background: var(--gold); color: #1a1230; }
   .game-focus .focus-camp { box-shadow: none; }
   .gmf-card { padding: 1.1em 1.2em; border-radius: 18px; border: 1px solid rgba(255,255,255,.22); background: linear-gradient(135deg, rgba(255,255,255,.1), rgba(255,255,255,.03)); }
   .gmf-card h3 { margin: .5em 0 .3em; font-size: 1.25rem; font-weight: 900; }
@@ -678,11 +678,11 @@
   .rb-session.selected { border-color: var(--gold); background: rgba(110,231,247,.1); }
   .rva-tags span { background: rgba(110,231,247,.1); border-color: rgba(110,231,247,.35); }
   .fs-tip { border-color: rgba(110,231,247,.5); }
-  .slot-sum::after { border-color: rgba(110,231,247,.5); }
+  .slot-open-link { border-color: rgba(110,231,247,.5); }
   .pay-pill, .slot-badge { box-shadow: none; }
   .slot-badge { background: var(--mix); color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.35); }
   .camp-groups .pay-details > summary.slot-sum.paused::before { background: #ffcf6b; }
-  .slot-sum:hover::after { background: var(--mix); color: #fff; border-color: transparent; }
+  .slot-open-link:hover { background: var(--mix); color: #fff; border-color: transparent; }
   .camp-details > summary.camp-sum::after { color: #fff; background-color: rgba(14,9,32,.55); border-color: rgba(255,255,255,.4); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%236ee7f7' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
   .camp-details > .add-slot > summary { border-color: rgba(110,231,247,.5); background: rgba(110,231,247,.06); }
   .camp-details > .add-slot > summary::before { background: var(--mix); color: #fff; }
@@ -2057,6 +2057,13 @@ window.AshSlots = (function () {
     if (text != null) e.textContent = text;
     return e;
   }
+  // The 5 original campaigns are their own hand-built pages; everything else goes
+  // through the shared template. CAMPAIGN_META isn't a fit for telling them apart
+  // here, it also picks up an entry for every dynamic campaign as they load.
+  var RESERVED_SLUGS = { 'flying-city': 1, 'curse-of-strahd': 1, 'ravenloft-undead-survival': 1, 'crooked-moon': 1, 'witchlight': 1 };
+  function viewUrl(slug) {
+    return RESERVED_SLUGS[slug] ? 'blog/' + slug + '.html' : 'blog/campaign.html?slug=' + encodeURIComponent(slug);
+  }
 
   function setup(GAME, root) {
     var statusEl = root.querySelector('.pay-status');
@@ -2498,6 +2505,14 @@ window.AshSlots = (function () {
           gsum.appendChild(el('span', 'camp-pill', g.online + ' booked online'));
           gsum.appendChild(el('span', 'camp-pill' + (g.running ? ' on' : ''), 'Billing ' + (g.running ? 'ON' : 'off')));
           if (!g.enabled) gsum.appendChild(el('span', 'camp-pill warn', 'Paused on the site'));
+          var openLink = el('a', 'slot-open-link', 'Open page ›');
+          openLink.href = viewUrl(slug);
+          openLink.target = '_blank';
+          openLink.rel = 'noopener';
+          // Without this the click bubbles up to gsum's own listener, which would
+          // navigate into the admin detail view instead of opening the live page.
+          openLink.addEventListener('click', function (e) { e.stopPropagation(); });
+          gsum.appendChild(openLink);
           var settingsBox = el('div', 'pay-box session-settings-box');
           var groot = el('div', 'pay-box');
           groot.innerHTML = BOX;
