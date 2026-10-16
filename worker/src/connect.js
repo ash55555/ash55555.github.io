@@ -25,7 +25,10 @@ const nice = (data) => {
 export function stateFrom(account) {
   const v = (account && account.verification) || {};
   const cap = (account && account.capabilities) || {};
-  const ind = v.individual, biz = v.business;
+  // Whop nests the actual state inside an object ({ status: 'approved', ... }), not as a bare
+  // string, so comparing v.individual itself to 'approved' never matched anything real.
+  const ind = typeof v.individual === 'string' ? v.individual : (v.individual && v.individual.status);
+  const biz = typeof v.business === 'string' ? v.business : (v.business && v.business.status);
   const approved = ind === 'approved' || biz === 'approved';
   const rejected = ind === 'rejected' || biz === 'rejected';
   const reviewing = ['pending', 'manual_review'].includes(ind) || ['pending', 'manual_review'].includes(biz);
