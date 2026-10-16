@@ -287,3 +287,6 @@ CREATE TABLE IF NOT EXISTS pbp_members (
 );
 CREATE INDEX IF NOT EXISTS pbp_members_slug ON pbp_members (mode, slug, status);
 CREATE INDEX IF NOT EXISTS pbp_members_owner ON pbp_members (owner_uid);
+
+-- A custom price for one player (null means the game's standard price).
+ALTER TABLE players ADD COLUMN price_override REAL;

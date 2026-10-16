@@ -68,6 +68,9 @@
     { uid: 'u4', name: 'Silverbeam Creations', email: 'silver@example.com', token: 'bat', card: 'mastercard 5100' }
   ];
 
+  // sample custom prices, so Change price does something you can see in this preview
+  var overrides = { u2: 7 };
+
   function upcoming(g, n) {
     var out = [], now = Date.now();
     for (var i = 0; i < 40 && out.length < n; i++) {
@@ -90,9 +93,9 @@
       game: { key: g.key, title: g.title, price: 10, max: 5, min: 3, legacyFilled: 0 },
       seats: { filled: people.length, max: 5, min: 3, open: 5 - people.length },
       sessions: sessions, pastSessions: past,
-      players: people.map(function (p) { return { uid: p.uid, email: p.email, name: p.name, status: 'active', joinedAt: new Date(Date.now() - 25 * DAY).toISOString(), token: p.token, avatarId: null, card: p.card }; }),
+      players: people.map(function (p) { return { uid: p.uid, email: p.email, name: p.name, status: 'active', joinedAt: new Date(Date.now() - 25 * DAY).toISOString(), token: p.token, avatarId: null, card: p.card, priceOverride: overrides[p.uid] != null ? overrides[p.uid] : null }; }),
       skips: people.length > 1 ? [{ uid: people[1].uid, session_ts: sessions[0], by: 'player' }] : [],
-      charges: people.map(function (p, i) { return { uid: p.uid, ts: past[0], status: g.running ? 'paid' : 'new', amount: 10, refunded: 0, attempts: 1, error: null, paymentId: 'pay_' + i }; })
+      charges: people.map(function (p, i) { return { uid: p.uid, ts: past[0], status: g.running ? 'paid' : 'new', amount: overrides[p.uid] != null ? overrides[p.uid] : 10, refunded: 0, attempts: 1, error: null, paymentId: 'pay_' + i }; })
     };
   }
 
@@ -118,6 +121,7 @@
     else if (/\/pay\/admin\/games$/.test(path)) data = { games: GAMES };
     else if (/\/pay\/admin\/roster$/.test(path)) data = roster(body.game);
     else if (/\/pay\/admin\/balance$/.test(path)) data = { mode: 'live', total: 42.5, withdrawable: 31.2 };
+    else if (path.indexOf('/pay/admin/player-price') !== -1) { if (body.price == null) delete overrides[body.uid]; else overrides[body.uid] = body.price; data = { ok: true }; }
     else if (/\/pay\/admin\/stats$/.test(path)) data = stats();
     else if (/\/pay\/admin\/charges$/.test(path)) {
       data = { mode: 'live', charges: PEOPLE.map(function (p, i) { return { game: 'curse-of-strahd::B', gameTitle: 'Curse of Strahd, Group B', uid: p.uid, name: p.name, email: p.email, ts: new Date(Date.now() - (i + 1) * DAY).toISOString(), status: i === 3 ? 'failed' : 'paid', amount: 10, refunded: 0, paymentId: 'pay_' + i, error: i === 3 ? 'Card declined' : null }; }) };

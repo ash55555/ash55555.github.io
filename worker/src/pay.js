@@ -26,7 +26,7 @@ const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const SESSIONS_SHOWN = 8;
 // The admin routes another Game Master may use (always limited to their own games and money).
-const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/start', 'admin/stop']);
+const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/start', 'admin/stop']);
 
 // Every game slot on the site is a bookable game. The schedule, seat limit and
 // paused/running state come from the same Firebase list the admin page edits, so
@@ -412,6 +412,7 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
       case 'admin/refund': return await adminRefund(ctx);
       case 'admin/retry': return await adminRetry(ctx);
       case 'admin/remove': return await adminRemove(ctx);
+      case 'admin/player-price': return await adminPlayerPrice(ctx);
       case 'admin/session-add': return await adminSessionAdd(ctx);
       case 'admin/session-bulk': return await adminSessionBulk(ctx);
       case 'admin/session-remove': return await adminSessionRemove(ctx);
@@ -435,6 +436,10 @@ const PLATFORM_FEE_RATE = 0.05;
 function gmPlanExtras(game) {
   const fee = platformFee(game.price);
   return { ...(fee ? { application_fee_amount: fee } : {}), product: { external_identifier: 'ash-tabletop-game-session', title: 'Game session' } };
+}
+// A player on a custom price is charged that instead of the game's price (and Ash Tabletop's share follows it).
+function playerGame(game, p) {
+  return p && p.price_override != null ? { ...game, price: p.price_override } : game;
 }
 function platformFee(price) {
   const fee = Math.round(price * PLATFORM_FEE_RATE * 100) / 100;
@@ -535,7 +540,7 @@ async function doComplete(ctx) {
        VALUES (?,?,?,?,?,?,?,?,?,?, 'active', ?, ?)
        ON CONFLICT(mode, game, uid) DO UPDATE SET email=excluded.email, name=excluded.name, token=excluded.token,
          member_id=excluded.member_id, payment_method_id=excluded.payment_method_id, card_brand=excluded.card_brand,
-         card_last4=excluded.card_last4, status='active', consent_at=excluded.consent_at, joined_at=excluded.joined_at, left_at=NULL`)
+         card_last4=excluded.card_last4, status='active', consent_at=excluded.consent_at, joined_at=excluded.joined_at, left_at=NULL, price_override=NULL`)
       .bind(ctx.mode, gameKey, user.sub, email, name, token, memberId, pm.id, card.brand || null, card.last4 || null, now, now).run();
     // A fresh join starts with a clean slate of skips.
     await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, gameKey, user.sub).run();
@@ -554,7 +559,7 @@ async function doStatus(ctx) {
   const { roster, dm } = await tableFor(env, ctx.mode, gameKey, new URL(ctx.request.url).origin, user.sub, game);
   const me = await getPlayer(ctx);
   const gs = await gameState(env, ctx.mode, gameKey);
-  const base = { seats, roster, dm, price: game.price, mode: ctx.mode, running: gs.running, openMode: game.openMode, openAt: game.openAt };
+  const base = { seats, roster, dm, price: me && me.status === 'active' && me.price_override != null ? me.price_override : game.price, mode: ctx.mode, running: gs.running, openMode: game.openMode, openAt: game.openAt };
   if (!me || me.status !== 'active') return json({ ...base, joined: false, left: !!(me && me.status === 'left') }, 200, corsHeaders);
 
   const sessions = await upcomingFor(env, ctx.mode, gameKey, game, now, SESSIONS_SHOWN);
@@ -685,6 +690,7 @@ async function adminRoster(ctx) {
       uid: p.uid, email: p.email, name: p.name, status: p.status, joinedAt: p.joined_at,
       token: p.pr_token || p.token || '', avatarId: p.avatar_id || null,
       card: p.card_last4 ? `${p.card_brand || 'card'} ${p.card_last4}` : '',
+      priceOverride: p.price_override != null ? p.price_override : null,
     })),
     skips,
     charges: charges.map((c) => ({
@@ -1057,6 +1063,29 @@ async function adminSessionRemove(ctx) {
   return json({ ok: true }, 200, corsHeaders);
 }
 
+// Changes what ONE player pays per session, from their next session on. Past charges are never touched.
+// price null puts them back on the game's standard price.
+async function adminPlayerPrice(ctx) {
+  const { env, body, gameKey, game, corsHeaders } = ctx;
+  const uid = String(body.uid || '');
+  const player = await getPlayer(ctx, uid);
+  if (!player || player.status !== 'active') return json({ error: 'That player is not in this game.' }, 404, corsHeaders);
+  let price = null;
+  if (body.price !== null && body.price !== undefined) {
+    price = Math.round(Number(body.price) * 100) / 100;
+    if (!(price >= 5) || price > 10000) return json({ error: 'The price has to be at least $5.' }, 400, corsHeaders);
+    if (price === game.price) price = null;
+  }
+  await env.DB.prepare('UPDATE players SET price_override=? WHERE mode=? AND game=? AND uid=?').bind(price, ctx.mode, gameKey, uid).run();
+  const now = price == null ? game.price : price;
+  const who = game.owner ? 'Your DM' : 'Ash';
+  await notifyPlayer(env, ctx.mode, uid, 'price_changed', gameKey, 'Your price changed',
+    price == null
+      ? `${who} set your price for ${game.title} back to the standard $${game.price} per session, starting with your next session.`
+      : `${who} changed your price for ${game.title} to $${now} per session, starting with your next session. Anything already charged stays as it was.`);
+  return json({ ok: true, price }, 200, corsHeaders);
+}
+
 async function adminRemove(ctx) {
   const { env, body, gameKey, game, corsHeaders } = ctx;
   const uid = String(body.uid || '');
@@ -1110,15 +1139,16 @@ export async function runCharges(env, sendEmail) {
         const existing = await env.DB.prepare('SELECT 1 AS x FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
         if (!existing && !canStart.get(ts)) continue;
         report.checked++;
+        const g = playerGame(game, p);
 
-        if (mode === 'dry') { report.wouldCharge++; console.log(`[dry] would charge ${p.email} $${game.price} for ${gameKey} ${ts}`); continue; }
+        if (mode === 'dry') { report.wouldCharge++; console.log(`[dry] would charge ${p.email} $${g.price} for ${gameKey} ${ts}`); continue; }
 
         await env.DB.prepare("INSERT OR IGNORE INTO charges (mode, game, uid, session_ts, status, amount, updated_at) VALUES (?,?,?,?, 'new', ?, ?)")
-          .bind(c.mode, gameKey, p.uid, ts, game.price, iso(now)).run();
+          .bind(c.mode, gameKey, p.uid, ts, g.price, iso(now)).run();
         const row = await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
 
         if (['paid', 'refunded', 'failed_final', 'unknown'].includes(row.status)) continue;
-        if (row.status === 'pending') { await reconcile(env, c, row, sendEmail, p, game); continue; }
+        if (row.status === 'pending') { await reconcile(env, c, row, sendEmail, p, g); continue; }
         if (row.status === 'failed') {
           if (row.attempts >= MAX_ATTEMPTS) {
             await env.DB.prepare("UPDATE charges SET status='failed_final', updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?").bind(iso(now), c.mode, gameKey, p.uid, ts).run();
@@ -1145,14 +1175,14 @@ export async function runCharges(env, sendEmail) {
             plan: {
               currency: 'usd',
               plan_type: 'one_time',
-              initial_price: game.price,
+              initial_price: g.price,
               title: 'Ash Tabletop game session',
-              ...(game.owner ? gmPlanExtras(game) : {}),
+              ...(g.owner ? gmPlanExtras(g) : {}),
             },
             metadata: { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts },
           }),
         });
-        await settle(env, c, sendEmail, p, game, gameKey, ts, r);
+        await settle(env, c, sendEmail, p, g, gameKey, ts, r);
         const outcome = r.ok ? classify(r.data) : 'failed';
         if (outcome === 'paid') report.charged++; else if (outcome === 'pending') report.pending++; else report.failed++;
       }
