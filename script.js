@@ -117,11 +117,9 @@ function setupNavToggle() {
 // Allowed, not 404, meaning the ID exists and just expects POST).
 const CONTACT_FORM_ENDPOINT = 'https://formspree.io/f/xkjnjoba';
 
-// Ash's Discord DM link. As of the switch to a talk-first booking flow, every
-// "join this game" entry point on the site (session time chips, the old PayPal
-// button) opens this instead of taking payment directly — players message Ash,
-// and once they've talked, she sends a personal link to actually sign up.
-const ASH_DISCORD_URL = 'https://discord.com/users/1137869041495724094';
+// Every "join this game" entry point on the site (session time chips, the old PayPal
+// button) opens the email form: players write to Ash, and once they have talked, Ash
+// sends a personal link to actually sign up. Discord is not used for contact.
 
 // Same Cloudflare Worker that sends announcements (see worker/src/index.js)
 // also verifies the reCAPTCHA token on sign-up, since the secret key it
@@ -145,7 +143,7 @@ function sendWelcomeEmail(user) {
 // and still valid — kept for reference and for whenever Ash wants to resume
 // a direct-payment flow, or reuse a specific plan link when she personally
 // sends someone their signup link after talking. Nothing on the site wires
-// into PAYPAL_LINKS or SESSION_PLAN_IDS anymore; every click just opens Discord.
+// into PAYPAL_LINKS or SESSION_PLAN_IDS anymore; every click just opens the email form.
 const PAYPAL_LINKS = {
   'flying-city': null,
   'curse-of-strahd': null,
@@ -202,7 +200,8 @@ const SESSION_SEATS = {
 };
 
 function openChatFallback() {
-  window.open(ASH_DISCORD_URL, '_blank', 'noopener');
+  if (window.AshOpenEmailForm) window.AshOpenEmailForm();
+  else window.location.href = 'ash.html#contact';
 }
 
 function sessionKey(campaign, slot) {
@@ -252,7 +251,7 @@ function openPaypalModal(planId, label) {
       }).render('#paypal-button-slot');
     })
     .catch(() => {
-      sub.textContent = "PayPal couldn't load. Try messaging on Discord instead.";
+      sub.textContent = "PayPal couldn't load. Please email Ash instead.";
     });
 }
 
@@ -346,9 +345,8 @@ function setupClickableCards() {
 }
 
 function setupEmailModal() {
-  const trigger = document.querySelector('.js-email-trigger');
   const modal = document.getElementById('email-modal');
-  if (!trigger || !modal) return;
+  if (!modal) return;
 
   const form = modal.querySelector('#email-form');
   const status = modal.querySelector('.modal-status');
@@ -369,7 +367,13 @@ function setupEmailModal() {
     if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
   }
 
-  trigger.addEventListener('click', openModal);
+  window.AshOpenEmailForm = openModal;
+  document.addEventListener('click', (event) => {
+    const t = event.target.closest && event.target.closest('.js-email-trigger');
+    if (!t) return;
+    event.preventDefault();
+    openModal();
+  });
   closeEls.forEach((el) => el.addEventListener('click', closeModal));
   modal.addEventListener('click', (event) => {
     if (event.target === modal) closeModal();
@@ -383,12 +387,8 @@ function setupEmailModal() {
     const submitBtn = form.querySelector('button[type="submit"]');
 
     if (CONTACT_FORM_ENDPOINT.includes('REPLACE_WITH')) {
-      status.textContent = "The message form isn't fully connected yet, so opening Discord instead.";
-      status.className = 'modal-status modal-status-info';
-      setTimeout(() => {
-        closeModal();
-        openChatFallback();
-      }, 1500);
+      status.textContent = "The message form isn't connected right now. Please try again a little later.";
+      status.className = 'modal-status modal-status-error';
       return;
     }
 
@@ -412,7 +412,7 @@ function setupEmailModal() {
         throw new Error('Request failed');
       }
     } catch (err) {
-      status.textContent = 'Something went wrong sending that. Try messaging on Discord instead.';
+      status.textContent = 'Something went wrong sending that. Please try again in a moment.';
       status.className = 'modal-status modal-status-error';
     } finally {
       submitBtn.disabled = false;
@@ -516,7 +516,7 @@ function setupSignupModal() {
 
   googleBtn.addEventListener('click', async () => {
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
-      status.textContent = "Sign-up isn't available right now. Try messaging Ash on Discord instead.";
+      status.textContent = "Sign-up isn't available right now. Please try again in a moment.";
       status.className = 'modal-status modal-status-error';
       return;
     }
@@ -595,7 +595,7 @@ function setupSignupModal() {
       return;
     }
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
-      status.textContent = "Password reset isn't available right now. Try messaging Ash on Discord instead.";
+      status.textContent = "Password reset isn't available right now. Please try again in a moment.";
       status.className = 'modal-status modal-status-error';
       return;
     }
@@ -622,7 +622,7 @@ function setupSignupModal() {
     event.preventDefault();
 
     if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
-      status.textContent = "Sign-up isn't available right now. Try messaging Ash on Discord instead.";
+      status.textContent = "Sign-up isn't available right now. Please try again in a moment.";
       status.className = 'modal-status modal-status-error';
       return;
     }

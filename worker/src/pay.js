@@ -1222,7 +1222,7 @@ async function emailDeclined(env, sendEmail, p, game) {
   if (!sendEmail) return;
   try {
     await sendEmail(env, p.email, 'Your card was declined for your Ash Tabletop game',
-      `<p>Hi ${escapeHtml(p.name || 'there')},</p><p>We tried to charge $${game.price} for your session of <strong>${escapeHtml(game.title)}</strong> and your card was declined.</p><p>Please update your card on your <a href="https://ashtabletop.com/player.html">player page</a>. We'll try again automatically in a few hours. Questions? Message Ash on Discord.</p>`);
+      `<p>Hi ${escapeHtml(p.name || 'there')},</p><p>We tried to charge $${game.price} for your session of <strong>${escapeHtml(game.title)}</strong> and your card was declined.</p><p>Please update your card on your <a href="https://ashtabletop.com/player.html">player page</a>. We'll try again automatically in a few hours. Questions? Reply to this email or write to Ash through the contact form on ashtabletop.com.</p>`);
   } catch { /* the failure is already recorded; the admin page shows it */ }
 }
 
@@ -1349,7 +1349,7 @@ export function skipEmailHtml({ name, game, ts, tz, by }) {
     ? `Hi ${escapeHtml(name || 'there')}, your DM just skipped your session on <strong style="color:#ffffff">${escapeHtml(w.day)}</strong>.`
     : `Hi ${escapeHtml(name || 'there')}, you skipped your session on <strong style="color:#ffffff">${escapeHtml(w.day)}</strong>. Got it!`;
   const closing = byDm
-    ? 'Think this is a mistake? Message Ash on Discord and it gets sorted out.'
+    ? 'Think this is a mistake? Email Ash through the contact form on ashtabletop.com and it gets sorted out.'
     : 'Changed your mind? You can undo this on your player page up to 1 hour before the session.';
   return `<!doctype html><html><body style="margin:0;background:#120b1c;padding:24px 12px;font-family:Arial,Helvetica,sans-serif">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">

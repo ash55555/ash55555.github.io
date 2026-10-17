@@ -85,7 +85,6 @@
       { id: 'newplayer', answer: "Absolutely welcome! I'll help you with everything you need, from making a character (backstory and mechanics) to introducing you to the game and the rest of the players. However comfortable you are with playing, you can go at your own pace." }
     ],
     socials: {},
-    discord: 'https://discord.com/users/1137869041495724094',
     avatar: 'medie/ash-token.png',
     banner: ''
   };

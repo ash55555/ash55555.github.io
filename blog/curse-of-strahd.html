@@ -54,7 +54,7 @@
       <a href="../#pricing">Pricing</a>
       <a href="../#reviews">Reviews</a>
       <a href="../#contact">Contact</a>
-      <a class="nav-cta" href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener">Chat with Ash</a>
+      <a class="nav-cta js-email-trigger" href="../ash.html#contact">Email Ash</a>
     </div>
   </nav>
 </header>
@@ -153,15 +153,11 @@
       $10 per session · Session Zero is free
     </p>
     <div class="blog-payment-actions">
-      <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord">
-        <svg class="icon"><use href="#icon-discord"/></svg>
-        Message on Discord
-      </a>
+      <button type="button" class="btn btn-primary btn-large js-email-trigger">
+        <svg class="icon"><use href="#icon-mail"/></svg>
+        Email Ash
+      </button>
     </div>
-    <button type="button" class="link-button js-email-trigger">
-      <svg class="icon icon-sm"><use href="#icon-mail"/></svg>
-      Prefer email? Send a message
-    </button>
   </section>
 </main>
 
@@ -173,6 +169,7 @@
     <h3 id="email-modal-title">Send Ash a Message</h3>
     <p class="modal-sub">Leave your email and a message, and Ash will reply straight to your inbox.</p>
     <form id="email-form">
+      <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
       <label for="email-field">Your email</label>
       <input id="email-field" type="email" name="email" required placeholder="you@example.com">
       <label for="message-field">Message</label>
@@ -200,7 +197,7 @@
 </footer>
 
 <script src="../tz.js?v=20260927a"></script>
-<script src="../script.js?v=20261010b"></script>
+<script src="../script.js?v=20261017a"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="../firebase-init.js"></script>

@@ -82,7 +82,7 @@
       '<span class="price-tag">$' + (price % 1 === 0 ? price : price.toFixed(2)) + ' USD / session</span>' +
       (c.openMode === 'date' && c.openAt && new Date(c.openAt + 'T00:00:00Z').getTime() > Date.now()
         ? '<span class="price-tag cd-opens-note">Opens ' + openDateLong(c.openAt) + '</span>' : '') +
-      '<a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>';
+      '<button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>';
     body.appendChild(footer);
 
     var note = el('p', 'campaign-note');

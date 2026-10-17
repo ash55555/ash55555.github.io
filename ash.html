@@ -181,7 +181,7 @@
 
           <div class="campaign-footer">
             <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
+            <button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>
           </div>
           <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
         </div>
@@ -247,7 +247,7 @@
 
           <div class="campaign-footer">
             <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
+            <button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>
           </div>
           <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
         </div>
@@ -282,7 +282,7 @@
 
           <div class="campaign-footer">
             <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
+            <button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>
           </div>
           <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
         </div>
@@ -338,7 +338,7 @@
 
           <div class="campaign-footer">
             <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
+            <button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>
           </div>
           <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
         </div>
@@ -373,7 +373,7 @@
 
           <div class="campaign-footer">
             <span class="price-tag">$10 / session</span>
-            <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-small">Reserve a Seat</a>
+            <button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>
           </div>
           <p class="campaign-note">Message Ash to check availability and get your personal booking link.</p>
         </div>
@@ -447,18 +447,13 @@
     <div class="contact-inner">
       <p class="eyebrow">Get In Touch</p>
       <h2>Have a seat waiting for you.</h2>
-      <p class="section-sub">The fastest way to reach Ash is Discord, so feel free to ask about open seats, scheduling, or anything else 👋</p>
+      <p class="section-sub">Ask about open seats or scheduling, or tell Ash you would like to become a DM. Ash replies straight to your inbox.</p>
       <div class="contact-actions">
-        <a href="https://discord.com/users/1137869041495724094" target="_blank" rel="noopener" class="btn btn-discord btn-large">
-          <svg class="icon"><use href="#icon-discord"/></svg>
-          Message on Discord
-        </a>
+        <button type="button" class="btn btn-primary btn-large js-email-trigger">
+          <svg class="icon"><use href="#icon-mail"/></svg>
+          Email Ash
+        </button>
       </div>
-
-      <button type="button" class="link-button js-email-trigger">
-        <svg class="icon icon-sm"><use href="#icon-mail"/></svg>
-        Prefer email? Send a message
-      </button>
     </div>
   </section>
 
@@ -473,10 +468,11 @@
     <h3 id="email-modal-title">Send Ash a Message</h3>
     <p class="modal-sub">Leave your email and a message, and Ash will reply straight to your inbox.</p>
     <form id="email-form">
+      <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;opacity:0;height:0;width:0">
       <label for="email-field">Your email</label>
       <input id="email-field" type="email" name="email" required placeholder="you@example.com">
       <label for="message-field">Message</label>
-      <textarea id="message-field" name="message" rows="4" required placeholder="What would you like to ask or say?"></textarea>
+      <textarea id="message-field" name="message" rows="4" required placeholder="What would you like to ask or say? Applying to become a DM? Tell Ash a little about you."></textarea>
       <button type="submit" class="btn btn-primary">Send Message</button>
       <p class="modal-status" role="status" aria-live="polite"></p>
     </form>
@@ -548,7 +544,7 @@
 
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
-<script src="script.js?v=20261010b"></script>
+<script src="script.js?v=20261017a"></script>
 <!-- Optional: quietly syncs live seat counts / paused games from Firebase
      onto the buttons above once Ash finishes Firebase setup. Does nothing
      until then; see campaigns-data.js. -->
@@ -559,11 +555,11 @@
 <script src="firebase-init.js"></script>
 <script src="joined-games.js?v=20261003a"></script>
 <script src="campaigns-data.js?v=20261003b"></script>
-<script src="dynamic-campaigns.js?v=20261003b"></script>
+<script src="dynamic-campaigns.js?v=20261017a"></script>
 
 <script src="messages-ui.js?v=20261010a"></script>
 <script src="follow-ui.js?v=20261009a"></script>
-<script src="gm-catalog.js?v=20261005c"></script>
+<script src="gm-catalog.js?v=20261017a"></script>
 <script src="gm-theme.js?v=20261008a"></script>
 <script src="gm-render.js?v=20261008a"></script>
 <script src="tip-ui.js?v=20261009c"></script>
