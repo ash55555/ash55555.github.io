@@ -859,6 +859,34 @@ body.pc-open { overflow: hidden; }
 }
 @media (prefers-reduced-motion: reduce) { .pc, .pm, .rb-menu, .pc-back { animation: none; } }
 
+/* ---- the game's own price: card on the game page and the change-price dialog */
+.pay-price { margin: 0 0 1em; display: grid; gap: .6em; }
+.gp { display: flex; align-items: center; justify-content: space-between; gap: 1em 1.4em; flex-wrap: wrap; padding: 1em 1.2em; border-radius: 20px; border: 1px solid rgba(242,184,79,.5); background: linear-gradient(135deg, rgba(242,184,79,.13), rgba(155,109,255,.1)); box-shadow: inset 0 1.5px 0 rgba(255,255,255,.18), 0 12px 30px rgba(8,3,24,.28); }
+.gp-main { display: grid; gap: .6em; min-width: 0; flex: 1 1 320px; }
+.gp-label { display: block; font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.gp-big { display: flex; align-items: baseline; flex-wrap: wrap; gap: .1em .15em; }
+.gp-cur { font-size: 1.5rem; font-weight: 800; color: #ffd479; }
+.gp-num { font-size: 2.6rem; line-height: 1; font-weight: 800; color: #fff; letter-spacing: -.01em; }
+.gp-per { font-size: .86rem; color: var(--text-muted); margin-left: .5em; }
+.gp-facts { display: flex; flex-wrap: wrap; gap: .4em; }
+.gp-pill { font-size: .76rem; font-weight: 700; padding: .25em .8em; border-radius: 999px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); }
+.gp-pill.custom { color: #ffd479; border-color: rgba(242,184,79,.55); background: rgba(242,184,79,.12); }
+.gp-go { flex: none; padding-left: 1.5em; padding-right: 1.5em; }
+.gp-pending { display: flex; align-items: center; justify-content: space-between; gap: .8em 1.2em; flex-wrap: wrap; padding: .85em 1.1em; border-radius: 16px; border: 1px dashed rgba(110,231,247,.6); background: rgba(110,231,247,.08); }
+.gp-pending-text { display: grid; gap: .15em; min-width: 0; }
+.pm.pm-wide { width: min(540px, 100%); max-height: calc(100vh - 2em); overflow-y: auto; }
+.pm-money .pm-cur { font-size: 1.6rem; font-weight: 800; color: #ffd479; }
+.pm-money { justify-content: center; }
+.pm-money input { text-align: center; max-width: 7em; }
+.pm-step { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.08); color: #fff; font: inherit; font-size: 1.4rem; font-weight: 700; line-height: 1; cursor: pointer; }
+.pm-step:hover { background: rgba(255,255,255,.2); border-color: #fff; }
+.pm-field { display: grid; gap: .35em; font-size: .78rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+.pm-field select { font: inherit; font-size: .95rem; font-weight: 700; letter-spacing: 0; text-transform: none; padding: .7em .9em; color: #fff; }
+.pm-field select option { color: #111; }
+.pm-note { margin: 0; font-size: .8rem; color: var(--text-muted); }
+@media (max-width: 560px) { .gp-go { width: 100%; } }
+
+
 </style>
 </head>
 <body>
@@ -1991,7 +2019,7 @@ window.AshSlots = (function () {
 <script>
 (function () {
   var URL_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/';
-  var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<div class='pay-sub-row'><h3 class='pay-sub'>Upcoming sessions</h3><span class='pay-sess-btns'></span></div><div class='pay-sess-form' hidden></div>\n<div class='pay-upcoming'></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
+  var BOX = "<h2>🎲 Players &amp; payments: <span class='pay-title'></span></h2>\n<p class='note'>Everyone who joined online with a saved card. Start the game to begin billing, skip a session for a player, refund a charge, or remove someone. Skipped sessions are never charged.</p>\n<div class='pay-badges'></div>\n<div class='pay-price'></div>\n<div class='pay-gamebar'></div>\n<p class='slot-status pay-status'></p>\n<div class='pay-sub-row'><h3 class='pay-sub'>Upcoming sessions</h3><span class='pay-sess-btns'></span></div><div class='pay-sess-form' hidden></div>\n<div class='pay-upcoming'></div>\n<h3 class='pay-sub'>Recent charges</h3>\n<div class='pay-scroll'><table class='pay-table pay-past'></table></div>";
 
   // Lets a clicked notification ("Mark joined the-vampiric-dynasty") jump straight
   // to that game's box here, even if the games list is still loading when it's called.
@@ -2695,6 +2723,167 @@ window.AshSlots = (function () {
       box.append(card);
     }
 
+    // ---- the price of THIS game (one price for the whole group), plus the dialog to change it
+    // How a price is worked out, most specific first: the player's own price, then this group's price,
+    // then the campaign's price. This card is the middle one.
+    function pricing(data) {
+      return data.pricing || { price: data.game.price, campaignPrice: data.game.price, custom: false, pending: null };
+    }
+    function activePlayers(data) { return data.players.filter(function (p) { return p.status === 'active'; }); }
+    function sessionLabel(ts) {
+      var d = new Date(ts);
+      return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function renderPrice(data) {
+      var host = root.querySelector('.pay-price');
+      if (!host) return;
+      host.innerHTML = '';
+      var pr = pricing(data);
+      var players = activePlayers(data);
+      var perSession = players.reduce(function (n, p) { return n + pricePaid(p, data); }, 0);
+      var customN = players.filter(function (p) { return p.priceOverride != null; }).length;
+
+      var card = el('div', 'gp');
+      var main = el('div', 'gp-main');
+      var amount = el('div', 'gp-amount');
+      amount.append(el('span', 'gp-label', 'Session price'));
+      var big = el('div', 'gp-big');
+      big.append(el('span', 'gp-cur', '$'), el('span', 'gp-num', String(pr.price).replace(/\.0+$/, '')), el('span', 'gp-per', 'per player, per session'));
+      amount.append(big);
+      main.append(amount);
+
+      var facts = el('div', 'gp-facts');
+      facts.append(el('span', 'gp-pill' + (pr.custom ? ' custom' : ''), pr.custom ? 'Custom for this group (campaign price ' + money(pr.campaignPrice) + ')' : 'Same as the campaign price'));
+      facts.append(el('span', 'gp-pill', players.length ? players.length + (players.length === 1 ? ' player' : ' players') + ' · ' + money(perSession) + ' per session' : 'No players yet'));
+      if (customN) facts.append(el('span', 'gp-pill custom', customN + (customN === 1 ? ' player has' : ' players have') + ' their own price'));
+      main.append(facts);
+
+      var go = el('button', 'pc-btn primary gp-go');
+      go.type = 'button';
+      go.innerHTML = ic(ICONS.price);
+      go.append(el('span', null, 'Change price'));
+      go.addEventListener('click', function () { openGamePrice(data); });
+      card.append(main, go);
+      host.append(card);
+
+      if (pr.pending) {
+        var pend = el('div', 'gp-pending');
+        var txt = el('div', 'gp-pending-text');
+        txt.append(el('strong', null, 'Changing to ' + money(pr.pending.price) + ' starting ' + sessionLabel(pr.pending.from)));
+        txt.append(el('span', 'pay-muted', 'Players with their own price are not affected.'));
+        var cancel = el('button', 'pay-mini', 'Cancel this change');
+        cancel.type = 'button';
+        cancel.addEventListener('click', function () {
+          if (!confirm('Cancel the change to ' + money(pr.pending.price) + '? The price stays ' + money(pr.price) + '.')) return;
+          act(function () { return call('admin/game-price-cancel', { from: pr.pending.from }); });
+        });
+        pend.append(txt, cancel);
+        host.append(pend);
+      }
+    }
+
+    function openGamePrice(data) {
+      var pr = pricing(data);
+      var cur = pr.price, camp = pr.campaignPrice;
+      var players = activePlayers(data);
+      var back = el('div', 'pc-back pc-center');
+      var box = el('div', 'pm pm-wide');
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.setAttribute('aria-label', 'Change the price for ' + data.game.title);
+      box.append(el('h3', null, 'Change the price for ' + data.game.title));
+      box.append(el('p', 'pm-lead', 'What each player is charged for every session they play in this group. Your campaign price is ' + money(camp) + '; this sets a different price for just this group. Sessions that were already charged never change, and players with their own price keep it.'));
+
+      var money$ = el('div', 'pm-money');
+      var minus = el('button', 'pm-step', '−'); minus.type = 'button'; minus.setAttribute('aria-label', 'One dollar less');
+      var plus = el('button', 'pm-step', '+'); plus.type = 'button'; plus.setAttribute('aria-label', 'One dollar more');
+      var input = document.createElement('input');
+      input.type = 'number'; input.min = '5'; input.step = '0.5'; input.value = String(cur);
+      input.setAttribute('aria-label', 'New price per session in dollars');
+      money$.append(minus, el('span', 'pm-cur', '$'), input, el('span', 'pm-unit', 'per session'), plus);
+      box.append(money$);
+
+      var chips = el('div', 'pm-chips');
+      var seen = {};
+      [camp, cur - 2, cur + 2, cur + 5].forEach(function (v) {
+        if (v < 5 || seen[v] || v === cur) return;
+        seen[v] = 1;
+        var c = el('button', 'pm-chip', v === camp ? 'Campaign price ' + money(v) : money(v));
+        c.type = 'button';
+        c.addEventListener('click', function () { input.value = String(v); refresh(); input.focus(); });
+        chips.append(c);
+      });
+      box.append(chips);
+
+      var sessions = (data.sessions || []).slice(0, 5);
+      var startField = el('label', 'pm-field');
+      startField.append(el('span', null, 'Starts with'));
+      var sel = document.createElement('select');
+      var first = document.createElement('option');
+      first.value = 'now';
+      first.textContent = 'Right away (the next session)' + (sessions[0] ? ' · ' + sessionLabel(sessions[0]) : '');
+      sel.append(first);
+      sessions.slice(1).forEach(function (ts) {
+        var o = document.createElement('option');
+        o.value = ts;
+        o.textContent = sessionLabel(ts);
+        sel.append(o);
+      });
+      startField.append(sel);
+      box.append(startField);
+
+      var hint = el('p', 'pm-hint');
+      var err = el('p', 'slot-status error');
+      box.append(hint, err);
+      box.append(el('p', 'pm-note', players.length ? 'Players whose price changes get an email and a notice on their page.' : 'Nobody is in this group yet, so nobody needs telling.'));
+
+      var go = el('button', 'pc-btn primary', 'Save price');
+      go.type = 'button';
+      var cancel = el('button', 'pc-btn', 'Cancel');
+      cancel.type = 'button';
+      var foot = el('div', 'pm-foot');
+      foot.append(cancel, go);
+      box.append(foot);
+      if (pr.custom) {
+        var reset = el('button', 'pm-reset', 'Use the campaign price (' + money(camp) + ') again');
+        reset.type = 'button';
+        reset.addEventListener('click', function () { input.value = String(camp); refresh(); });
+        box.append(reset);
+      }
+
+      function value() { var v = parseFloat(input.value); return isNaN(v) ? null : Math.round(v * 100) / 100; }
+      function refresh() {
+        var v = value();
+        err.textContent = '';
+        if (v == null) { hint.textContent = ''; go.disabled = true; return; }
+        if (v < 5) { hint.textContent = ''; err.textContent = 'The lowest price is $5.'; go.disabled = true; return; }
+        if (v === cur) hint.textContent = 'That is the price now.';
+        else if (v < cur) hint.textContent = money(cur - v) + ' less than the current ' + money(cur) + ' per session.';
+        else hint.textContent = money(v - cur) + ' more than the current ' + money(cur) + ' per session.';
+        go.disabled = v === cur;
+      }
+      minus.addEventListener('click', function () { var v = value() == null ? cur : value(); input.value = String(Math.max(5, v - 1)); refresh(); });
+      plus.addEventListener('click', function () { var v = value() == null ? cur : value(); input.value = String(v + 1); refresh(); });
+      input.addEventListener('input', refresh);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !go.disabled) go.click(); });
+      refresh();
+
+      cancel.addEventListener('click', closeLayer);
+      go.addEventListener('click', function () {
+        var v = value();
+        if (v == null || v < 5) return;
+        var from = sel.value;
+        go.disabled = true;
+        closeLayer();
+        act(function () { return call('admin/game-price', { price: v === camp ? null : v, from: from }); });
+      });
+      back.append(box);
+      mountLayer(back);
+      input.focus();
+      input.select();
+    }
+
     function render(data) {
       root.querySelector('.pay-title').textContent = data.game.title;
       var badges = root.querySelector('.pay-badges');
@@ -2705,6 +2894,8 @@ window.AshSlots = (function () {
         el('span', 'pay-badge', data.game.title),
         el('span', 'pay-badge', 'Seats ' + data.seats.filled + ' of ' + data.seats.max + (data.game.legacyFilled ? ' (' + data.game.legacyFilled + ' still on PayPal)' : '')),
         el('span', 'pay-badge', money(data.game.price) + ' per session'));
+
+      renderPrice(data);
 
       var bar = root.querySelector('.pay-gamebar');
       bar.innerHTML = '';

@@ -26,7 +26,7 @@ const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const SESSIONS_SHOWN = 8;
 // The admin routes another Game Master may use (always limited to their own games and money).
-const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/start', 'admin/stop']);
+const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/game-price', 'admin/game-price-cancel', 'admin/start', 'admin/stop']);
 
 // Every game slot on the site is a bookable game. The schedule, seat limit and
 // paused/running state come from the same Firebase list the admin page edits, so
@@ -148,6 +148,16 @@ export async function loadGames(env, fresh = false) {
         };
       }
     }
+  }
+  for (const g of Object.values(games)) g.campaignPrice = g.price;
+  if (env.DB) {
+    try {
+      const rows = (await env.DB.prepare('SELECT game, price FROM game_prices WHERE mode=? AND from_ts<=? ORDER BY from_ts').bind(cfg(env).mode, new Date().toISOString()).all()).results;
+      for (const r of rows) {
+        const g = games[r.game];
+        if (g) g.price = r.price > 0 ? r.price : g.campaignPrice;
+      }
+    } catch (err) { console.error('group prices not read', err && err.message); }
   }
   gamesCache = { at: Date.now(), games };
   return games;
@@ -413,6 +423,8 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
       case 'admin/retry': return await adminRetry(ctx);
       case 'admin/remove': return await adminRemove(ctx);
       case 'admin/player-price': return await adminPlayerPrice(ctx);
+      case 'admin/game-price': return await adminGamePrice(ctx);
+      case 'admin/game-price-cancel': return await adminGamePriceCancel(ctx);
       case 'admin/session-add': return await adminSessionAdd(ctx);
       case 'admin/session-bulk': return await adminSessionBulk(ctx);
       case 'admin/session-remove': return await adminSessionRemove(ctx);
@@ -680,6 +692,7 @@ async function adminRoster(ctx) {
     charging: env.CHARGING_MODE || 'off',
     game: { key: gameKey, title: game.title, price: game.price, max: game.max, min: game.min, legacyFilled: game.legacyFilled, freq: game.freq, openMode: game.openMode, openAt: game.openAt },
     seats: seatInfo(game, players.filter((p) => p.status === 'active').length),
+    pricing: await groupPricing(env, ctx.mode, gameKey, game, now),
     sessions,
     pastSessions,
     extras,
@@ -1060,6 +1073,75 @@ async function adminSessionRemove(ctx) {
     if (skipped.has(p.uid)) continue;
     await notifyPlayer(env, ctx.mode, p.uid, 'extra_session_removed', gameKey, 'An extra session was cancelled', 'The extra session of ' + ctx.game.title + ' on ' + w.day + ' was cancelled. You will not be charged for it.');
   }
+  return json({ ok: true }, 200, corsHeaders);
+}
+
+// The price of a whole group (one table). Most specific wins: a player's own price, then this group's price
+// (game_prices), then the campaign's price. A row with a future date is a change waiting to start.
+async function groupPricing(env, mode, gameKey, game, now) {
+  const campaignPrice = game.campaignPrice != null ? game.campaignPrice : game.price;
+  let pending = null;
+  try {
+    const row = await env.DB.prepare('SELECT from_ts, price FROM game_prices WHERE mode=? AND game=? AND from_ts>? ORDER BY from_ts LIMIT 1').bind(mode, gameKey, iso(now)).first();
+    if (row) pending = { price: row.price > 0 ? row.price : campaignPrice, from: row.from_ts };
+  } catch { /* the table is not there yet: no change is waiting */ }
+  return { price: game.price, campaignPrice, custom: game.price !== campaignPrice, pending };
+}
+
+async function tellPlayersAboutPrice(ctx, newPrice, whenText) {
+  const { env, gameKey, game } = ctx;
+  const players = (await env.DB.prepare("SELECT uid, email, name FROM players WHERE mode=? AND game=? AND status='active' AND price_override IS NULL").bind(ctx.mode, gameKey).all()).results;
+  const who = game.owner ? 'Your DM' : 'Ash';
+  for (const p of players) {
+    const text = `${who} is changing the price of ${game.title} to $${newPrice} per session, ${whenText}. Anything already charged stays as it was.`;
+    await notifyPlayer(env, ctx.mode, p.uid, 'price_changed', gameKey, 'The price of your game is changing', text);
+    if (ctx.mode === 'live' && ctx.sendEmail && p.email) {
+      try {
+        await ctx.sendEmail(env, p.email, `New price for ${game.title}`,
+          `<p>Hi ${escapeHtml(p.name || 'there')},</p><p>${escapeHtml(text)}</p><p>You can skip a session or leave the game from your <a href="https://ashtabletop.com/player.html">player page</a> any time up to an hour before it starts.</p>`);
+      } catch (err) { console.error('price email failed', p.email, err && err.message); }
+    }
+  }
+}
+
+// Sets this group's price (or puts it back on the campaign price with price null), starting right away or with a
+// later session. Only one change can be waiting at a time: a new one replaces the old.
+async function adminGamePrice(ctx) {
+  const { env, body, gameKey, game, corsHeaders } = ctx;
+  const now = new Date();
+  let price = null;
+  if (body.price !== null && body.price !== undefined) {
+    price = Math.round(Number(body.price) * 100) / 100;
+    if (!(price >= 5) || price > 10000) return json({ error: 'The price has to be at least $5.' }, 400, corsHeaders);
+  }
+  const campaignPrice = game.campaignPrice != null ? game.campaignPrice : game.price;
+  const newPrice = price == null ? campaignPrice : price;
+  let from = String(body.from || 'now');
+  const startsRightAway = from === 'now';
+  if (startsRightAway) {
+    from = iso(now);
+  } else {
+    const ok = (await upcomingFor(env, ctx.mode, gameKey, game, now, 8)).some((d) => iso(d) === from);
+    if (!ok) return json({ error: 'Pick one of the upcoming sessions to start with.' }, 400, corsHeaders);
+  }
+  if (startsRightAway && newPrice === game.price) return json({ ok: true, unchanged: true }, 200, corsHeaders);
+  await env.DB.prepare('DELETE FROM game_prices WHERE mode=? AND game=? AND from_ts>?').bind(ctx.mode, gameKey, iso(now)).run();
+  await env.DB.prepare('INSERT OR REPLACE INTO game_prices (mode, game, from_ts, price, created_at) VALUES (?,?,?,?,?)').bind(ctx.mode, gameKey, from, price, iso(now)).run();
+  await loadGames(env, true);
+  const whenText = startsRightAway ? 'starting with your next session' : `starting with the session on ${when(from, 'UTC').day}`;
+  await tellPlayersAboutPrice(ctx, newPrice, whenText);
+  return json({ ok: true, price: newPrice, startsRightAway }, 200, corsHeaders);
+}
+
+async function adminGamePriceCancel(ctx) {
+  const { env, body, gameKey, game, corsHeaders } = ctx;
+  const from = String(body.from || '');
+  const now = new Date();
+  const r = await env.DB.prepare('DELETE FROM game_prices WHERE mode=? AND game=? AND from_ts=? AND from_ts>?').bind(ctx.mode, gameKey, from, iso(now)).run();
+  if (!r.meta || r.meta.changes < 1) return json({ error: 'That change has already started or was already cancelled.' }, 409, corsHeaders);
+  await loadGames(env, true);
+  const players = (await env.DB.prepare("SELECT uid FROM players WHERE mode=? AND game=? AND status='active' AND price_override IS NULL").bind(ctx.mode, gameKey).all()).results;
+  for (const p of players) await notifyPlayer(env, ctx.mode, p.uid, 'price_changed', gameKey, 'Price change cancelled', `The planned price change for ${game.title} was cancelled. Your price stays $${game.price} per session.`);
   return json({ ok: true }, 200, corsHeaders);
 }
 

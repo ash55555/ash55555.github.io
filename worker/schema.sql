@@ -290,3 +290,13 @@ CREATE INDEX IF NOT EXISTS pbp_members_owner ON pbp_members (owner_uid);
 
 -- A custom price for one player (null means the game's standard price).
 ALTER TABLE players ADD COLUMN price_override REAL;
+
+-- A group's own price from a date on (price NULL = back to the campaign price). The latest row that is not in the future wins.
+CREATE TABLE IF NOT EXISTS game_prices (
+  mode TEXT NOT NULL,
+  game TEXT NOT NULL,
+  from_ts TEXT NOT NULL,
+  price REAL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (mode, game, from_ts)
+);

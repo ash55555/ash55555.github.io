@@ -70,6 +70,7 @@
 
   // sample custom prices, so Change price does something you can see in this preview
   var overrides = { u2: 7 };
+  var groupPrice = {}, pendingPrice = {};
 
   function upcoming(g, n) {
     var out = [], now = Date.now();
@@ -90,7 +91,8 @@
     return {
       mode: 'live', running: g.running, startedAt: g.running ? new Date(Date.now() - 20 * DAY).toISOString() : null, stoppedAt: null,
       playing: playing, charging: 'on',
-      game: { key: g.key, title: g.title, price: 10, max: 5, min: 3, legacyFilled: 0 },
+      game: { key: g.key, title: g.title, price: groupPrice[g.key] != null ? groupPrice[g.key] : 10, max: 5, min: 3, legacyFilled: 0 },
+      pricing: { price: groupPrice[g.key] != null ? groupPrice[g.key] : 10, campaignPrice: 10, custom: groupPrice[g.key] != null, pending: pendingPrice[g.key] || null },
       seats: { filled: people.length, max: 5, min: 3, open: 5 - people.length },
       sessions: sessions, pastSessions: past,
       players: people.map(function (p) { return { uid: p.uid, email: p.email, name: p.name, status: 'active', joinedAt: new Date(Date.now() - 25 * DAY).toISOString(), token: p.token, avatarId: null, card: p.card, priceOverride: overrides[p.uid] != null ? overrides[p.uid] : null }; }),
@@ -121,6 +123,13 @@
     else if (/\/pay\/admin\/games$/.test(path)) data = { games: GAMES };
     else if (/\/pay\/admin\/roster$/.test(path)) data = roster(body.game);
     else if (/\/pay\/admin\/balance$/.test(path)) data = { mode: 'live', total: 42.5, withdrawable: 31.2 };
+    else if (path.indexOf('/pay/admin/game-price-cancel') !== -1) { delete pendingPrice[body.game]; data = { ok: true }; }
+    else if (path.indexOf('/pay/admin/game-price') !== -1) {
+      var next = body.price == null ? 10 : body.price;
+      if (body.from === 'now') { if (body.price == null) delete groupPrice[body.game]; else groupPrice[body.game] = body.price; delete pendingPrice[body.game]; }
+      else pendingPrice[body.game] = { price: next, from: body.from };
+      data = { ok: true };
+    }
     else if (path.indexOf('/pay/admin/player-price') !== -1) { if (body.price == null) delete overrides[body.uid]; else overrides[body.uid] = body.price; data = { ok: true }; }
     else if (/\/pay\/admin\/stats$/.test(path)) data = stats();
     else if (/\/pay\/admin\/charges$/.test(path)) {
