@@ -47,6 +47,7 @@ if (hasGame && !CAMPAIGN_NAMES[query.get("campaign")]) {
 }
 const planLink = null;
 let me = null;
+let joinSeats = 1; // how many seats the player is booking (1 up to the open seats)
 let serverState = null; // what the Worker says about this player and this game
 let publicState = null; // the table as any visitor sees it (no sign-in needed)
 let bookingClosed = false; // true when the Worker says online booking is not open to this person yet
@@ -203,12 +204,17 @@ function renderRoster() {
   add(dm ? dm.name : 'Ash', dm ? dm.token : 'dragon', 'DM', dm && dm.avatar, dm && dm.pronouns, openDmProfile);
   const seats = seatNumbers();
   if (table) {
-    const anonymous = Math.max(0, seats.filled - table.roster.length);
+    const named = table.roster.reduce((n, p) => n + Math.max(1, p.seats || 1), 0);
+    const anonymous = Math.max(0, seats.filled - named);
     for (let i = 0; i < anonymous; i++) add('Player', OTHER_TOKENS[i % OTHER_TOKENS.length]);
-    table.roster.forEach((p) => add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice', null, p.avatar, p.pronouns));
+    table.roster.forEach((p) => {
+      add(p.name + (p.you ? ' (you)' : ''), p.token || 'dice', null, p.avatar, p.pronouns);
+      for (let k = 1; k < (p.seats || 1); k++) add(p.name + ' + ' + k, 'dice');
+    });
   } else {
     SAMPLE_OTHERS.forEach((p) => add(p.name, p.token));
     if (view === 'joined' || view === 'skipped') add((profile.name.trim() || 'Player') + ' (you)', profile.token);
+    if (view === 'joined' || view === 'skipped') for (let k = 1; k < joinSeats; k++) add((profile.name.trim() || 'Player') + ' + ' + k, 'dice');
   }
   const filled = seats.filled;
   const open = seats.max - filled;
@@ -249,11 +255,43 @@ function seatNumbers() {
   const known = realGame ? (serverState || publicState) : null;
   if (known) return { filled: known.seats.filled, max: known.seats.max, min: known.seats.min || TEST_GAME.seatsMin };
   const mine = view === 'joined' || view === 'skipped';
-  return { filled: SAMPLE_OTHERS.length + (mine ? 1 : 0), max: TEST_GAME.seatsMax, min: TEST_GAME.seatsMin };
+  return { filled: SAMPLE_OTHERS.length + (mine ? joinSeats : 0), max: TEST_GAME.seatsMax, min: TEST_GAME.seatsMin };
 }
 
+// How many seats this player holds (or is about to book), and what they pay per session for all of them.
+const seatCount = () => (serverState && serverState.joined ? Math.max(1, serverState.mySeats || 1) : joinSeats);
+const tot = () => Math.round(TEST_GAME.price * seatCount() * 100) / 100;
+
+function syncSeatPicker() {
+  const box = $('pp-seatpick');
+  const note = $('pp-seatpick-note');
+  const updating = !!(serverState && serverState.joined);
+  const n = seatNumbers();
+  const room = Math.max(1, n.max - n.filled); // most seats this player can book right now
+  if (joinSeats > room) joinSeats = room;
+  if (joinSeats < 1) joinSeats = 1;
+  box.hidden = updating || room < 2;
+  note.hidden = true;
+  $('pp-seat-n').textContent = joinSeats;
+  $('pp-seat-minus').disabled = joinSeats <= 1;
+  $('pp-seat-plus').disabled = joinSeats >= room;
+  const each = TEST_GAME.price;
+  $('pp-seatpick-sub').textContent = joinSeats === 1
+    ? '1 seat · $' + each + ' per session. Bringing friends? Add a seat for each.'
+    : joinSeats + ' seats · $' + (Math.round(each * joinSeats * 100) / 100) + ' per session ($' + each + ' each)';
+}
+function setJoinSeats(v) {
+  joinSeats = v;
+  syncSeatPicker();
+  renderAll();
+  fillBooking();
+}
+$('pp-seat-minus').addEventListener('click', () => setJoinSeats(joinSeats - 1));
+$('pp-seat-plus').addEventListener('click', () => setJoinSeats(joinSeats + 1));
+
 function billingHtml(next) {
-  return '<strong>You will be charged $' + TEST_GAME.price + ' USD on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
+  return '<strong>You will be charged $' + tot() + ' USD on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
+    (seatCount() > 1 ? '<span>That is ' + seatCount() + ' seats at $' + TEST_GAME.price + ' each.</span>' : '') +
     '<span>Then again every ' + weekdayName(next) + ' at ' + fmtTime(next) + ', when each session starts.</span>' +
     '<span>Billing begins once ' + dmName + ' starts the game (it needs enough players). If it has not started by then, you are not charged.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
@@ -356,9 +394,10 @@ function renderGame() {
   $('pp-billing-active').innerHTML = '<strong>' + (notStarted
     ? "You won't be charged until " + dmName + " starts the game."
     : chargeDate
-      ? 'You will be charged $' + TEST_GAME.price + ' USD on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
+      ? 'You will be charged $' + tot() + ' USD on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
       : 'No charges are scheduled right now.') + '</strong>' +
-    (notStarted && chargeDate ? '<span>After it starts: $' + TEST_GAME.price + ' USD at the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
+    (notStarted && chargeDate ? '<span>After it starts: $' + tot() + ' USD at the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
+    (seatCount() > 1 && view !== 'notjoined' ? '<span>You hold ' + seatCount() + ' seats: $' + TEST_GAME.price + ' for each.</span>' : '') +
     (card ? '<span>' + card.trim() + '</span>' : '');
   $('pp-update-card').hidden = !real;
 
@@ -371,7 +410,7 @@ function renderGame() {
     li.className = 'pp-session' + (skipped ? ' skipped' : '');
     const info = document.createElement('div');
     info.innerHTML = '<span class="pp-session-when">' + fmtDay(d) + ' · ' + fmtTime(d) + '</span>' +
-      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by " + dmName + ". You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing. $' + TEST_GAME.price + ' USD will be charged.') + '</span>';
+      '<span class="pp-session-note">' + (skipped ? (row.by === 'admin' ? "Skipped by " + dmName + ". You won't be charged this week." : "Skipped. You won't be charged this week.") : 'You are playing' + (seatCount() > 1 ? ' with ' + seatCount() + ' seats' : '') + '. $' + tot() + ' USD will be charged.') + '</span>';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-ghost btn-small';
@@ -603,6 +642,7 @@ const authReady = new Promise((resolve) => { resolveAuthReady = resolve; });
 const joinedKey = (uid) => 'pp-joined::' + gameKey + '::' + uid;
 
 async function startJoin() {
+  syncSeatPicker();
   fillBooking();
   if (!realGame) { openModal('pp-checkout'); return; }
   await authReady;
@@ -687,12 +727,15 @@ function fillBooking() {
   $("cb-name").textContent = name;
   $("cb-email").textContent = me && me.email ? me.email : "";
   $("cb-game-inline").textContent = TEST_GAME.title;
+  $("cb-seat-word").textContent = seatCount() === 1 ? "One seat" : seatCount() + " seats";
+  syncSeatPicker();
   $("cb-game").textContent = TEST_GAME.title;
   $("cb-when").textContent = weekdayName(next) + "s at " + fmtTime(next);
   const filled = SAMPLE_OTHERS.length;
-  $("cb-seats").textContent = (filled + 1) + " of " + TEST_GAME.seatsMax + " filled with you";
-  const priceStr = "$" + TEST_GAME.price.toFixed(2) + " USD";
-  $("cb-price-line").textContent = priceStr + " x 1 player";
+  $("cb-seats").textContent = (filled + seatCount()) + " of " + TEST_GAME.seatsMax + " filled with you";
+  const priceStr = "$" + tot().toFixed(2) + " USD";
+  $("cb-price-line").textContent = seatCount() > 1 ? "$" + TEST_GAME.price.toFixed(2) + " USD x " + seatCount() + " players" : priceStr + " x 1 player";
+  $("cb-consent-amt").textContent = tot();
   $("cb-price-amount").textContent = priceStr;
   $("cb-total").textContent = priceStr + " / session";
   $("cb-charge-line").textContent = "Nothing today. " + priceStr + " on " + fmtDay(next) + " at " + fmtTime(next) + ", then every " + weekdayName(next) + " at " + fmtTime(next) + ".";
@@ -751,7 +794,7 @@ async function mountCardForm(run, lenient) {
   note.hidden = false;
   note.textContent = 'Getting your secure card form ready...';
   try {
-    const data = await api('setup', { returnQuery: window.location.search, lenient: lenient === true });
+    const data = await api('setup', { returnQuery: window.location.search, lenient: lenient === true, seats: joinSeats });
     await loadWhopElements();
     if (run !== checkoutRun) return;
     const elements = window.WhopElements(data.environment === 'sandbox' ? { environment: 'sandbox' } : {});
@@ -784,7 +827,7 @@ function watchForSavedCard(configId, run) {
       return;
     }
     try {
-      const r = await api('complete', { configId, consent: true, adult: true, name: profile.name, token: profile.token });
+      const r = await api('complete', { configId, consent: true, adult: true, name: profile.name, token: profile.token, seats: joinSeats });
       if (r._status === 200 && run === checkoutRun && !finishing) { clearInterval(savedWatch); savedWatch = null; finishJoin(configId, run); }
     } catch (err) { /* still waiting; stay quiet */ }
   }, 4000);

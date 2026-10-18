@@ -300,3 +300,6 @@ CREATE TABLE IF NOT EXISTS game_prices (
   created_at TEXT NOT NULL,
   PRIMARY KEY (mode, game, from_ts)
 );
+
+-- One person can hold 2 seats (they bring a second player, or play two characters) and pay for both.
+ALTER TABLE players ADD COLUMN seats INTEGER NOT NULL DEFAULT 1;

@@ -26,7 +26,7 @@ const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const SESSIONS_SHOWN = 8;
 // The admin routes another Game Master may use (always limited to their own games and money).
-const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/game-price', 'admin/game-price-cancel', 'admin/start', 'admin/stop']);
+const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/player-seats', 'admin/game-price', 'admin/game-price-cancel', 'admin/start', 'admin/stop']);
 
 // Every game slot on the site is a bookable game. The schedule, seat limit and
 // paused/running state come from the same Firebase list the admin page edits, so
@@ -314,10 +314,15 @@ export async function upcomingFor(env, mode, gameKey, game, from, count) {
 export const iso = (d) => d.toISOString();
 const chargeKey = (mode, game, uid, ts) => `${mode}|${game}|${uid}|${ts}`;
 
+// Seats taken online. Most players hold one seat; a player who joined as two holds two.
 async function activeCount(env, mode, gameKey) {
-  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE mode=? AND game=? AND status='active'").bind(mode, gameKey).first();
+  const r = await env.DB.prepare("SELECT COALESCE(SUM(seats), 0) AS n FROM players WHERE mode=? AND game=? AND status='active'").bind(mode, gameKey).first();
   return r ? r.n : 0;
 }
+// A player books 1 to MAX_SEATS seats (the table's own size is the real limit, checked wherever seats are added).
+const MAX_SEATS = 20;
+const cleanSeats = (v) => { const n = Math.floor(Number(v)); return n >= 1 && n <= MAX_SEATS ? n : 1; };
+const seatsOf = (p) => cleanSeats(p && p.seats);
 
 function seatInfo(game, online) {
   const filled = game.legacyFilled + online;
@@ -334,7 +339,7 @@ export async function gameState(env, mode, gameKey) {
 // had joined before it and have not skipped it.
 export async function playingCount(env, mode, gameKey, game, ts) {
   const r = await env.DB.prepare(
-    `SELECT COUNT(*) AS n FROM players p WHERE p.mode=? AND p.game=? AND p.status='active' AND p.joined_at < ?
+    `SELECT COALESCE(SUM(p.seats), 0) AS n FROM players p WHERE p.mode=? AND p.game=? AND p.status='active' AND p.joined_at < ?
      AND NOT EXISTS (SELECT 1 FROM skips s WHERE s.mode=p.mode AND s.game=p.game AND s.uid=p.uid AND s.session_ts=?)`)
     .bind(mode, gameKey, ts, ts).first();
   return game.legacyFilled + (r ? r.n : 0);
@@ -423,6 +428,7 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
       case 'admin/retry': return await adminRetry(ctx);
       case 'admin/remove': return await adminRemove(ctx);
       case 'admin/player-price': return await adminPlayerPrice(ctx);
+      case 'admin/player-seats': return await adminPlayerSeats(ctx);
       case 'admin/game-price': return await adminGamePrice(ctx);
       case 'admin/game-price-cancel': return await adminGamePriceCancel(ctx);
       case 'admin/session-add': return await adminSessionAdd(ctx);
@@ -450,8 +456,11 @@ function gmPlanExtras(game) {
   return { ...(fee ? { application_fee_amount: fee } : {}), product: { external_identifier: 'ash-tabletop-game-session', title: 'Game session' } };
 }
 // A player on a custom price is charged that instead of the game's price (and Ash Tabletop's share follows it).
+// price here is the TOTAL for that player's seats, since it is the amount charged.
 function playerGame(game, p) {
-  return p && p.price_override != null ? { ...game, price: p.price_override } : game;
+  const unit = p && p.price_override != null ? p.price_override : game.price;
+  const total = Math.round(unit * seatsOf(p) * 100) / 100;
+  return total === game.price ? game : { ...game, price: total };
 }
 function platformFee(price) {
   const fee = Math.round(price * PLATFORM_FEE_RATE * 100) / 100;
@@ -476,8 +485,10 @@ async function doSetup(ctx) {
   // A campaign that opens later can still be reserved now — the seat is theirs, nextStart()
   // (above) already keeps the first real, chargeable session from landing before it opens.
   if (!updating) {
+    const want = cleanSeats(ctx.body.seats);
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
     if (seats.open <= 0) return json({ error: 'This game is full right now. Talk to Ash about a spot.' }, 409, corsHeaders);
+    if (seats.open < want) return json({ error: `Only ${seats.open} seat${seats.open === 1 ? ' is' : 's are'} open right now, so you can book up to ${seats.open}.` }, 409, corsHeaders);
   }
   const c = cfg(env);
   // After the card is saved Whop sends the player back to their table page.
@@ -535,9 +546,11 @@ async function doComplete(ctx) {
   const card = (intent.payment_instrument && intent.payment_instrument.card) || {};
   const now = iso(new Date());
   const existing = await getPlayer(ctx);
+  const wantSeats = cleanSeats(body.seats);
   if (!existing || existing.status !== 'active') {
     const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
     if (seats.open <= 0) return json({ error: 'This game just filled up. Talk to Ash about a spot.' }, 409, corsHeaders);
+    if (seats.open < wantSeats) return json({ error: `Only ${seats.open} seat${seats.open === 1 ? ' is' : 's are'} left, so you can book up to ${seats.open}.` }, 409, corsHeaders);
   }
   const email = (user.email || '').toLowerCase();
   const name = cleanName(body.name, email);
@@ -548,15 +561,15 @@ async function doComplete(ctx) {
       .bind(memberId, pm.id, card.brand || null, card.last4 || null, ctx.mode, gameKey, user.sub).run();
   } else {
     await env.DB.prepare(
-      `INSERT INTO players (mode, game, uid, email, name, token, member_id, payment_method_id, card_brand, card_last4, status, consent_at, joined_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?, 'active', ?, ?)
+      `INSERT INTO players (mode, game, uid, email, name, token, member_id, payment_method_id, card_brand, card_last4, status, consent_at, joined_at, seats)
+       VALUES (?,?,?,?,?,?,?,?,?,?, 'active', ?, ?, ?)
        ON CONFLICT(mode, game, uid) DO UPDATE SET email=excluded.email, name=excluded.name, token=excluded.token,
          member_id=excluded.member_id, payment_method_id=excluded.payment_method_id, card_brand=excluded.card_brand,
-         card_last4=excluded.card_last4, status='active', consent_at=excluded.consent_at, joined_at=excluded.joined_at, left_at=NULL, price_override=NULL`)
-      .bind(ctx.mode, gameKey, user.sub, email, name, token, memberId, pm.id, card.brand || null, card.last4 || null, now, now).run();
+         card_last4=excluded.card_last4, status='active', consent_at=excluded.consent_at, joined_at=excluded.joined_at, left_at=NULL, price_override=NULL, seats=excluded.seats`)
+      .bind(ctx.mode, gameKey, user.sub, email, name, token, memberId, pm.id, card.brand || null, card.last4 || null, now, now, wantSeats).run();
     // A fresh join starts with a clean slate of skips.
     await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, gameKey, user.sub).run();
-    await notify(env, ctx.sendEmail, ctx.mode, 'joined', gameKey, `${name} joined ${game.title}`, `${email} booked a seat.\nCard on file: ${card.brand || 'card'} ${card.last4 || ''}.`);
+    await notify(env, ctx.sendEmail, ctx.mode, 'joined', gameKey, `${name} joined ${game.title}`, `${email} booked ${wantSeats > 1 ? wantSeats + ' seats (charged for each)' : 'a seat'}.\nCard on file: ${card.brand || 'card'} ${card.last4 || ''}.`);
   }
   return doStatus(ctx);
 }
@@ -571,7 +584,7 @@ async function doStatus(ctx) {
   const { roster, dm } = await tableFor(env, ctx.mode, gameKey, new URL(ctx.request.url).origin, user.sub, game);
   const me = await getPlayer(ctx);
   const gs = await gameState(env, ctx.mode, gameKey);
-  const base = { seats, roster, dm, price: me && me.status === 'active' && me.price_override != null ? me.price_override : game.price, mode: ctx.mode, running: gs.running, openMode: game.openMode, openAt: game.openAt };
+  const base = { seats, roster, dm, price: me && me.status === 'active' && me.price_override != null ? me.price_override : game.price, mySeats: me && me.status === 'active' ? seatsOf(me) : 1, mode: ctx.mode, running: gs.running, openMode: game.openMode, openAt: game.openAt };
   if (!me || me.status !== 'active') return json({ ...base, joined: false, left: !!(me && me.status === 'left') }, 200, corsHeaders);
 
   const sessions = await upcomingFor(env, ctx.mode, gameKey, game, now, SESSIONS_SHOWN);
@@ -691,7 +704,7 @@ async function adminRoster(ctx) {
     playing,
     charging: env.CHARGING_MODE || 'off',
     game: { key: gameKey, title: game.title, price: game.price, max: game.max, min: game.min, legacyFilled: game.legacyFilled, freq: game.freq, openMode: game.openMode, openAt: game.openAt },
-    seats: seatInfo(game, players.filter((p) => p.status === 'active').length),
+    seats: seatInfo(game, players.filter((p) => p.status === 'active').reduce((n, p) => n + seatsOf(p), 0)),
     pricing: await groupPricing(env, ctx.mode, gameKey, game, now),
     sessions,
     pastSessions,
@@ -704,6 +717,7 @@ async function adminRoster(ctx) {
       token: p.pr_token || p.token || '', avatarId: p.avatar_id || null,
       card: p.card_last4 ? `${p.card_brand || 'card'} ${p.card_last4}` : '',
       priceOverride: p.price_override != null ? p.price_override : null,
+      seatCount: seatsOf(p),
     })),
     skips,
     charges: charges.map((c) => ({
@@ -773,7 +787,7 @@ async function adminRetry(ctx) {
 async function adminGames(env, mode, corsHeaders, actor) {
   const games = await loadGames(env, true);
   const owners = await loadOwners(env);
-  const players = (await env.DB.prepare("SELECT game, COUNT(*) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
+  const players = (await env.DB.prepare("SELECT game, SUM(seats) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
   const online = Object.fromEntries(players.map((r) => [r.game, r.n]));
   const states = (await env.DB.prepare('SELECT game, running FROM games WHERE mode=?').bind(mode).all()).results;
   const running = Object.fromEntries(states.map((r) => [r.game, !!r.running]));
@@ -880,12 +894,12 @@ async function adminAllCharges(env, corsHeaders, actor) {
 async function tableFor(env, mode, gameKey, selfOrigin, viewerUid, game) {
   const pic = (id) => (id ? `${selfOrigin}/profile/avatar/${id}` : null);
   const roster = (await env.DB.prepare(
-    `SELECT p.name AS pname, p.token AS ptoken, p.uid, pr.name AS name, pr.token AS token, pr.avatar_id, pr.pronouns
+    `SELECT p.name AS pname, p.token AS ptoken, p.uid, p.seats, pr.name AS name, pr.token AS token, pr.avatar_id, pr.pronouns
      FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid
      WHERE p.mode=? AND p.game=? AND p.status='active' ORDER BY p.joined_at`).bind(mode, gameKey).all()).results
     .map((p) => ({
       name: p.name || p.pname, token: p.token || p.ptoken || '', you: !!viewerUid && p.uid === viewerUid,
-      pronouns: p.pronouns || '', avatar: pic(p.avatar_id),
+      pronouns: p.pronouns || '', avatar: pic(p.avatar_id), seats: cleanSeats(p.seats),
     }));
   // The Game Master at the table: the game's own owner, or Ash for her games.
   if (game && game.owner) {
@@ -921,7 +935,7 @@ export async function handleRoster(request, env, corsHeaders) {
 // can add them to the manual "filled" number. Contains no names or emails.
 export async function handleSeats(request, env, corsHeaders) {
   const mode = cfg(env).mode;
-  const rows = (await env.DB.prepare("SELECT game, COUNT(*) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
+  const rows = (await env.DB.prepare("SELECT game, SUM(seats) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results;
   return new Response(JSON.stringify({ seats: Object.fromEntries(rows.map((r) => [r.game, r.n])) }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=20', ...corsHeaders },
@@ -1143,6 +1157,30 @@ async function adminGamePriceCancel(ctx) {
   const players = (await env.DB.prepare("SELECT uid FROM players WHERE mode=? AND game=? AND status='active' AND price_override IS NULL").bind(ctx.mode, gameKey).all()).results;
   for (const p of players) await notifyPlayer(env, ctx.mode, p.uid, 'price_changed', gameKey, 'Price change cancelled', `The planned price change for ${game.title} was cancelled. Your price stays $${game.price} per session.`);
   return json({ ok: true }, 200, corsHeaders);
+}
+
+// Gives a player more seats (or fewer). They pay their price for each seat, from their next session on.
+async function adminPlayerSeats(ctx) {
+  const { env, body, gameKey, game, corsHeaders } = ctx;
+  const uid = String(body.uid || '');
+  const player = await getPlayer(ctx, uid);
+  if (!player || player.status !== 'active') return json({ error: 'That player is not in this game.' }, 404, corsHeaders);
+  const n = Number(body.seats);
+  if (!Number.isInteger(n) || n < 1 || n > MAX_SEATS) return json({ error: 'Pick a number of seats from 1 up.' }, 400, corsHeaders);
+  const had = seatsOf(player);
+  if (n === had) return json({ ok: true, unchanged: true }, 200, corsHeaders);
+  if (n > had) {
+    const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
+    if (seats.open < n - had) return json({ error: 'There is no open seat to add.' }, 409, corsHeaders);
+  }
+  await env.DB.prepare('UPDATE players SET seats=? WHERE mode=? AND game=? AND uid=?').bind(n, ctx.mode, gameKey, uid).run();
+  const who = game.owner ? 'Your DM' : 'Ash';
+  const unit = player.price_override != null ? player.price_override : game.price;
+  const total = Math.round(unit * n * 100) / 100;
+  await notifyPlayer(env, ctx.mode, uid, 'seats_changed', gameKey, n === 1 ? 'You are back to one seat' : `You now have ${n} seats`,
+    n === 1 ? `${who} set you back to one seat in ${game.title}. From your next session you pay $${unit}.`
+      : `${who} gave you ${n} seats in ${game.title}. From your next session you pay $${unit} for each seat, $${total} in total.`);
+  return json({ ok: true, seats: n }, 200, corsHeaders);
 }
 
 // Changes what ONE player pays per session, from their next session on. Past charges are never touched.

@@ -53,7 +53,7 @@
     { key: 'crooked-moon::B', title: 'The Crooked Moon, Group B', day: 6, hour: 0, running: false, online: 4, enabled: true },
     { key: 'crooked-moon::C', title: 'The Crooked Moon, Group C', day: 6, hour: 18, running: false, online: 1, enabled: true },
     { key: 'curse-of-strahd::A', title: 'Curse of Strahd, Group A', day: 5, hour: 20, running: false, online: 2, enabled: true },
-    { key: 'curse-of-strahd::B', title: 'Curse of Strahd, Group B', day: 1, hour: 21, running: true, online: 4, enabled: true },
+    { key: 'curse-of-strahd::B', title: 'Curse of Strahd, Group B', day: 1, hour: 21, running: true, online: 6, enabled: true },
     { key: 'curse-of-strahd::-P2wqpCkiDmAAzOsTG0u', title: 'Curse of Strahd, Group C', day: 4, hour: 0, running: false, online: 3, enabled: true },
     { key: 'flying-city', title: 'The Prophecy of the Flying City', day: 3, hour: 18, running: false, online: 3, enabled: true },
     { key: 'ravenloft-undead-survival', title: 'Ravenloft: Undead Survival', day: 6, hour: 21, running: false, online: 0, enabled: false },
@@ -70,7 +70,8 @@
 
   // sample custom prices, so Change price does something you can see in this preview
   var overrides = { u2: 7 };
-  var groupPrice = {}, pendingPrice = {};
+  var seatsOf = { u3: 3 }; // sample: one player holds three seats
+  var groupPrice = { 'curse-of-strahd::B': 15 }, pendingPrice = {}; // sample: this group charges 15, not the usual 10
 
   function upcoming(g, n) {
     var out = [], now = Date.now();
@@ -86,18 +87,19 @@
     var people = PEOPLE.slice(0, Math.max(1, Math.min(g.online || 1, 4)));
     var sessions = upcoming(g, 6);
     var playing = {};
-    sessions.forEach(function (s) { playing[s] = people.length; });
+    var seatTotal = people.reduce(function (n, p) { return n + (seatsOf[p.uid] || 1); }, 0);
+    sessions.forEach(function (s) { playing[s] = seatTotal; });
     var past = [new Date(Date.parse(sessions[0]) - 7 * DAY).toISOString(), new Date(Date.parse(sessions[0]) - 14 * DAY).toISOString()];
     return {
       mode: 'live', running: g.running, startedAt: g.running ? new Date(Date.now() - 20 * DAY).toISOString() : null, stoppedAt: null,
       playing: playing, charging: 'on',
-      game: { key: g.key, title: g.title, price: groupPrice[g.key] != null ? groupPrice[g.key] : 10, max: 5, min: 3, legacyFilled: 0 },
+      game: { key: g.key, title: g.title, price: groupPrice[g.key] != null ? groupPrice[g.key] : 10, max: Math.max(8, seatTotal), min: 3, legacyFilled: 0 },
       pricing: { price: groupPrice[g.key] != null ? groupPrice[g.key] : 10, campaignPrice: 10, custom: groupPrice[g.key] != null, pending: pendingPrice[g.key] || null },
-      seats: { filled: people.length, max: 5, min: 3, open: 5 - people.length },
+      seats: (function () { var f = people.reduce(function (n, p) { return n + (seatsOf[p.uid] || 1); }, 0); var mx = Math.max(8, f); return { filled: f, max: mx, min: 3, open: mx - f }; })(),
       sessions: sessions, pastSessions: past,
-      players: people.map(function (p) { return { uid: p.uid, email: p.email, name: p.name, status: 'active', joinedAt: new Date(Date.now() - 25 * DAY).toISOString(), token: p.token, avatarId: null, card: p.card, priceOverride: overrides[p.uid] != null ? overrides[p.uid] : null }; }),
+      players: people.map(function (p) { return { uid: p.uid, email: p.email, name: p.name, status: 'active', joinedAt: new Date(Date.now() - 25 * DAY).toISOString(), token: p.token, avatarId: null, card: p.card, priceOverride: overrides[p.uid] != null ? overrides[p.uid] : null, seatCount: seatsOf[p.uid] || 1 }; }),
       skips: people.length > 1 ? [{ uid: people[1].uid, session_ts: sessions[0], by: 'player' }] : [],
-      charges: people.map(function (p, i) { return { uid: p.uid, ts: past[0], status: g.running ? 'paid' : 'new', amount: overrides[p.uid] != null ? overrides[p.uid] : 10, refunded: 0, attempts: 1, error: null, paymentId: 'pay_' + i }; })
+      charges: people.map(function (p, i) { return { uid: p.uid, ts: past[0], status: g.running ? 'paid' : 'new', amount: (overrides[p.uid] != null ? overrides[p.uid] : (groupPrice[g.key] != null ? groupPrice[g.key] : 10)) * (seatsOf[p.uid] || 1), refunded: 0, attempts: 1, error: null, paymentId: 'pay_' + i }; })
     };
   }
 
@@ -130,6 +132,7 @@
       else pendingPrice[body.game] = { price: next, from: body.from };
       data = { ok: true };
     }
+    else if (path.indexOf('/pay/admin/player-seats') !== -1) { seatsOf[body.uid] = Math.max(1, parseInt(body.seats, 10) || 1); data = { ok: true, seats: seatsOf[body.uid] }; }
     else if (path.indexOf('/pay/admin/player-price') !== -1) { if (body.price == null) delete overrides[body.uid]; else overrides[body.uid] = body.price; data = { ok: true }; }
     else if (/\/pay\/admin\/stats$/.test(path)) data = stats();
     else if (/\/pay\/admin\/charges$/.test(path)) {

@@ -29,7 +29,7 @@ export async function handleHome(request, env, corsHeaders) {
   rows.forEach((r) => { owners[r.slug] = r.owner_uid || null; });
 
   const online = {};
-  (await env.DB.prepare("SELECT game, COUNT(*) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results.forEach((r) => { online[r.game] = r.n; });
+  (await env.DB.prepare("SELECT game, SUM(seats) AS n FROM players WHERE mode=? AND status='active' GROUP BY game").bind(mode).all()).results.forEach((r) => { online[r.game] = r.n; });
   const openOf = (g) => Math.max(0, g.max - g.legacyFilled - (online[g.key] || 0));
 
   const list = [];

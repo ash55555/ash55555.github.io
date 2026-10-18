@@ -274,3 +274,16 @@ body.pp-embed .pp-grid { grid-template-columns: 1fr; }
 .pp-roster li.pp-clickable::after { content: 'View profile'; font-size: 0.72rem; color: var(--blue-accent); font-weight: 700; margin-left: 0.3em; }
 
 .pp-dm-dialog { max-width: 560px; width: 94vw; max-height: 92vh; overflow-y: auto; }
+
+/* Choosing how many seats to book */
+.pp-seatpick { display: flex; align-items: center; justify-content: space-between; gap: 1em; margin-top: 0.8em; padding: 0.8em 1em; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 14px; }
+.pp-seatpick[hidden] { display: none; }
+.pp-seatpick-text { display: grid; gap: 0.15em; min-width: 0; }
+.pp-seatpick-text strong { font-size: 0.95rem; }
+.pp-seatpick-text span { color: var(--text-muted); font-size: 0.84rem; }
+.pp-stepper { display: flex; align-items: center; gap: 0.3em; flex: none; }
+.pp-stepper button { width: 2.3rem; height: 2.3rem; border-radius: 50%; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.05); color: var(--text); font-size: 1.25rem; line-height: 1; cursor: pointer; }
+.pp-stepper button:hover:not(:disabled) { border-color: var(--gold, #f2b84f); }
+.pp-stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
+.pp-stepper output { min-width: 2.2rem; text-align: center; font-weight: 800; font-size: 1.2rem; }
+.pp-seatpick-note { margin-top: 0.5em; }

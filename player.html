@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css?v=20261010a">
-<link rel="stylesheet" href="player.css?v=20261009a">
+<link rel="stylesheet" href="player.css?v=20261018b">
 <link rel="stylesheet" href="reviews.css?v=20261008a">
 </head>
 <body>
@@ -200,7 +200,16 @@
               <span class="pp-cb-muted" id="cb-email"></span>
             </div>
           </div>
-          <p class="pp-cb-muted">One seat at <span id="cb-game-inline"></span>.</p>
+          <p class="pp-cb-muted"><span id="cb-seat-word">One seat</span> at <span id="cb-game-inline"></span>.</p>
+          <div class="pp-seatpick" id="pp-seatpick">
+            <div class="pp-seatpick-text"><strong>How many seats?</strong><span id="pp-seatpick-sub"></span></div>
+            <div class="pp-stepper" role="group" aria-label="Number of seats">
+              <button type="button" id="pp-seat-minus" aria-label="One seat fewer">&minus;</button>
+              <output id="pp-seat-n" aria-live="polite">1</output>
+              <button type="button" id="pp-seat-plus" aria-label="One seat more">+</button>
+            </div>
+          </div>
+          <p class="pp-cb-muted pp-seatpick-note" id="pp-seatpick-note" hidden></p>
           </div>
         </section>
 
@@ -215,7 +224,7 @@
           </p>
           <div class="pp-billing" id="pp-billing-modal"></div>
           <div id="pp-embed"></div>
-          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span class="js-price">10</span> USD at the start time of each session you have not skipped, until you leave the game. Skip a session or leave any time up to 1 hour before it starts.</p>
+          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span id="cb-consent-amt">10</span> USD at the start time of each session you have not skipped, until you leave the game. Skip a session or leave any time up to 1 hour before it starts.</p>
           <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
           <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
           <p class="pp-fineprint" id="pp-checkout-note" hidden></p>
@@ -301,6 +310,6 @@
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
 <script src="reviews-ui.js?v=20261009a"></script>
-<script src="player.js?v=20261009c"></script>
+<script src="player.js?v=20261018b"></script>
 </body>
 </html>

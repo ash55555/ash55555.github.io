@@ -778,6 +778,16 @@
 .rb-row.rb-click:hover { transform: translateY(-1px); border-color: rgba(110,231,247,.55); background: rgba(110,231,247,.07); box-shadow: 0 10px 26px rgba(8,3,24,.3); }
 .rb-row.rb-click:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .rb-name-line { display: flex; align-items: center; flex-wrap: wrap; gap: .2em .55em; }
+.rb-seats { font-size: .7rem; font-weight: 800; padding: .12em .65em; border-radius: 999px; color: #b9e4ff; border: 1px solid rgba(120,200,255,.5); background: rgba(120,200,255,.12); white-space: nowrap; }
+.pc-chip.seats { color: #b9e4ff; border: 1px solid rgba(120,200,255,.5); background: rgba(120,200,255,.12); margin-left: .4em; }
+.ps-step { display: flex; align-items: center; justify-content: center; gap: 1.2em; padding: .4em 0; }
+.ps-num { text-align: center; min-width: 8em; }
+.ps-num b { display: block; font-size: 2.4rem; line-height: 1.1; }
+.ps-num span { color: var(--text-muted); font-size: .9rem; }
+.ps-opt { text-align: left; display: grid; gap: .15em; padding: .8em .9em; border-radius: 16px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.04); color: inherit; font: inherit; cursor: pointer; }
+.ps-opt span { color: var(--text-muted); font-size: .84rem; }
+.ps-opt.on { border-color: #f2b84f; background: rgba(242,184,79,.12); box-shadow: 0 0 0 1px #f2b84f inset; }
+.ps-opt:disabled { opacity: .45; cursor: not-allowed; }
 .rb-price { font-size: .7rem; font-weight: 800; padding: .12em .65em; border-radius: 999px; color: #ffd479; border: 1px solid rgba(242,184,79,.55); background: rgba(242,184,79,.12); white-space: nowrap; }
 .rb-actions { align-items: center; }
 .rb-more { width: 42px; height: 42px; flex: none; display: grid; place-items: center; padding: 0; border-radius: 50%; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.08); color: #fff; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
@@ -2258,6 +2268,7 @@ window.AshSlots = (function () {
     var ICONS = {
       dots: '<circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
       msg: '<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H10l-4 4v-4H6a2 2 0 0 1-2-2z"/>',
+      seats: '<circle cx="9" cy="8" r="3"/><path d="M3 19c.5-3 2.7-4.5 6-4.5s5.5 1.5 6 4.5"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14c2.4.1 3.9 1.4 4.3 4"/>',
       price: '<circle cx="12" cy="12" r="9"/><path d="M14.6 9.3c-.4-.9-1.4-1.4-2.6-1.4-1.5 0-2.6.8-2.6 2 0 3 5.4 1.4 5.4 4.2 0 1.2-1.1 2-2.8 2-1.3 0-2.4-.6-2.8-1.6M12 6.4v1.5m0 8.2v1.5"/>',
       remove: '<circle cx="10" cy="8" r="3.5"/><path d="M3.5 19c.6-3.3 3.1-5 6.5-5s5.9 1.7 6.5 5M17 10h5"/>',
       skip: '<rect x="4" y="5" width="16" height="15" rx="2.5"/><path d="M4 10h16M9 13.5l4 4m0-4l-4 4M8 3v4m8-4v4"/>',
@@ -2265,7 +2276,10 @@ window.AshSlots = (function () {
     };
 
     function pname(p) { return p.name || p.email; }
-    function pricePaid(p, data) { return p.priceOverride != null ? p.priceOverride : data.game.price; }
+    // A player's price is per seat. Most hold one seat; some hold two and pay for both.
+    function seatsOf(p) { return p.seatCount > 1 ? p.seatCount : 1; }
+    function unitPrice(p, data) { return p.priceOverride != null ? p.priceOverride : data.game.price; }
+    function pricePaid(p, data) { return Math.round(unitPrice(p, data) * seatsOf(p) * 100) / 100; }
     function joinedOn(p) { return p.joinedAt ? new Date(p.joinedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'; }
 
     // Runs an action, refreshes the roster, and shows the problem (if any) in the usual status line.
@@ -2396,6 +2410,7 @@ window.AshSlots = (function () {
       var who = el('div', 'pc-who');
       who.append(el('h3', null, pname(p)), el('p', 'pay-muted', p.email));
       who.append(el('span', 'pc-chip ' + (by ? 'skip' : 'ok'), by ? (by === 'admin' ? 'Skipped by you' : 'Skipped this session') : 'Playing ' + day(ts)));
+      if (seatsOf(p) > 1) who.append(el('span', 'pc-chip seats', seatsOf(p) + ' seats'));
       head.append(tk, who);
 
       var mine = (data.charges || []).filter(function (c) { return c.uid === p.uid; });
@@ -2404,7 +2419,7 @@ window.AshSlots = (function () {
       var custom = p.priceOverride != null;
       var tiles = el('div', 'pc-tiles');
       tiles.append(
-        tile('Pays per session', money(pricePaid(p, data)), custom ? 'Custom (standard ' + money(data.game.price) + ')' : 'Standard price', custom ? 'price custom' : 'price'),
+        tile('Pays per session', money(pricePaid(p, data)), seatsOf(p) > 1 ? seatsOf(p) + ' seats at ' + money(unitPrice(p, data)) + ' each' : (custom ? 'Custom (standard ' + money(data.game.price) + ')' : 'Standard price'), custom ? 'price custom' : 'price'),
         tile('Card on file', p.card || 'None'),
         tile('Joined', joinedOn(p)),
         tile('Sessions', played + ' paid', skipped + ' skipped')
@@ -2430,6 +2445,7 @@ window.AshSlots = (function () {
       var row2 = el('div', 'pc-row2');
       row2.append(
         pbtn('Change price', ICONS.price, '', function () { openPrice(p, data, ts, by); }),
+        pbtn('Change seats', ICONS.seats, '', function () { openSeats(p, data); }),
         pbtn(by ? 'Undo skip' : 'Skip this session', ICONS.skip, '', function () { closeLayer(); skipPlayer(p, ts, by); })
       );
       actions.append(
@@ -2444,9 +2460,56 @@ window.AshSlots = (function () {
       x.focus({ preventScroll: true });
     }
 
+    // How many seats a player holds. The price is per seat, so more seats cost more.
+    function openSeats(p, data) {
+      var cur = seatsOf(p), unit = unitPrice(p, data), pick = cur;
+      var most = cur + Math.max(0, data.seats ? data.seats.open : 0); // the seats they have plus any open ones
+      var back = el('div', 'pc-back pc-center');
+      var box = el('div', 'pm');
+      box.setAttribute('role', 'dialog');
+      box.setAttribute('aria-modal', 'true');
+      box.setAttribute('aria-label', 'Seats for ' + pname(p));
+      box.append(el('h3', null, 'Seats for ' + pname(p)));
+      box.append(el('p', 'pm-lead', 'A player can hold more than one seat, for instance when they bring friends. They pay their price for each seat, starting with the next session. Anything already charged stays as it is.'));
+      var row = el('div', 'ps-step');
+      var minus = el('button', 'pm-step', '\u2212'); minus.type = 'button'; minus.setAttribute('aria-label', 'One seat fewer');
+      var plus = el('button', 'pm-step', '+'); plus.type = 'button'; plus.setAttribute('aria-label', 'One seat more');
+      var num = el('div', 'ps-num');
+      row.append(minus, num, plus);
+      box.append(row);
+      var hint = el('p', 'pm-hint');
+      box.append(hint);
+      var go = el('button', 'pc-btn primary', 'Save seats');
+      go.type = 'button';
+      var cancel = el('button', 'pc-btn', 'Cancel');
+      cancel.type = 'button';
+      var foot = el('div', 'pm-foot');
+      foot.append(cancel, go);
+      box.append(foot);
+      function refresh() {
+        num.innerHTML = '';
+        num.append(el('b', null, String(pick)), el('span', null, (pick === 1 ? 'seat' : 'seats') + ' \u00b7 ' + money(unit * pick) + ' per session'));
+        minus.disabled = pick <= 1;
+        plus.disabled = pick >= most;
+        go.disabled = pick === cur;
+        hint.textContent = pick === cur ? (most === cur && cur > 0 ? (data.seats && data.seats.open === 0 ? 'The table is full, so no more seats can be added.' : '') : '') : money(unit) + ' for each seat, so ' + money(unit * pick) + ' per session from the next session on.';
+      }
+      minus.addEventListener('click', function () { if (pick > 1) { pick--; refresh(); } });
+      plus.addEventListener('click', function () { if (pick < most) { pick++; refresh(); } });
+      cancel.addEventListener('click', closeLayer);
+      go.addEventListener('click', function () {
+        go.disabled = true;
+        closeLayer();
+        act(function () { return call('admin/player-seats', { uid: p.uid, seats: pick }); });
+      });
+      refresh();
+      back.append(box);
+      mountLayer(back);
+    }
+
     function openPrice(p, data, ts, by) {
       var std = data.game.price;
-      var cur = pricePaid(p, data);
+      var cur = unitPrice(p, data);
       var back = el('div', 'pc-back pc-center');
       var box = el('div', 'pm');
       box.setAttribute('role', 'dialog');
@@ -2459,7 +2522,7 @@ window.AshSlots = (function () {
       var input = document.createElement('input');
       input.type = 'number'; input.min = '5'; input.step = '0.5'; input.value = String(cur);
       input.setAttribute('aria-label', 'Price per session in dollars');
-      money$.append(el('span', null, '$'), input, el('span', 'pm-unit', 'per session'));
+      money$.append(el('span', null, '$'), input, el('span', 'pm-unit', seatsOf(p) > 1 ? 'per seat, per session' : 'per session'));
       box.append(money$);
 
       var chips = el('div', 'pm-chips');
@@ -2581,7 +2644,8 @@ window.AshSlots = (function () {
         var who = el('div', 'rb-who');
         var nameLine = el('div', 'rb-name-line');
         nameLine.append(el('div', 'rb-name', pname(p)));
-        if (p.priceOverride != null) nameLine.append(el('span', 'rb-price', money(p.priceOverride) + ' / session'));
+        if (seatsOf(p) > 1) nameLine.append(el('span', 'rb-seats', seatsOf(p) + ' seats'));
+        if (p.priceOverride != null) nameLine.append(el('span', 'rb-price', money(p.priceOverride) + (seatsOf(p) > 1 ? ' / seat' : ' / session')));
         who.append(nameLine, el('div', 'pay-muted', p.email + (p.card ? ' · ' + p.card : '')));
         var check = el('span', 'rb-check' + (by ? ' off' : ''));
         check.title = by ? (by === 'admin' ? 'Skipped by you' : 'Skipped by the player') : 'Playing this session';
@@ -2604,6 +2668,7 @@ window.AshSlots = (function () {
           openMenu(more, [
             { label: 'Message', icon: ICONS.msg, fn: function () { messagePlayer(p); } },
             { label: 'Change price', icon: ICONS.price, fn: function () { openPrice(p, data, ts, by); } },
+            { label: 'Change seats', icon: ICONS.seats, fn: function () { openSeats(p, data); } },
             '-',
             { label: 'Remove from game', icon: ICONS.remove, danger: true, fn: function () { removePlayer(p); } }
           ]);
