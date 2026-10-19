@@ -50,6 +50,8 @@
     chip.querySelector('.session-sub').textContent = (s.group ? s.group + ' ' + DOT + ' ' : '') + (s.enabled === false ? 'Not running right now' : freqLabel(s.freq));
     chip.querySelector('.session-seats').textContent = c.bookable ? (left > 0 ? left + (left === 1 ? ' seat left' : ' seats left') + ' (' + (s.max - left) + '/' + s.max + ')' : 'Full') : 'Up to ' + s.max + ' players';
     chip.querySelector('.session-chip-cta').textContent = cta;
+    // A full group is not shown to visitors at all.
+    if (c.bookable && s.enabled !== false && left <= 0) chip.classList.add('is-full-hidden');
     if (canJoin) {
       chip.addEventListener('click', function () {
         var params = new URLSearchParams({ campaign: c.slug, slot: id === 'default' ? '' : id, group: s.group || '', day: s.day, hour: s.hour, minute: s.minute || 0, offset: 0, freq: s.freq || 'weekly', anchor: s.anchor || '', embed: '1' });

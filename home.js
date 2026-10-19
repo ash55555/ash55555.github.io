@@ -98,6 +98,7 @@
 
   function drawGrid() {
     var list = games.filter(function (g) {
+      if (!g.soon && g.type !== 'pbp' && g.seatsOpen != null && g.seatsOpen <= 0) return false; // a full game is not listed
       if (cat === 'Seats open' && (g.soon || (g.type !== 'pbp' && g.seatsOpen <= 0))) return false;
       if (cat !== 'All' && cat !== 'Seats open' && g.cat !== cat) return false;
       if (!q) return true;

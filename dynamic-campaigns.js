@@ -81,13 +81,8 @@
     footer.innerHTML =
       '<span class="price-tag">$' + (price % 1 === 0 ? price : price.toFixed(2)) + ' USD / session</span>' +
       (c.openMode === 'date' && c.openAt && new Date(c.openAt + 'T00:00:00Z').getTime() > Date.now()
-        ? '<span class="price-tag cd-opens-note">Opens ' + openDateLong(c.openAt) + '</span>' : '') +
-      '<button type="button" class="btn btn-small js-email-trigger">Reserve a Seat</button>';
+        ? '<span class="price-tag cd-opens-note">Opens ' + openDateLong(c.openAt) + '</span>' : '');
     body.appendChild(footer);
-
-    var note = el('p', 'campaign-note');
-    note.textContent = 'Message Ash to check availability and get your personal booking link.';
-    body.appendChild(note);
 
     art.appendChild(body);
 
