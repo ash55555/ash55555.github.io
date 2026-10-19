@@ -271,17 +271,23 @@ export async function handleReviewsPublic(request, env, corsHeaders) {
   if (gmName && gmName !== 'ash' && !gm) return new Response(JSON.stringify({ reviews: [] }), { status: 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...corsHeaders } });
   const rows = gm
     ? (await env.DB.prepare(
-      `SELECT r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
+      `SELECT r.uid AS uid, r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
        FROM gm_reviews r LEFT JOIN profiles pr ON pr.uid = r.uid
        WHERE r.gm_uid=? AND r.mode=? AND r.show_public=1 ORDER BY r.updated_at DESC LIMIT 30`).bind(gm.uid, mode).all()).results
     : (await env.DB.prepare(
-      `SELECT r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
+      `SELECT r.uid AS uid, r.name, r.rating, r.tags, r.comment, pr.token AS token, pr.avatar_id AS avatar_id
        FROM reviews r LEFT JOIN profiles pr ON pr.uid = r.uid
        WHERE r.mode=? AND r.show_public=1 ORDER BY r.updated_at DESC LIMIT 30`).bind(mode).all()).results;
-  const reviews = rows.map((r) => ({
-    name: r.name, rating: r.rating, tags: parseTags(r.tags), comment: r.comment || '', token: r.token || '',
-    avatar: r.avatar_id ? `${self}/profile/avatar/${r.avatar_id}` : null,
-  }));
+  // How many sessions each reviewer has played at this table (never their account id).
+  const reviews = [];
+  for (const r of rows) {
+    let sessions = 0;
+    try { sessions = gm ? await sessionsWithGm(env, mode, r.uid, gm.uid) : await sessionsPlayed(env, mode, r.uid); } catch { sessions = 0; }
+    reviews.push({
+      name: r.name, rating: r.rating, tags: parseTags(r.tags), comment: r.comment || '', token: r.token || '', sessions,
+      avatar: r.avatar_id ? `${self}/profile/avatar/${r.avatar_id}` : null,
+    });
+  }
   return new Response(JSON.stringify({ reviews }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=60', ...corsHeaders },

@@ -23,7 +23,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="style.css?v=20261019a">
+<link rel="stylesheet" href="style.css?v=20261019c">
 <link rel="stylesheet" href="dm-profile.css?v=20261007a">
 <link rel="stylesheet" href="messages.css?v=20261008a">
 <link rel="stylesheet" href="tip.css?v=20261009b">
@@ -109,6 +109,18 @@
   <!-- ================= INFO STRIP ================= -->
   <section class="info-strip" aria-label="About Ash and how the table works"></section>
 
+  <!-- ================= REVIEWS ================= -->
+  <section class="reviews" id="reviews" hidden>
+    <div class="section-head">
+      <p class="eyebrow">Party Feedback</p>
+      <h2>What Players Are Saying</h2>
+      <p class="section-sub">Straight from the people who sit at the table.</p>
+    </div>
+    <div class="reviews-marquee">
+      <div class="reviews-track"></div>
+    </div>
+  </section>
+
   <!-- ================= CAMPAIGNS ================= -->
   <section class="campaigns" id="campaigns" hidden>
     <div class="section-head">
@@ -117,17 +129,6 @@
       <p class="section-sub">All session times below adjust automatically to your local timezone, so there's no math on your end.</p>
     </div>
     <div class="campaign-grid" id="gm-campaign-grid"></div>
-  </section>
-
-  <!-- ================= REVIEWS ================= -->
-  <section class="reviews" id="reviews" hidden>
-    <div class="section-head">
-      <p class="eyebrow">Party Feedback</p>
-      <h2>What Players Are Saying</h2>
-    </div>
-    <div class="reviews-marquee">
-      <div class="reviews-track"></div>
-    </div>
   </section>
 
   <!-- ================= CONTACT ================= -->
@@ -232,7 +233,7 @@
 
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
-<script src="script.js?v=20261019a"></script>
+<script src="script.js?v=20261019c"></script>
 <!-- Optional: quietly syncs live seat counts / paused games from Firebase
      onto the buttons above once Ash finishes Firebase setup. Does nothing
      until then; see campaigns-data.js. -->

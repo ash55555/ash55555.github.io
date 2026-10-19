@@ -729,6 +729,12 @@ function buildPlayerReviewCard(r) {
     avatar.setAttribute('aria-hidden', 'true');
   }
   head.appendChild(avatar);
+  const who = document.createElement('div');
+  who.className = 'review-who';
+  const author = document.createElement('p');
+  author.className = 'review-author';
+  author.textContent = r.name;
+  who.appendChild(author);
 
   const stars = document.createElement('div');
   stars.className = 'review-stars';
@@ -740,7 +746,8 @@ function buildPlayerReviewCard(r) {
     star.textContent = '\u2605';
     stars.appendChild(star);
   }
-  head.appendChild(stars);
+  who.appendChild(stars);
+  head.appendChild(who);
   card.appendChild(head);
 
   // The qualities a player picked stay closed until tapped, so the card reads as a
@@ -781,11 +788,73 @@ function buildPlayerReviewCard(r) {
     card.appendChild(quote);
   }
 
-  const author = document.createElement('p');
-  author.className = 'review-author';
-  author.textContent = r.name;
-  card.appendChild(author);
+  if (r.sessions > 0) {
+    const foot = document.createElement('div');
+    foot.className = 'review-foot';
+    card.dataset.sessions = String(r.sessions);
+    const badge = document.createElement('span');
+    badge.className = 'review-sessions';
+    badge.innerHTML = '<svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b></b> ' + (r.sessions === 1 ? 'session played' : 'sessions played');
+    badge.querySelector('b').textContent = String(r.sessions);
+    foot.appendChild(badge);
+    card.appendChild(foot);
+  }
   return card;
+}
+
+// A long review shows only its first part, with "..." to open the rest, so every card stays about the
+// same size. The limit is where Alice's longest review gets cut: just before the part about not playing "perfectly".
+const REVIEW_MAX_CHARS = 470;
+function clampReviewQuote(quote) {
+  const full = quote.textContent.trim();
+  if (full.length <= REVIEW_MAX_CHARS + 25) return; // not worth hiding a few words
+  let cut = full.slice(0, REVIEW_MAX_CHARS);
+  cut = cut.slice(0, Math.max(cut.lastIndexOf(' '), 1)).replace(/[\s,;:.!?-]+$/, '');
+  quote.dataset.full = full;
+  quote.dataset.short = cut;
+  drawReviewQuote(quote, false);
+}
+function drawReviewQuote(quote, open) {
+  quote.textContent = '';
+  quote.append(document.createTextNode(open ? quote.dataset.full + ' ' : quote.dataset.short));
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'review-more';
+  btn.setAttribute('aria-expanded', String(open));
+  btn.setAttribute('aria-label', open ? 'Show less of this review' : 'Read the full review');
+  btn.textContent = open ? 'Show less' : '\u2026';
+  quote.append(open ? '' : ' ', btn);
+  quote.classList.toggle('is-open', open);
+}
+
+// A line of totals above the reviews: average stars, how many players wrote one, and how many
+// sessions they have played between them. Worked out from the cards themselves.
+function renderReviewsSummary(track) {
+  const section = track.closest('.reviews');
+  const marquee = track.closest('.reviews-marquee');
+  if (!section || !marquee || section.querySelector('.reviews-summary')) return;
+  const cards = Array.from(track.querySelectorAll('.review-card'));
+  if (!cards.length) return;
+  const stars = cards.map((c) => c.querySelectorAll('.review-stars .on').length).filter((n) => n > 0);
+  const avg = stars.length ? stars.reduce((a, b) => a + b, 0) / stars.length : 0;
+  const sessions = cards.reduce((n, c) => n + (parseInt(c.dataset.sessions, 10) || 0), 0);
+  const stats = [];
+  if (avg) stats.push(['gold', avg.toFixed(1) + ' \u2605', 'average rating']);
+  stats.push(['', String(cards.length), cards.length === 1 ? 'player review' : 'player reviews']);
+  if (sessions) stats.push(['', sessions.toLocaleString(), 'sessions played together']);
+  const box = document.createElement('div');
+  box.className = 'reviews-summary';
+  stats.forEach(([cls, big, small]) => {
+    const item = document.createElement('div');
+    item.className = 'rs-stat' + (cls ? ' ' + cls : '');
+    const b = document.createElement('b');
+    b.textContent = big;
+    const sp = document.createElement('span');
+    sp.textContent = small;
+    item.append(b, sp);
+    box.appendChild(item);
+  });
+  marquee.before(box);
 }
 
 // Fewer cards than this and a slow loop never really reads as "rotating" — they
@@ -838,20 +907,25 @@ function setupReviewsMarquee(track) {
 
   // A finger scrolls the row natively (overflow-x does that for free). A mouse has no
   // native click-and-drag for horizontal scroll, so that part is done by hand here.
-  let dragging = false, dragStartX = 0, dragStartScroll = 0;
+  let dragging = false, grabbed = false, dragStartX = 0, dragStartScroll = 0;
   track.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'mouse') return;
     dragging = true;
+    grabbed = false;
     dragStartX = e.clientX;
     dragStartScroll = track.scrollLeft;
-    track.setPointerCapture(e.pointerId);
-    track.classList.add('is-dragging');
   });
   track.addEventListener('pointermove', (e) => {
     if (!dragging || e.pointerType !== 'mouse') return;
+    if (!grabbed) {
+      if (Math.abs(e.clientX - dragStartX) < 5) return;
+      grabbed = true;
+      track.setPointerCapture(e.pointerId);
+      track.classList.add('is-dragging');
+    }
     track.scrollLeft = dragStartScroll - (e.clientX - dragStartX);
   });
-  const stopDrag = () => { dragging = false; track.classList.remove('is-dragging'); };
+  const stopDrag = () => { dragging = false; grabbed = false; track.classList.remove('is-dragging'); };
   track.addEventListener('pointerup', stopDrag);
   track.addEventListener('pointercancel', stopDrag);
 
@@ -902,6 +976,15 @@ async function loadPlayerReviews() {
   if (track.querySelector('.review-card')) {
     const section = track.closest('.reviews');
     if (section) section.hidden = false;
+    track.querySelectorAll('.review-quote').forEach(clampReviewQuote);
+    // one listener on the row also covers the looping copies of each card
+    track.addEventListener('click', (e) => {
+      const btn = e.target.closest('.review-more');
+      if (!btn) return;
+      const quote = btn.closest('.review-quote');
+      drawReviewQuote(quote, !quote.classList.contains('is-open'));
+    });
+    renderReviewsSummary(track);
     setupReviewsMarquee(track);
   }
 }

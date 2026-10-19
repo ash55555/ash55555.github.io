@@ -24,7 +24,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="style.css?v=20261019a">
+<link rel="stylesheet" href="style.css?v=20261019c">
 <link rel="stylesheet" href="dm-profile.css?v=20261007a">
 <link rel="stylesheet" href="messages.css?v=20261008a">
 <link rel="stylesheet" href="tip.css?v=20261009b">
@@ -139,6 +139,67 @@
     <div class="info-tile">
       <p class="info-title">New to D&amp;D?</p>
       <p class="info-sub">Absolutely welcome! I&#39;ll help you with everything you need, from making a character (backstory and mechanics) to introducing you to the game and the rest of the players. However comfortable you are with playing, you can go at your own pace.</p>
+    </div>
+  </section>
+
+  <!-- ================= REVIEWS ================= -->
+  <section class="reviews" id="reviews">
+    <div class="section-head">
+      <p class="eyebrow">Party Feedback</p>
+      <h2>What Players Are Saying</h2>
+      <p class="section-sub">Straight from the people who sit at my table.</p>
+    </div>
+    <!--
+      TODO pattern to duplicate per new hand-written review (the cards below are
+      static; actual player reviews are added live by loadPlayerReviews() in
+      script.js and inserted right before these):
+
+      <article class="review-card">
+        <div class="review-head"><img class="review-avatar" src="medie/photo.webp" alt="Player Name" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
+        <p class="review-quote">"Quote text here."</p>
+        <div class="review-foot"><p class="review-author">Player Name</p><span class="review-sessions"><b>40</b> sessions played</span></div>
+      </article>
+    -->
+    <div class="reviews-marquee">
+      <div class="reviews-track">
+
+        <article class="review-card" data-sessions="148">
+          <div class="review-head"><img class="review-avatar" src="medie/alice-avatar.webp" alt="Alice Rose Marsh" loading="lazy"><div class="review-who"><p class="review-author">Alice Rose Marsh</p><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div></div>
+          <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns. Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story. His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together. I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
+          <div class="review-foot"><span class="review-sessions"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b>148</b> sessions played</span></div>
+        </article>
+
+        <article class="review-card" data-sessions="112">
+          <div class="review-head"><img class="review-avatar" src="medie/bianca.webp" alt="Bianca" loading="lazy"><div class="review-who"><p class="review-author">Bianca</p><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div></div>
+          <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
+          <div class="review-foot"><span class="review-sessions"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b>112</b> sessions played</span></div>
+        </article>
+
+        <article class="review-card" data-sessions="126">
+          <div class="review-head"><img class="review-avatar" src="medie/fisherman.webp" alt="Fisherman" loading="lazy"><div class="review-who"><p class="review-author">Fisherman</p><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div></div>
+          <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
+          <div class="review-foot"><span class="review-sessions"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b>126</b> sessions played</span></div>
+        </article>
+
+        <article class="review-card" data-sessions="94">
+          <div class="review-head"><img class="review-avatar" src="medie/blackrosestar.webp" alt="Black Rose Star" loading="lazy"><div class="review-who"><p class="review-author">Black Rose Star</p><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div></div>
+          <p class="review-quote">"Ash is one of the best DM's I've had in a long time. I have played DnD for a long time and this is the most fun I have had yet. His stories are interesting and he keeps the characters interesting and funny so you are never bored. Cannot wait for our next game."</p>
+          <div class="review-foot"><span class="review-sessions"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b>94</b> sessions played</span></div>
+        </article>
+
+        <article class="review-card" data-sessions="41">
+          <div class="review-head"><img class="review-avatar" src="medie/rintintizzle.webp" alt="Rintintizzle" loading="lazy"><div class="review-who"><p class="review-author">Rintintizzle</p><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div></div>
+          <p class="review-quote">"Ash is a young and competent DM with an easy going approach to D&amp;D. He meets his players where they are and has no problems explaining or working through any chaos or confusion on or off table time. It's clear he loves the game and has a player-focused approach. I enjoy playing at his table and look forward to many more game sessions."</p>
+          <div class="review-foot"><span class="review-sessions"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b>41</b> sessions played</span></div>
+        </article>
+
+        <article class="review-card" data-sessions="52">
+          <div class="review-head"><img class="review-avatar" src="medie/biggestofrisks.webp" alt="BiggestofRisks" loading="lazy"><div class="review-who"><p class="review-author">BiggestofRisks</p><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div></div>
+          <p class="review-quote">"If you are looking for a DM to ensure complete immersion with unique voices for each character, Ash is your man. I have been a player of his for months, and as a first time player, I couldn't ask for a better experience. 5/5."</p>
+          <div class="review-foot"><span class="review-sessions"><svg class="icon icon-sm" aria-hidden="true"><use href="#icon-dice"/></svg><b>52</b> sessions played</span></div>
+        </article>
+
+      </div>
     </div>
   </section>
 
@@ -372,66 +433,6 @@
     </div>
   </section>
 
-  <!-- ================= REVIEWS ================= -->
-  <section class="reviews" id="reviews">
-    <div class="section-head">
-      <p class="eyebrow">Party Feedback</p>
-      <h2>What Players Are Saying</h2>
-    </div>
-    <!--
-      TODO pattern to duplicate per new hand-written review (the cards below are
-      static; actual player reviews are added live by loadPlayerReviews() in
-      script.js and inserted right before these):
-
-      <article class="review-card">
-        <div class="review-head"><img class="review-avatar" src="medie/photo.webp" alt="Player Name" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-        <p class="review-quote">"Quote text here."</p>
-        <p class="review-author">Player Name</p>
-      </article>
-    -->
-    <div class="reviews-marquee">
-      <div class="reviews-track">
-
-        <article class="review-card">
-          <div class="review-head"><img class="review-avatar" src="medie/alice-avatar.webp" alt="Alice Rose Marsh" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-          <p class="review-quote">"I've been playing in Ash's games for nearly a year now, across two different campaigns. Ash creates games that are funny, chaotic, emotional and completely unpredictable. He gives his players the freedom to make their own choices and has an amazing ability to take even the most ridiculous decisions and weave them into the story. His NPCs range from ridiculous to helpful! Everyone at the table gets their chance to shine, and there's never any pressure to play D&amp;D "perfectly". Whether you're an experienced player or completely new, Ash creates a welcoming table where the focus is on telling a great story and having fun together. I've laughed until I've cried, become ridiculously attached to characters and made memories I'll be talking about for a long time. I couldn't recommend Ash as a DM enough."</p>
-          <p class="review-author">Alice Rose Marsh</p>
-        </article>
-
-        <article class="review-card">
-          <div class="review-head"><img class="review-avatar" src="medie/bianca.webp" alt="Bianca" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-          <p class="review-quote">"Ash's DnD campaigns are fun and energetic. They are always a good time. He knows the rules and runs a great balance of action and combat with roleplay and storytelling. He is extremely helpful with character creation and session 0's. He is extremely reliable and the sessions happen as scheduled. This is why I have signed up for more DnD fun in his other campaigns and will continue."</p>
-          <p class="review-author">Bianca</p>
-        </article>
-
-        <article class="review-card">
-          <div class="review-head"><img class="review-avatar" src="medie/fisherman.webp" alt="Fisherman" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-          <p class="review-quote">"I've played in about three campaigns with Ash, and every game experience has been great. He's incredibly beginner-friendly, patient, and always willing to help people learn without making anyone feel out of place. He's also very creative with his worlds and sessions, while staying flexible and respectful of each player's choices. On top of that, he has a great sense of humor that keeps the table fun and relaxed. He's an awesome dungeon master and has helped me meet a lot of other players who share the same love for the game."</p>
-          <p class="review-author">Fisherman</p>
-        </article>
-
-        <article class="review-card">
-          <div class="review-head"><img class="review-avatar" src="medie/blackrosestar.webp" alt="Black Rose Star" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-          <p class="review-quote">"Ash is one of the best DM's I've had in a long time. I have played DnD for a long time and this is the most fun I have had yet. His stories are interesting and he keeps the characters interesting and funny so you are never bored. Cannot wait for our next game."</p>
-          <p class="review-author">Black Rose Star</p>
-        </article>
-
-        <article class="review-card">
-          <div class="review-head"><img class="review-avatar" src="medie/rintintizzle.webp" alt="Rintintizzle" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-          <p class="review-quote">"Ash is a young and competent DM with an easy going approach to D&amp;D. He meets his players where they are and has no problems explaining or working through any chaos or confusion on or off table time. It's clear he loves the game and has a player-focused approach. I enjoy playing at his table and look forward to many more game sessions."</p>
-          <p class="review-author">Rintintizzle</p>
-        </article>
-
-        <article class="review-card">
-          <div class="review-head"><img class="review-avatar" src="medie/biggestofrisks.webp" alt="BiggestofRisks" loading="lazy"><div class="review-stars" role="img" aria-label="5 out of 5 stars"><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span></div></div>
-          <p class="review-quote">"If you are looking for a DM to ensure complete immersion with unique voices for each character, Ash is your man. I have been a player of his for months, and as a first time player, I couldn't ask for a better experience. 5/5."</p>
-          <p class="review-author">BiggestofRisks</p>
-        </article>
-
-      </div>
-    </div>
-  </section>
-
   <!-- ================= CONTACT ================= -->
   <section class="contact" id="contact">
     <div class="contact-inner">
@@ -534,7 +535,7 @@
 
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
-<script src="script.js?v=20261019a"></script>
+<script src="script.js?v=20261019c"></script>
 <!-- Optional: quietly syncs live seat counts / paused games from Firebase
      onto the buttons above once Ash finishes Firebase setup. Does nothing
      until then; see campaigns-data.js. -->
