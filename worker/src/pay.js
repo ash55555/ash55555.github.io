@@ -376,6 +376,7 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
 
   if (action === 'admin/games') return await adminGames(env, cfg(env).mode, corsHeaders, actor);
   if (action === 'admin/balance') return await adminBalance(env, corsHeaders);
+  if (action === 'admin/withdraw') return await adminWithdraw(env, body, corsHeaders, sendEmail);
   if (action === 'admin/charges') return await adminAllCharges(env, corsHeaders, actor);
   if (action === 'admin/stats') return await adminStats(env, corsHeaders, actor);
   if (action === 'admin/notifications') {
@@ -808,18 +809,16 @@ async function adminGames(env, mode, corsHeaders, actor) {
 // can never touch the key that actually moves real money. Always reads the
 // live company's real balance, regardless of PAY_MODE — a "sandbox balance"
 // isn't a real number Ash would ever need to see.
-async function adminBalance(env, corsHeaders) {
+async function readCompanyBalance(env) {
   const company = env.WHOP_COMPANY_ID;
   const key = env.WHOP_BALANCE_API_KEY;
-  if (!company || !key) return json({ error: 'Balance reading is not set up yet (missing WHOP_BALANCE_API_KEY).' }, 500, corsHeaders);
+  if (!company || !key) return { error: 'Balance reading is not set up yet (missing WHOP_BALANCE_API_KEY).', status: 500 };
   const res = await fetch(`https://api.whop.com/api/v1/ledger_accounts/${company}`, {
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
   });
   const data = await res.json().catch(() => ({}));
-  const r = { ok: res.ok, data };
-  const c = { mode: 'live' };
-  if (!r.ok) return json({ error: whopErrorText(r.data) || 'Could not read the Whop balance.' }, 502, corsHeaders);
-  const d = r.data || {};
+  if (!res.ok) return { error: whopErrorText(data) || 'Could not read the Whop balance.', status: 502 };
+  const d = data || {};
   const usd = (d.balances || []).find((b) => b.currency === 'usd') || (d.balances && d.balances[0]) || null;
   const tb = d.treasury_balance || null;
   const balance = usd ? (usd.balance || 0) : 0;
@@ -833,12 +832,46 @@ async function adminBalance(env, corsHeaders) {
   // Whop lists (they're each already dollar-equivalent here) instead of
   // only the one literally labeled "usd", so nothing she's owed goes missing.
   const total = (d.balances || []).reduce((sum, b) => sum + (b.balance || 0) + (b.pending_balance || 0) + (b.reserve_balance || 0), 0);
+  return { currency: (usd && usd.currency) || 'usd', balance, pending, reserve, withdrawable, total };
+}
+
+async function adminBalance(env, corsHeaders) {
+  const b = await readCompanyBalance(env);
+  if (b.error) return json({ error: b.error }, b.status, corsHeaders);
   return json({
-    mode: c.mode,
-    currency: (usd && usd.currency) || 'usd',
-    balance, pending, reserve, withdrawable,
-    total,
+    mode: 'live', ...b,
+    // what the withdraw pop-up needs: whether this page may withdraw by itself, and the usual cost and wait
+    withdrawReady: !!env.WHOP_WITHDRAW_API_KEY, fee: WITHDRAW_FEE, eta: WITHDRAW_ETA,
   }, 200, corsHeaders);
+}
+
+// Withdrawing from the Finance tab. It uses its own key (WHOP_WITHDRAW_API_KEY) that can only withdraw to
+// Ash's saved payout method, apart from the balance-reading key and the charging key. The amount is read from
+// Whop again here, so it can only ever withdraw what the pop-up showed, and never more than is available.
+const MIN_WITHDRAW = 10;
+const WITHDRAW_FEE = 2.5; // Whop's usual cost for a standard bank payout
+const WITHDRAW_ETA = 'usually 1 to 5 business days, sometimes up to 10';
+async function adminWithdraw(env, body, corsHeaders, sendEmail) {
+  const key = env.WHOP_WITHDRAW_API_KEY;
+  if (!key) return json({ error: 'Withdrawing from this page is not switched on yet. Please use Whop to withdraw for now.' }, 409, corsHeaders);
+  const b = await readCompanyBalance(env);
+  if (b.error) return json({ error: b.error }, b.status, corsHeaders);
+  const asked = Math.round(Number(body.amount) * 100) / 100;
+  if (!(asked >= MIN_WITHDRAW)) return json({ error: `The smallest withdrawal is $${MIN_WITHDRAW}.` }, 400, corsHeaders);
+  if (Math.abs(asked - b.withdrawable) > 0.009) {
+    return json({ error: `Your balance just changed: $${b.withdrawable.toFixed(2)} is available now. Please open Withdraw again.`, withdrawable: b.withdrawable }, 409, corsHeaders);
+  }
+  // One request per amount per hour: a double click or a retry can never withdraw twice.
+  const idem = `withdraw-${env.WHOP_COMPANY_ID}-${Math.round(asked * 100)}-${new Date().toISOString().slice(0, 13)}`;
+  const res = await fetch('https://api.whop.com/api/v1/withdrawals', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'Idempotency-Key': idem },
+    body: JSON.stringify({ company_id: env.WHOP_COMPANY_ID, amount: asked, currency: b.currency || 'usd' }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return json({ error: whopErrorText(data) || 'Whop did not accept the withdrawal. Nothing was withdrawn.' }, 502, corsHeaders);
+  await notify(env, sendEmail, cfg(env).mode, 'withdrawal', '', 'Withdrawal started', `A withdrawal of $${asked.toFixed(2)} was started from your Finance tab. It usually reaches your bank in ${WITHDRAW_ETA}.`);
+  return json({ ok: true, amount: asked, status: (data && data.status) || null, fee: WITHDRAW_FEE, eta: WITHDRAW_ETA }, 200, corsHeaders);
 }
 
 // Every charge across every game in one list, for the admin Finance tab —

@@ -124,7 +124,8 @@
     if (/\/gm\/get$/.test(path)) data = { isGm: true, isAdmin: true, slug: 'ash', name: 'Ash' };
     else if (/\/pay\/admin\/games$/.test(path)) data = { games: GAMES };
     else if (/\/pay\/admin\/roster$/.test(path)) data = roster(body.game);
-    else if (/\/pay\/admin\/balance$/.test(path)) data = { mode: 'live', total: 42.5, withdrawable: 31.2 };
+    else if (/\/pay\/admin\/balance$/.test(path)) data = { mode: 'live', total: 42.5, withdrawable: 31.2, pending: 8.3, reserve: 3, withdrawReady: true, fee: 2.5, eta: 'usually 1 to 5 business days, sometimes up to 10' };
+    else if (/\/pay\/admin\/withdraw$/.test(path)) data = { ok: true, amount: body.amount, fee: 2.5, eta: 'usually 1 to 5 business days, sometimes up to 10' };
     else if (path.indexOf('/pay/admin/game-price-cancel') !== -1) { delete pendingPrice[body.game]; data = { ok: true }; }
     else if (path.indexOf('/pay/admin/game-price') !== -1) {
       var next = body.price == null ? 10 : body.price;

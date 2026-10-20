@@ -893,6 +893,12 @@ body.pc-open { overflow: hidden; }
 .pm-field { display: grid; gap: .35em; font-size: .78rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
 .pm-field select { font: inherit; font-size: .95rem; font-weight: 700; letter-spacing: 0; text-transform: none; padding: .7em .9em; color: #fff; }
 .pm-field select option { color: #111; }
+.wd-big { font-family: 'Poppins', 'Segoe UI', sans-serif; font-size: 2.8rem; font-weight: 800; color: var(--gold); text-align: center; line-height: 1.1; margin-top: .1em; }
+.wd-sub { margin: 0; text-align: center; color: var(--text-muted); }
+.wd-rows { display: grid; gap: .1em; border-top: 1px solid rgba(255,255,255,.12); }
+.wd-row { display: flex; justify-content: space-between; gap: 1em; padding: .65em 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: .95rem; }
+.wd-row span { color: var(--text-muted); }
+.wd-row b { text-align: right; }
 .pm-note { margin: 0; font-size: .8rem; color: var(--text-muted); }
 @media (max-width: 560px) { .gp-go { width: 100%; } }
 
@@ -1016,7 +1022,7 @@ body.pc-open { overflow: hidden; }
           <span class="pay-badge" id="fin-mode-badge"></span>
           <div class="fin-balance-amount" id="fin-balance-amount"></div>
         </div>
-        <button type="button" class="btn btn-primary" id="fin-withdraw-btn">Withdraw ↗</button>
+        <button type="button" class="btn btn-primary" id="fin-withdraw-btn">Withdraw</button>
         <p class="slot-status error" id="fin-withdraw-warn" hidden></p>
       </div>
 
@@ -3204,6 +3210,7 @@ window.AshSlots = (function () {
   var MIN_WITHDRAW = 10; // Whop's own minimum withdrawal amount
   var lastTotal = null;
   var lastWithdrawable = null;
+  var lastBalance = null;
 
   function loadBalance() {
     var status = document.getElementById('fin-balance-status');
@@ -3218,6 +3225,7 @@ window.AshSlots = (function () {
       status.textContent = '';
       lastTotal = d.total;
       lastWithdrawable = d.withdrawable;
+      lastBalance = d;
       box.hidden = false;
       document.getElementById('fin-mode-badge').className = 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn');
       document.getElementById('fin-mode-badge').textContent = d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)';
@@ -3245,8 +3253,83 @@ window.AshSlots = (function () {
       return;
     }
     warn.hidden = true;
-    window.open('https://whop.com/dashboard', '_blank', 'noopener');
+    openWithdraw();
   });
+
+  // The withdraw pop-up: what you are taking out, what is still clearing, what Whop is holding, what it costs
+  // and when it arrives. One button to confirm; nothing else to fill in.
+  function openWithdraw() {
+    var d = lastBalance || {};
+    var amount = d.withdrawable || 0;
+    var fee = d.fee != null ? d.fee : 2.5;
+    var eta = d.eta || 'usually 1 to 5 business days, sometimes up to 10';
+    var back = el('div', 'pc-back pc-center');
+    var box = el('div', 'pm');
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Withdraw your money');
+    function close() { document.removeEventListener('keydown', onKey); back.remove(); document.body.classList.remove('pc-open'); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    back.addEventListener('click', function (e) { if (e.target === back) close(); });
+    document.addEventListener('keydown', onKey);
+
+    function row(label, value, cls) {
+      var r = el('div', 'wd-row' + (cls ? ' ' + cls : ''));
+      r.append(el('span', null, label), el('b', null, value));
+      return r;
+    }
+    var err = el('p', 'slot-status error');
+    var go = el('button', 'pc-btn primary', d.withdrawReady ? 'Yes, withdraw ' + money(amount) : 'Open Whop to withdraw');
+    go.type = 'button';
+    var cancel = el('button', 'pc-btn', 'Cancel');
+    cancel.type = 'button';
+    cancel.addEventListener('click', close);
+    var foot = el('div', 'pm-foot');
+    foot.append(cancel, go);
+
+    box.append(el('h3', null, 'Withdraw your money?'));
+    box.append(el('div', 'wd-big', money(amount)));
+    box.append(el('p', 'wd-sub', 'is ready to withdraw to your bank'));
+    var rows = el('div', 'wd-rows');
+    if ((d.pending || 0) > 0) rows.append(row('Still pending', money(d.pending)));
+    if ((d.reserve || 0) > 0) rows.append(row('Reserved by Whop', money(d.reserve)));
+    rows.append(row('Whop transfer fee', 'about ' + money(fee)));
+    rows.append(row('Arrives in your bank', eta));
+    box.append(rows);
+    if ((d.pending || 0) > 0) box.append(el('p', 'pm-note', 'Pending money is still clearing. It becomes available to withdraw on its own, so you can come back later for it.'));
+    if (!d.withdrawReady) box.append(el('p', 'pm-note', 'Withdrawing without leaving this page is not switched on yet, so this opens Whop, where you finish it.'));
+    box.append(err, foot);
+
+    go.addEventListener('click', function () {
+      if (!d.withdrawReady) { window.open('https://whop.com/dashboard', '_blank', 'noopener'); close(); return; }
+      go.disabled = true; cancel.disabled = true;
+      go.textContent = 'Working...';
+      err.textContent = '';
+      call('admin/withdraw', { amount: amount }).then(function (r) {
+        box.innerHTML = '';
+        box.append(el('h3', null, 'Done!'));
+        box.append(el('div', 'wd-big', money(r.amount)));
+        box.append(el('p', 'wd-sub', 'is on its way to your bank'));
+        var rows2 = el('div', 'wd-rows');
+        rows2.append(row('Whop transfer fee', 'about ' + money(r.fee != null ? r.fee : fee)), row('Arrives in your bank', r.eta || eta));
+        var ok = el('button', 'pc-btn primary', 'Close');
+        ok.type = 'button';
+        ok.addEventListener('click', close);
+        box.append(rows2, ok);
+        loadBalance();
+      }).catch(function (e) {
+        err.textContent = e.message || 'Something went wrong. Nothing was withdrawn.';
+        go.disabled = false; cancel.disabled = false;
+        go.textContent = 'Try again';
+        loadBalance();
+      });
+    });
+
+    back.append(box);
+    document.body.classList.add('pc-open');
+    document.body.append(back);
+    go.focus();
+  }
 
   function actionButton(label, fn) {
     var b = el('button', 'pay-mini', label);
