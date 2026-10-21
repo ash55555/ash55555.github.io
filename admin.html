@@ -60,6 +60,8 @@
   .pay-table { border-collapse: collapse; width: 100%; font-size: .88rem; }
   .pay-table th, .pay-table td { border-bottom: 1px solid var(--border); padding: .55em .6em; text-align: left; vertical-align: top; white-space: nowrap; }
   .pay-table th { color: var(--text-muted); font-weight: 700; font-size: .78rem; }
+  /* A long reason (for example Whop saying a payment could not be processed) wraps in its cell instead of stretching the whole page. */
+  .pay-table td .pay-muted { display: block; white-space: normal; max-width: 260px; }
   .pay-cell { display: grid; gap: .3em; justify-items: start; }
   .pay-cell.skipped .pay-state { color: var(--gold); }
   .pay-state.paid { color: var(--success); }
@@ -154,7 +156,8 @@
   .camp-pill { font-size: .72rem; font-weight: 800; border-radius: 999px; padding: .2em .75em; background: rgba(14,9,28,.65); border: 1px solid rgba(255,255,255,.22); color: rgba(255,255,255,.9); backdrop-filter: blur(4px); }
   .camp-pill.on { color: #b7f0c9; border-color: rgba(120,220,160,.55); background: rgba(40,140,80,.3); }
   .camp-pill.warn { color: var(--gold); border-color: rgba(242,184,79,.5); }
-  .camp-groups { padding: .3em 1.1em 1.1em; display: grid; gap: .6em; }
+  .camp-groups { padding: .3em 1.1em 1.1em; display: grid; grid-template-columns: minmax(0, 1fr); gap: .6em; }
+  .camp-groups > details { min-width: 0; }
   .camp-groups .pay-details { margin: 0; border-radius: 14px; background: rgba(255,255,255,.03); box-shadow: none; }
   .camp-groups .pay-details > summary.slot-sum { position: relative; overflow: hidden; border-radius: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: .6em 1em; padding: .85em 1.1em .85em 1.7em; font-family: 'Nunito', sans-serif; font-size: .95rem; }
   .camp-groups .pay-details > summary.slot-sum::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; background: rgba(255,255,255,.2); }
