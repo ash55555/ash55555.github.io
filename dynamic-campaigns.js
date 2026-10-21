@@ -26,6 +26,18 @@
     return 'Weekly session, shown in your time zone';
   }
 
+  function wireChip(chip) {
+    chip.addEventListener('click', function () {
+      var params = new URLSearchParams({
+        campaign: chip.dataset.campaign, slot: chip.dataset.slot || '', group: chip.dataset.group || '',
+        day: chip.dataset.day, hour: chip.dataset.hour, minute: chip.dataset.minute, offset: chip.dataset.offset,
+        freq: chip.dataset.freq || 'weekly', anchor: chip.dataset.anchor || '',
+        embed: '1',
+      });
+      if (typeof openJoinPopup === 'function') openJoinPopup('player.html?' + params.toString());
+    });
+  }
+
   function buildCard(c) {
     var href = 'blog/campaign.html?slug=' + encodeURIComponent(c.slug);
 
@@ -93,15 +105,7 @@
       if (event.target.closest('a, button')) return;
       window.location.href = href;
     });
-    chip.addEventListener('click', function () {
-      var params = new URLSearchParams({
-        campaign: chip.dataset.campaign, slot: '', group: '',
-        day: chip.dataset.day, hour: chip.dataset.hour, minute: chip.dataset.minute, offset: chip.dataset.offset,
-        freq: chip.dataset.freq || 'weekly', anchor: chip.dataset.anchor || '',
-        embed: '1',
-      });
-      if (typeof openJoinPopup === 'function') openJoinPopup('player.html?' + params.toString());
-    });
+    wireChip(chip);
 
     return { art: art, chip: chip };
   }
@@ -115,60 +119,102 @@
     .then(function (d) { return (d && d.seats) || {}; })
     .catch(function () { return {}; });
 
-  function watchLiveTime(slug, chip) {
+  // Follows every group of one campaign: its time, its seats, and a chip of its own for each group
+  // the Game Master opens in the admin (a full or paused group is handled the same way as before).
+  function watchLiveTime(slug, baseChip) {
     if (typeof firebase === 'undefined' || typeof FIREBASE_CONFIG === 'undefined' || !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.indexOf('REPLACE_WITH') === 0) return;
-    var lastSlot = null;
-    function applySeats(onlineSeats) {
-      if (!lastSlot || typeof lastSlot.max !== 'number') return;
-      var seatsEl = chip.querySelector('.session-seats');
+    var chipsBySlot = { 'default': baseChip };
+    var lastChip = baseChip;
+    var lastSlots = null;
+    var onlineSeats = {};
+
+    function setGroup(chip, group) {
+      chip.dataset.group = group || '';
+      var text = chip.querySelector('.session-text');
+      var label = chip.querySelector('.session-group');
+      if (!group) { if (label) label.remove(); return; }
+      if (!label && text) { label = document.createElement('span'); label.className = 'session-group'; text.insertBefore(label, text.firstChild); }
+      if (label) label.textContent = group;
+    }
+    function chipFor(id, slot) {
+      if (chipsBySlot[id]) return chipsBySlot[id];
+      if (slot.enabled === false) return null; // a group that is not open yet gets no chip
+      var chip = baseChip.cloneNode(true);
+      chip.className = 'session-chip';
+      chip.disabled = false;
+      chip.dataset.slot = id;
+      lastChip.insertAdjacentElement('afterend', chip);
+      lastChip = chip;
+      wireChip(chip);
+      chipsBySlot[id] = chip;
+      return chip;
+    }
+    function applyOne(id, slot, chip) {
+      var seatKey = id === 'default' ? slug : slug + '::' + id;
+      var offset = slot.offset != null ? slot.offset : 1;
+      chip.dataset.campaign = slug;
+      chip.dataset.day = slot.day; chip.dataset.hour = slot.hour; chip.dataset.minute = slot.minute || 0; chip.dataset.offset = offset;
+      chip.dataset.freq = slot.freq || 'weekly'; chip.dataset.anchor = slot.anchor || '';
+      if (slot.source) chip.dataset.source = slot.source;
+      setGroup(chip, slot.group);
+      var mainEl = chip.querySelector('.session-main');
+      var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor) : null;
+      if (next && mainEl && typeof formatLocal === 'function') mainEl.textContent = formatLocal(next);
+      var subEl = chip.querySelector('.session-sub');
       var ctaEl = chip.querySelector('.session-chip-cta');
-      if (!seatsEl) return;
-      var filled = (lastSlot.filled || 0) + (onlineSeats[slug] || 0);
-      var remaining = lastSlot.max - filled;
-      seatsEl.textContent = remaining > 0
-        ? remaining + ' seat' + (remaining === 1 ? '' : 's') + ' left (' + filled + '/' + lastSlot.max + ')'
-        : 'Full (' + filled + '/' + lastSlot.max + ')';
-      if (remaining <= 0) {
-        chip.classList.add('is-full'); chip.disabled = true;
-        if (ctaEl) ctaEl.textContent = 'Full';
-        chip.classList.add('is-full-hidden'); // a full group is not shown to visitors at all
+      var seatsEl = chip.querySelector('.session-seats');
+      chip.classList.remove('is-full', 'is-full-hidden');
+      chip.disabled = false;
+      if (ctaEl) ctaEl.textContent = 'Join';
+      // A one-shot with no next occurrence has already happened; there is nothing left to join.
+      if (slot.freq === 'once' && !next) {
+        if (subEl) subEl.textContent = 'This one-shot has already run';
+        if (ctaEl) ctaEl.textContent = 'Ended';
+        chip.disabled = true;
+        chip.classList.add('is-full', 'is-full-hidden');
+        return;
+      }
+      if (slot.enabled === false) {
+        if (subEl) subEl.textContent = 'Not currently running';
+        if (ctaEl) ctaEl.textContent = 'Paused';
+        if (seatsEl) seatsEl.textContent = '';
+        chip.disabled = true;
+        chip.classList.add('is-full');
+        return;
+      }
+      if (subEl) subEl.textContent = freqLabel(slot.freq);
+      if (typeof slot.max === 'number' && seatsEl) {
+        var filled = (slot.filled || 0) + (onlineSeats[seatKey] || 0);
+        var remaining = slot.max - filled;
+        seatsEl.textContent = remaining > 0
+          ? remaining + ' seat' + (remaining === 1 ? '' : 's') + ' left (' + filled + '/' + slot.max + ')'
+          : 'Full (' + filled + '/' + slot.max + ')';
+        if (remaining <= 0) {
+          chip.classList.add('is-full'); chip.disabled = true;
+          if (ctaEl) ctaEl.textContent = 'Full';
+          chip.classList.add('is-full-hidden'); // a full group is not shown to visitors at all
+        }
       }
       if (window.AshJoined) window.AshJoined.mark(chip);
     }
-    try {
-      firebase.database().ref('campaigns/' + slug + '/slots/default').on('value', function (snap) {
-        var slot = snap.val();
+    function applyAll() {
+      if (!lastSlots) return;
+      Object.keys(lastSlots).forEach(function (id) {
+        var slot = lastSlots[id];
         if (!slot) return;
-        lastSlot = slot;
-        var offset = slot.offset != null ? slot.offset : 1;
-        chip.dataset.day = slot.day; chip.dataset.hour = slot.hour; chip.dataset.minute = slot.minute || 0; chip.dataset.offset = offset;
-        chip.dataset.freq = slot.freq || 'weekly'; chip.dataset.anchor = slot.anchor || '';
-        if (slot.source) chip.dataset.source = slot.source;
-        var mainEl = chip.querySelector('.session-main');
-        var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor) : null;
-        if (next && mainEl && typeof formatLocal === 'function') mainEl.textContent = formatLocal(next);
-        var subEl = chip.querySelector('.session-sub');
-        var ctaEl = chip.querySelector('.session-chip-cta');
-        // A one-shot with no next occurrence has already happened; there is nothing left to join.
-        if (slot.freq === 'once' && !next) {
-          if (subEl) subEl.textContent = 'This one-shot has already run';
-          if (ctaEl) ctaEl.textContent = 'Ended';
-          chip.disabled = true;
-          chip.classList.add('is-full', 'is-full-hidden');
-          return;
-        }
-        if (slot.enabled === false) {
-          if (subEl) subEl.textContent = 'Not currently running';
-          if (ctaEl) ctaEl.textContent = 'Paused';
-          chip.disabled = true;
-          chip.classList.add('is-full');
-          return;
-        }
-        if (subEl) subEl.textContent = freqLabel(slot.freq);
-        chip.disabled = false;
-        chip.classList.remove('is-full');
-        chip.classList.remove('is-full-hidden');
-        onlineSeatsPromise.then(applySeats);
+        var chip = chipFor(id, slot);
+        if (chip) applyOne(id, slot, chip);
+      });
+      // the starting placeholder chip stands for the default group; if that group does not exist, it goes
+      if (!lastSlots['default']) baseChip.classList.add('is-full-hidden');
+    }
+    onlineSeatsPromise.then(function (seats) { onlineSeats = seats || {}; applyAll(); });
+    try {
+      firebase.database().ref('campaigns/' + slug + '/slots').on('value', function (snap) {
+        var slots = snap.val();
+        if (!slots) return; // no live schedule yet; the placeholder stays as-is
+        lastSlots = slots;
+        applyAll();
       }, function () { /* no live time yet; the placeholder stays as-is */ });
     } catch (e) { /* Firebase not configured yet */ }
   }

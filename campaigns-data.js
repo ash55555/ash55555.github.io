@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function () {
     return;
   }
 
-  var chips = document.querySelectorAll('.session-chip[data-campaign]');
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.session-chip[data-campaign]'));
   if (!chips.length) return;
 
   function chipKey(chip) {
@@ -44,6 +44,37 @@ document.addEventListener('DOMContentLoaded', function () {
   chips.forEach(function (chip) {
     chipsByKey[chipKey(chip)] = chip;
   });
+
+  // The page only has a chip for the groups it was written with. A group opened later in the admin has none,
+  // so one is made here (a copy of the campaign's first chip), put beside the others and wired like them.
+  function ensureChips(campaign, slots) {
+    var template = null, last = null;
+    chips.forEach(function (c) { if (c.dataset.campaign === campaign) { if (!template) template = c; last = c; } });
+    if (!template) return; // this page has no chips for this campaign
+    Object.keys(slots).forEach(function (slotId) {
+      var slot = slots[slotId];
+      if (!slot || chipsByKey[campaign + '::' + slotId] || slot.enabled === false) return;
+      var chip = template.cloneNode(true);
+      chip.className = 'session-chip';
+      chip.disabled = false;
+      chip.__wired = false;
+      if (slotId === 'default') delete chip.dataset.slot; else chip.dataset.slot = slotId;
+      chip.dataset.group = slot.group || '';
+      var text = chip.querySelector('.session-text');
+      var label = chip.querySelector('.session-group');
+      if (text && !label) {
+        label = document.createElement('span');
+        label.className = 'session-group';
+        text.insertBefore(label, text.firstChild);
+      }
+      if (label) label.textContent = slot.group || '';
+      last.insertAdjacentElement('afterend', chip);
+      last = chip;
+      chips.push(chip);
+      chipsByKey[campaign + '::' + slotId] = chip;
+      if (window.AshWireSessionChip) window.AshWireSessionChip(chip);
+    });
+  }
 
   function applySlotToChip(chip, slot) {
     var seatsEl = chip.querySelector('.session-seats');
@@ -131,6 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
     Object.keys(data).forEach(function (campaign) {
       var slots = data[campaign] && data[campaign].slots;
       if (!slots) return;
+      ensureChips(campaign, slots);
 
       var seenChips = [];
       Object.keys(slots).forEach(function (slotId) {

@@ -308,9 +308,12 @@ function openJoinPopup(src) {
 // both, at the small cost of leaving the campaign page to do it.
 const MOBILE_JOIN_BREAKPOINT = 720;
 
-function setupSessionButtons() {
-  document.querySelectorAll(".session-chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
+// Makes one session chip open the join page. Chips made after the page loaded (a group added in the admin)
+// use it too, so every group opens its own join page.
+function wireSessionChip(chip) {
+  if (chip.__wired) return;
+  chip.__wired = true;
+  chip.addEventListener("click", () => {
       const isMobile = window.innerWidth <= MOBILE_JOIN_BREAKPOINT;
       const params = new URLSearchParams({
         campaign: chip.dataset.campaign || "",
@@ -332,7 +335,11 @@ function setupSessionButtons() {
       const url = base + "?" + params.toString();
       window.location.href = url; // joining is its own page now, on every screen size
     });
-  });
+}
+window.AshWireSessionChip = wireSessionChip;
+
+function setupSessionButtons() {
+  document.querySelectorAll(".session-chip").forEach(wireSessionChip);
 }
 
 function setupClickableCards() {
