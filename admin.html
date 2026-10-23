@@ -2577,15 +2577,15 @@ window.AshSlots = (function () {
         var unit = perSeat(v);
         if (unit < 5) {
           hint.textContent = '';
-          err.textContent = seats > 1 ? 'The lowest price is $5 per seat (' + money(5 * seats) + ' total).' : 'The lowest price is $5.';
+          err.textContent = seats > 1 ? 'The lowest total is ' + money(5 * seats) + '.' : 'The lowest price is $5.';
           go.disabled = true;
           return;
         }
         var actualTotal = Math.round(unit * seats * 100) / 100;
-        var note = seats > 1 ? money(unit) + ' per seat' + (actualTotal !== v ? ', ' + money(actualTotal) + ' total' : '') + '. ' : '';
-        if (unit === std) hint.textContent = note + 'That is the standard price for this game.';
-        else if (unit < std) hint.textContent = note + money(std - unit) + ' less than the standard ' + money(std) + ' per seat.';
-        else hint.textContent = note + money(unit - std) + ' more than the standard ' + money(std) + ' per seat.';
+        var note = actualTotal !== v ? 'Rounds to ' + money(actualTotal) + ' total (' + seats + ' seats don\'t split ' + money(v) + ' evenly). ' : '';
+        if (v === stdTotal) hint.textContent = note + 'That is the standard price for this game.';
+        else if (v < stdTotal) hint.textContent = note + money(stdTotal - v) + ' less than the standard ' + money(stdTotal) + ' per session.';
+        else hint.textContent = note + money(v - stdTotal) + ' more than the standard ' + money(stdTotal) + ' per session.';
         go.disabled = unit === cur;
       }
       input.addEventListener('input', refresh);
