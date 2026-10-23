@@ -558,17 +558,27 @@ function setupSignupModal() {
     firebase.auth().onAuthStateChanged(applyAuthState);
   }
 
+  let closeTimer = null;
+
   function openModal() {
     lastFocused = document.activeElement;
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
     modal.hidden = false;
     document.body.classList.add('modal-open');
+    // One forced layout read between un-hiding and adding .is-open, so the
+    // browser commits the "just appeared" state before the class flips —
+    // otherwise it skips straight to open with nothing to transition from.
+    void modal.offsetHeight;
+    modal.classList.add('is-open');
     if (!currentUser) emailInput.focus();
   }
 
   function closeModal() {
-    modal.hidden = true;
+    modal.classList.remove('is-open');
     document.body.classList.remove('modal-open');
     if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+    if (closeTimer) clearTimeout(closeTimer);
+    closeTimer = setTimeout(() => { modal.hidden = true; closeTimer = null; }, 220);
   }
 
   triggers.forEach((el) => el.addEventListener('click', () => {

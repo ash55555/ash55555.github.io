@@ -20,7 +20,7 @@
   var CHIP_ICON = { All: '✨', 'Seats open': '🪑' };
   var CAT_ORDER = ['Horror', 'Mystery', 'Political', 'Fey', 'Survival', 'Adventure', 'Comedy'];
 
-  var games = [], gms = {}, cat = 'All', q = '';
+  var games = [], gms = {}, cat = 'All', q = '', firstGridDraw = true;
 
   function $(id) { return document.getElementById(id); }
   function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
@@ -106,6 +106,17 @@
       return (g.title + ' ' + g.eyebrow + ' ' + g.hook + ' ' + (m.name || '') + ' ' + g.cat).toLowerCase().indexOf(q) !== -1;
     });
     $('hx-grid').innerHTML = list.length ? list.map(card).join('') : '<div class="hx-empty"><b>No games match that yet.</b><br>Try a different word, or clear the filter.</div>';
+    // Only the very first draw (page load) gets a staggered entrance. Every
+    // later draw is triggered by typing a search or clicking a filter chip,
+    // which happens far too often for a replayed animation to stay pleasant
+    // (see find-animation-opportunities: tens/day → near-imperceptible or none).
+    if (firstGridDraw) {
+      firstGridDraw = false;
+      Array.prototype.forEach.call($('hx-grid').querySelectorAll('.hx-card'), function (el, i) {
+        el.style.animationDelay = Math.min(i * 40, 400) + 'ms';
+        el.classList.add('hx-card-enter');
+      });
+    }
     var who = {}; list.forEach(function (g) { who[g.gm] = 1; });
     var k = Object.keys(who).length;
     $('hx-count').textContent = list.length + (list.length === 1 ? ' game' : ' games') + ' from ' + k + (k === 1 ? ' game master' : ' game masters') + ', soonest first';

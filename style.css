@@ -14,6 +14,9 @@
   --radius: 18px;
   --font-display: 'Poppins', 'Segoe UI', sans-serif;
   --font-body: 'Nunito', 'Segoe UI', sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 * { box-sizing: border-box; }
@@ -99,7 +102,10 @@ p { margin: 0 0 1em; }
   transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
   font-family: var(--font-body);
 }
-.btn:hover { transform: translateY(-2px); }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { transform: translateY(-2px); }
+}
+.btn:active { transform: scale(0.97); }
 
 .btn-primary {
   background: linear-gradient(135deg, var(--gold), #d99a2e);
@@ -943,10 +949,16 @@ p { margin: 0 0 1em; }
   justify-content: center;
   padding: 1.5em;
   z-index: 100;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
 }
 
 .modal[hidden] {
   display: none;
+}
+
+.modal.is-open {
+  opacity: 1;
 }
 
 body.modal-open { overflow: hidden; }
@@ -960,6 +972,14 @@ body.modal-open { overflow: hidden; }
   border-radius: 20px;
   padding: 2.2em 2em;
   box-shadow: var(--shadow);
+  opacity: 0;
+  transform: scale(0.96) translateY(8px);
+  transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
+}
+
+.modal.is-open .modal-dialog {
+  opacity: 1;
+  transform: scale(1) translateY(0);
 }
 
 .modal-dialog h3 {
@@ -1162,7 +1182,7 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 720px) {
   .nav-toggle { display: flex; }
   .nav-links {
-    display: none;
+    display: flex;
     position: absolute;
     top: 100%;
     left: 0;
@@ -1173,8 +1193,12 @@ body.modal-open { overflow: hidden; }
     align-items: flex-start;
     padding: 1em 1.5em 1.6em;
     gap: 1em;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity 200ms var(--ease-drawer), transform 200ms var(--ease-drawer);
   }
-  .nav-links.open { display: flex; }
+  .nav-links.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
   .nav-cta { align-self: flex-start; }
   .nav-auth { align-self: flex-start; }
 

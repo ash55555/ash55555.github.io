@@ -26,6 +26,19 @@
 <link rel="stylesheet" href="style.css?v=20261019a">
 <link rel="stylesheet" href="home.css?v=20261007c">
 <link rel="stylesheet" href="arcane.css?v=20261008b">
+<script>
+  // Marks this as a fresh session so the hero gets its one-time entrance
+  // (home.css, .hx-fresh rules). Runs before anything paints, and before
+  // CSS can see it, so there's never a flash of the animated state. Only
+  // ever set once per browser session, so navigating around the site
+  // afterward shows the hero at rest, not replaying the animation.
+  try {
+    if (!sessionStorage.getItem('hx-hero-seen')) {
+      document.documentElement.classList.add('hx-fresh');
+      sessionStorage.setItem('hx-hero-seen', '1');
+    }
+  } catch (err) { /* sessionStorage blocked (private mode etc) — just skip the entrance */ }
+</script>
 </head>
 <body>
 

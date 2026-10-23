@@ -31,12 +31,24 @@ html { scroll-behavior: smooth; }
   @keyframes sheen { to { background-position: -200% 0; } }
   .hx-lede { max-width: 38em; margin: 0 auto 1.9em; color: var(--muted); font-size: 1.14rem; }
 
+  /* First-ever paint of a session only: a small rise-in for the hero, gated
+     by the .hx-fresh class a head script adds before anything paints (see
+     index.html), so there is nothing to flash past if it's absent — a
+     returning-within-session visitor just gets the normal, static hero. */
+  @keyframes hx-rise-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .hx-fresh .hx-hero .hx-eyebrow { animation: hx-rise-in 500ms var(--ease-out) both; }
+  .hx-fresh .hx-hero h1 { animation: hx-rise-in 500ms var(--ease-out) 70ms both; }
+  .hx-fresh .hx-hero .hx-lede { animation: hx-rise-in 500ms var(--ease-out) 140ms both; }
+  .hx-fresh .hx-hero .hx-search { animation: hx-rise-in 500ms var(--ease-out) 200ms both; }
+  .hx-fresh .hx-hero .hx-chips { animation: hx-rise-in 500ms var(--ease-out) 260ms both; }
+
   .hx-search { display: flex; align-items: center; gap: .6em; max-width: 720px; margin: 0 auto; padding: .45em .45em .45em 1.3em; border-radius: 999px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.22); backdrop-filter: blur(14px); box-shadow: 0 20px 60px rgba(0,0,0,.45), 0 0 0 6px rgba(155,109,255,.08); transition: box-shadow .2s; }
   .hx-search:focus-within { box-shadow: 0 20px 60px rgba(0,0,0,.45), 0 0 0 6px rgba(155,109,255,.28); }
   .hx-search svg { width: 22px; height: 22px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; flex: none; }
   .hx-search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; font: inherit; font-size: 1.05rem; color: var(--ink); padding: .7em 0; }
   .hx-search input::placeholder { color: var(--muted); }
-  .hx-search button { border: 0; border-radius: 999px; padding: .75em 1.6em; font-weight: 800; background: linear-gradient(135deg, #9b6dff, #5b8cff); box-shadow: 0 8px 24px rgba(91,140,255,.45); }
+  .hx-search button { border: 0; border-radius: 999px; padding: .75em 1.6em; font-weight: 800; background: linear-gradient(135deg, #9b6dff, #5b8cff); box-shadow: 0 8px 24px rgba(91,140,255,.45); transition: transform 120ms ease-out; }
+  .hx-search button:active { transform: scale(0.97); }
   .hx-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .6em; margin-top: 1.3em; }
   .hx-chip { display: inline-flex; align-items: center; gap: .45em; padding: .5em 1.15em; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.05); font-weight: 700; font-size: .88rem; color: var(--muted); transition: all .15s; }
   .hx-chip:hover { color: var(--ink); border-color: rgba(255,255,255,.35); transform: translateY(-2px); }
@@ -83,12 +95,22 @@ html { scroll-behavior: smooth; }
   /* ---------- grid cards */
   .hx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1.4em; }
   .hx-card { position: relative; display: flex; flex-direction: column; border-radius: 26px; overflow: hidden; border: 1px solid var(--line); background: var(--glass); backdrop-filter: blur(10px); transition: transform .25s, box-shadow .25s, border-color .25s; }
-  .hx-card:hover { transform: translateY(-8px); border-color: var(--accent); box-shadow: 0 28px 60px rgba(0,0,0,.55), 0 0 0 1px var(--accent), 0 0 38px color-mix(in srgb, var(--accent) 45%, transparent); }
+  @media (hover: hover) and (pointer: fine) {
+    .hx-card:hover { transform: translateY(-8px); border-color: var(--accent); box-shadow: 0 28px 60px rgba(0,0,0,.55), 0 0 0 1px var(--accent), 0 0 38px color-mix(in srgb, var(--accent) 45%, transparent); }
+  }
+  /* Only the very first render of the grid (page load) gets a staggered
+     entrance — home.js adds .hx-card-enter + a delay just that once.
+     Re-renders from typing in search or clicking a filter chip happen too
+     often for this to stay pleasant, so those just appear instantly. */
+  @keyframes hx-card-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .hx-card.hx-card-enter { animation: hx-card-in 320ms var(--ease-out) both; }
   .hx-card .hx-stretch { position: absolute; inset: 0; z-index: 1; }
   .hx-art { position: relative; aspect-ratio: 16 / 10; background-size: cover; background-position: center; display: grid; place-items: center; }
   .hx-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(10,6,20,.92)); }
   .hx-art .hx-em { font-size: 4.4rem; filter: drop-shadow(0 8px 24px rgba(0,0,0,.5)); transition: transform .3s; }
-  .hx-card:hover .hx-art .hx-em { transform: scale(1.18) rotate(-6deg); }
+  @media (hover: hover) and (pointer: fine) {
+    .hx-card:hover .hx-art .hx-em { transform: scale(1.18) rotate(-6deg); }
+  }
   .hx-badge { position: absolute; z-index: 2; top: .9em; left: .9em; padding: .3em .85em; border-radius: 999px; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; background: rgba(10,6,20,.78); border: 1px solid var(--line); backdrop-filter: blur(8px); }
   .hx-badge.hx-open { color: #7be0a3; border-color: rgba(123,224,163,.5); }
   .hx-cat { position: absolute; z-index: 2; top: .9em; right: .9em; padding: .3em .85em; border-radius: 999px; font-size: .72rem; font-weight: 800; background: color-mix(in srgb, var(--accent) 22%, rgba(10,6,20,.8)); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); }
