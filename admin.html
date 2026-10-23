@@ -2517,21 +2517,30 @@ window.AshSlots = (function () {
     }
 
     function openPrice(p, data, ts, by) {
+      // What's actually stored is a per-seat price. But when a player holds more than
+      // one seat, that per-seat number is confusing to edit directly, so this dialog
+      // shows and accepts the TOTAL they pay per session, and converts to per-seat
+      // underneath (total / seats) when it saves.
+      var seats = seatsOf(p);
       var std = data.game.price;
+      var stdTotal = Math.round(std * seats * 100) / 100;
       var cur = unitPrice(p, data);
+      var curTotal = Math.round(cur * seats * 100) / 100;
       var back = el('div', 'pc-back pc-center');
       var box = el('div', 'pm');
       box.setAttribute('role', 'dialog');
       box.setAttribute('aria-modal', 'true');
       box.setAttribute('aria-label', 'Change price for ' + pname(p));
       box.append(el('h3', null, 'Change price for ' + pname(p)));
-      box.append(el('p', 'pm-lead', 'This is what they are charged for each session they play, starting with the next one. Anything already charged stays as it is, and nobody else in the game is affected.'));
+      box.append(el('p', 'pm-lead', seats > 1
+        ? 'This is the total they are charged for each session, across all ' + seats + ' seats they hold, starting with the next one. Anything already charged stays as it is, and nobody else in the game is affected.'
+        : 'This is what they are charged for each session they play, starting with the next one. Anything already charged stays as it is, and nobody else in the game is affected.'));
 
       var money$ = el('div', 'pm-money');
       var input = document.createElement('input');
-      input.type = 'number'; input.min = '5'; input.step = '0.5'; input.value = String(cur);
-      input.setAttribute('aria-label', 'Price per session in dollars');
-      money$.append(el('span', null, '$'), input, el('span', 'pm-unit', seatsOf(p) > 1 ? 'per seat, per session' : 'per session'));
+      input.type = 'number'; input.min = String(5 * seats); input.step = '0.5'; input.value = String(curTotal);
+      input.setAttribute('aria-label', seats > 1 ? 'Total price per session in dollars' : 'Price per session in dollars');
+      money$.append(el('span', null, '$'), input, el('span', 'pm-unit', seats > 1 ? 'per session, all ' + seats + ' seats' : 'per session'));
       box.append(money$);
 
       var chips = el('div', 'pm-chips');
@@ -2539,9 +2548,10 @@ window.AshSlots = (function () {
       [std, std - 2, std - 5].forEach(function (v) {
         if (v < 5 || seen[v]) return;
         seen[v] = 1;
-        var c = el('button', 'pm-chip', v === std ? 'Standard ' + money(v) : money(v));
+        var total = Math.round(v * seats * 100) / 100;
+        var c = el('button', 'pm-chip', v === std ? 'Standard ' + money(total) : money(total));
         c.type = 'button';
-        c.addEventListener('click', function () { input.value = String(v); refresh(); input.focus(); });
+        c.addEventListener('click', function () { input.value = String(total); refresh(); input.focus(); });
         chips.append(c);
       });
       box.append(chips);
@@ -2559,15 +2569,24 @@ window.AshSlots = (function () {
       box.append(foot);
 
       function value() { var v = parseFloat(input.value); return isNaN(v) ? null : Math.round(v * 100) / 100; }
+      function perSeat(v) { return v == null ? null : Math.round((v / seats) * 100) / 100; }
       function refresh() {
         var v = value();
         err.textContent = '';
         if (v == null) { hint.textContent = ''; go.disabled = true; return; }
-        if (v < 5) { hint.textContent = ''; err.textContent = 'The lowest price is $5.'; go.disabled = true; return; }
-        if (v === std) hint.textContent = 'That is the standard price for this game.';
-        else if (v < std) hint.textContent = money(std - v) + ' less than the standard ' + money(std) + ' per session.';
-        else hint.textContent = money(v - std) + ' more than the standard ' + money(std) + ' per session.';
-        go.disabled = v === cur;
+        var unit = perSeat(v);
+        if (unit < 5) {
+          hint.textContent = '';
+          err.textContent = seats > 1 ? 'The lowest price is $5 per seat (' + money(5 * seats) + ' total).' : 'The lowest price is $5.';
+          go.disabled = true;
+          return;
+        }
+        var actualTotal = Math.round(unit * seats * 100) / 100;
+        var note = seats > 1 ? money(unit) + ' per seat' + (actualTotal !== v ? ', ' + money(actualTotal) + ' total' : '') + '. ' : '';
+        if (unit === std) hint.textContent = note + 'That is the standard price for this game.';
+        else if (unit < std) hint.textContent = note + money(std - unit) + ' less than the standard ' + money(std) + ' per seat.';
+        else hint.textContent = note + money(unit - std) + ' more than the standard ' + money(std) + ' per seat.';
+        go.disabled = unit === cur;
       }
       input.addEventListener('input', refresh);
       input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !go.disabled) go.click(); });
@@ -2576,13 +2595,14 @@ window.AshSlots = (function () {
       cancel.addEventListener('click', function () { openCard(p, data, ts, by); });
       go.addEventListener('click', function () {
         var v = value();
-        if (v == null || v < 5) return;
+        var unit = perSeat(v);
+        if (unit == null || unit < 5) return;
         go.disabled = true;
         closeLayer();
-        act(function () { return call('admin/player-price', { uid: p.uid, price: v === std ? null : v }); });
+        act(function () { return call('admin/player-price', { uid: p.uid, price: unit === std ? null : unit }); });
       });
       if (p.priceOverride != null) {
-        var reset = el('button', 'pm-reset', 'Back to the standard ' + money(std));
+        var reset = el('button', 'pm-reset', 'Back to the standard ' + money(stdTotal));
         reset.type = 'button';
         reset.addEventListener('click', function () {
           closeLayer();
