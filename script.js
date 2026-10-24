@@ -437,6 +437,7 @@ function setupSignupModal() {
   const signupTrigger = document.querySelector('.nav-cta.js-signup-trigger');
   const modal = document.getElementById('signup-modal');
   if (!triggers.length || !modal) return;
+  modal.classList.add('fx'); // this window fades in; the other pop-ups do not
 
   const form = modal.querySelector('#signup-form');
   const emailInput = modal.querySelector('#signup-email');
