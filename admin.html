@@ -2305,7 +2305,8 @@ window.AshSlots = (function () {
       Messages.openCompose({
         toUid: p.uid, name: pname(p),
         getToken: function () { return firebase.auth().currentUser.getIdToken(); },
-        backHref: 'admin.html#tab=messages', backLabel: 'Open Messages'
+        backHref: 'admin.html#tab=messages', backLabel: 'Open Messages',
+        onOpen: function () { if (window.AshAdminOpenMessages) window.AshAdminOpenMessages(p.uid); }
       });
     }
     function removePlayer(p) {
@@ -4782,7 +4783,7 @@ window.AshSlots = (function () {
   firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
 })();
 </script>
-<script src="messages-ui.js?v=20261010a"></script>
+<script src="messages-ui.js?v=20261026a"></script>
 <script src="tips-admin.js?v=20261009c"></script>
 <script>
 (function () {
@@ -4842,6 +4843,15 @@ window.AshSlots = (function () {
     if (!inst) inst = Messages.mount(document.getElementById('admin-messages'), { getToken: getToken, onUnread: setBadge });
     else inst.refresh();
   }
+  // Jump to the Messages tab (leaving any game page), and open the chat with one person if we know who.
+  window.AshAdminOpenMessages = function (uid) {
+    window.AshGameFrom = null;
+    if (window.location.hash) window.location.hash = '';
+    if (window.AshAdminShowTab) window.AshAdminShowTab('messages');
+    show();
+    if (uid && inst) inst.open(uid);
+    window.scrollTo(0, 0);
+  };
   // Open the conversations the first time the Messages tab is shown (a click, or a link ending in #tab=messages).
   new MutationObserver(function () { if (!panel.hidden) show(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   if (Messages.preview) { show(); return; }

@@ -292,6 +292,9 @@
         box.appendChild(el('h3', null, 'Sent!'));
         box.appendChild(el('p', 'msg-modal-help', 'Your message is on its way to ' + o.name + '.'));
         var go = el('a', 'btn btn-primary', o.backLabel || 'Open my messages'); go.href = o.backHref || 'profile.html#me-messages';
+        // A link back to the page you are already on only changes the address bar, so the button looks dead and the
+        // box stays open. When the page can open Messages itself, close this box and do that instead.
+        if (o.onOpen) go.addEventListener('click', function (e) { e.preventDefault(); close(); o.onOpen(); });
         var ok = el('button', 'gm-pill', 'Close'); ok.type = 'button'; ok.addEventListener('click', close);
         var r2 = el('div', 'msg-modal-btns'); r2.append(ok, go); box.appendChild(r2);
       }).catch(function (err) { status.textContent = err.message; send.disabled = false; });
