@@ -50,5 +50,20 @@ export async function noteAccount(env, sendEmail, user, idToken) {
     const name = String(u.displayName || user.name || '').trim();
     await notify(env, sendEmail, cfg(env).mode, 'new_account', null, `New account: ${email}`,
       `${name ? name + ' ' : ''}(${email}) just created an account on your website with ${how}.`);
+    await sendWelcomeMessage(env, user.sub, name);
   } catch (err) { console.error('new account check failed', err && err.message); }
+}
+
+// Ash's hello, waiting in the new person's Messages. It is sent once: noteAccount only gets this far
+// for an account's first ever visit, and only when the account really was just created.
+const WELCOME = (name) => `Hi ${name}, welcome to Ash Tabletop! I'm Ash, and I run the games here. Have a look around, and if anything catches your eye, you can join straight from its page. If you have any questions about anything, please ask away!`;
+
+async function sendWelcomeMessage(env, uid, displayName) {
+  try {
+    if (!env.ADMIN_UID) return;
+    const first = String(displayName || '').replace(/[<>]/g, '').trim().split(/\s+/)[0].slice(0, 30) || 'there';
+    const conv = [env.ADMIN_UID, uid].sort().join('|');
+    await env.DB.prepare('INSERT INTO messages (conv, from_uid, to_uid, body, created_at) VALUES (?,?,?,?,?)')
+      .bind(conv, env.ADMIN_UID, uid, WELCOME(first), new Date().toISOString()).run();
+  } catch (err) { console.error('welcome message failed', err && err.message); }
 }
