@@ -1,5 +1,5 @@
-// In-site messages: the Messages section (a list of conversations and the chat itself), and the
-// small "Message <name>" window used on a Game Master's profile page.
+// In-site messages, version 2: a search-and-filter conversation list, a chat that keeps what you are
+// typing when new messages arrive, and the small "Chat with <name>" window.
 // On your own computer (localhost with ?preview=1 in the address) it runs on made-up people and
 // keeps everything in this browser only, so nothing on the live site is touched.
 (function () {
@@ -17,29 +17,38 @@
   }
 
   // ------------------------------------------------------------------ made-up data for the local preview
-  var KEY = 'msgPreviewData';
+  var KEY = 'msgPreviewV2';
   function previewData() {
     var d = null;
     try { d = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { d = null; }
     if (d) return d;
-    var now = Date.now(), m = 60000;
+    var now = Date.now(), m = 60000, h = 3600000, day = 86400000;
     d = {
       people: {
-        mira: { uid: 'mira', name: 'Mira Stonefield', token: 'elf', avatarUrl: null, isGm: false, slug: null },
-        tobias: { uid: 'tobias', name: 'Tobias Reed', token: 'dragon', avatarUrl: null, isGm: false, slug: null },
-        june: { uid: 'june', name: 'June (new player)', token: 'bat', avatarUrl: null, isGm: false, slug: null },
-        gm2: { uid: 'gm2', name: 'Captain Vex', token: 'dagger', avatarUrl: null, isGm: true, slug: 'vex' }
+        mira: { uid: 'mira', name: 'Mira Stonefield', token: 'elf', avatarUrl: null, isGm: false, slug: null, context: 'Curse of Strahd, Group A' },
+        tobias: { uid: 'tobias', name: 'Tobias Reed', token: 'dragon', avatarUrl: null, isGm: false, slug: null, context: 'The Prophecy of the Flying City' },
+        june: { uid: 'june', name: 'June Calloway', token: 'bat', avatarUrl: null, isGm: false, slug: null, context: 'New player, asking about Crooked Moon' },
+        priya: { uid: 'priya', name: 'Priya Nandakumar', token: 'wizard', avatarUrl: null, isGm: false, slug: null, context: 'The Crooked Moon, Group B' },
+        vex: { uid: 'vex', name: 'Captain Vex', token: 'dagger', avatarUrl: null, isGm: true, slug: 'vex', context: '' },
+        dax: { uid: 'dax', name: 'Dax Orrin', token: 'dice', avatarUrl: null, isGm: false, slug: null, context: 'Ravenloft: Undead Survival' }
       },
       msgs: [
-        { id: 1, other: 'mira', mine: false, text: "Hi Ash! I just joined Curse of Strahd and I'm a little nervous because I have never played D&D. Is there anything I should prepare before Session Zero?", at: now - 95 * m, read: true },
-        { id: 2, other: 'mira', mine: true, text: "Welcome Mira! Nothing to prepare, I'll help you build your character in Session Zero. Just bring yourself and a few ideas for who you'd like to be.", at: now - 80 * m, read: true },
-        { id: 3, other: 'mira', mine: false, text: 'That makes me feel so much better, thank you!! See you Friday.', at: now - 14 * m, read: false },
-        { id: 4, other: 'tobias', mine: false, text: 'Can I skip this week and come back next Monday? Something came up at work.', at: now - 5 * 3600000, read: false },
-        { id: 5, other: 'june', mine: false, text: 'Hello, do you have any open seats in the Crooked Moon group on Saturdays?', at: now - 26 * 3600000, read: true },
-        { id: 6, other: 'june', mine: true, text: 'Hi June! Yes, Group C has room. You can join from the campaign page.', at: now - 25 * 3600000, read: true },
-        { id: 7, other: 'gm2', mine: false, text: 'Welcome to the platform! Let me know if you need anything for your first game.', at: now - 3 * 86400000, read: true }
+        { id: 1, other: 'mira', mine: false, text: "Hi Ash! I just joined Curse of Strahd and I'm a little nervous because I have never played D&D.", at: now - day - 3 * h, read: true },
+        { id: 2, other: 'mira', mine: false, text: 'Is there anything I should prepare before Session Zero?', at: now - day - 3 * h + m, read: true },
+        { id: 3, other: 'mira', mine: true, text: "Welcome Mira! Nothing to prepare, I'll help you build your character in Session Zero.", at: now - day - 2 * h, read: true },
+        { id: 4, other: 'mira', mine: true, text: 'Just bring yourself and a few ideas for who you would like to be.', at: now - day - 2 * h + m, read: true },
+        { id: 5, other: 'mira', mine: false, text: 'That makes me feel so much better, thank you!! See you Friday.', at: now - 14 * m, read: false },
+        { id: 6, other: 'mira', mine: false, text: 'One more thing: do I need to have a Discord account already?', at: now - 12 * m, read: false },
+        { id: 7, other: 'tobias', mine: false, text: 'Can I skip this week and come back next Monday? Something came up at work.', at: now - 5 * h, read: false },
+        { id: 8, other: 'june', mine: false, text: 'Hello, do you have any open seats in the Crooked Moon group on Saturdays?', at: now - 26 * h, read: true },
+        { id: 9, other: 'june', mine: true, text: 'Hi June! Yes, Group C has room. You can join from the campaign page.', at: now - 25 * h, read: true },
+        { id: 10, other: 'priya', mine: true, text: 'Thanks for joining my game! Do you have Discord? Here is mine: ash_gm', at: now - 2 * day, read: true },
+        { id: 11, other: 'priya', mine: false, text: 'Yep! Added you. See you Saturday.', at: now - 2 * day + 4 * m, read: true },
+        { id: 12, other: 'vex', mine: false, text: 'Welcome to the platform! Let me know if you need anything for your first game.', at: now - 4 * day, read: true },
+        { id: 13, other: 'dax', mine: false, text: 'Running ten minutes late tonight, start without me.', at: now - 9 * day, read: true },
+        { id: 14, other: 'dax', mine: true, text: 'No problem, we will wait for you.', at: now - 9 * day + 2 * m, read: true }
       ],
-      next: 8
+      next: 15
     };
     localStorage.setItem(KEY, JSON.stringify(d));
     return d;
@@ -62,8 +71,8 @@
       return { with: d.people[x.with], messages: d.msgs.filter(function (m) { return m.other === x.with; }).map(function (m) { return { id: m.id, mine: m.mine, text: m.text, at: new Date(m.at).toISOString() }; }) };
     },
     send: function (x) {
-      var d = previewData(), to = x.toUid || 'gm2';
-      if (x.toSlug) to = 'gm2';
+      var d = previewData(), to = x.toUid || 'vex';
+      if (x.toSlug) to = 'vex';
       d.msgs.push({ id: d.next++, other: to, mine: true, text: String(x.text || '').slice(0, 1000), at: Date.now(), read: true });
       savePreview(d);
       return { ok: true, with: to };
@@ -85,18 +94,26 @@
     });
   }
 
-  function ago(iso) {
-    var t = new Date(iso).getTime(), s = Math.max(0, (Date.now() - t) / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.round(s / 60) + ' min';
-    if (s < 86400) return Math.round(s / 3600) + ' h';
-    if (s < 7 * 86400) return Math.round(s / 86400) + ' d';
-    return new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  // ------------------------------------------------------------------ how times are written
+  function sameDay(a, b) { return a.toDateString() === b.toDateString(); }
+  function clock(d) { return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); }
+  // In the list: a time today, "Yesterday", a weekday this week, otherwise a date.
+  function rowTime(iso) {
+    var d = new Date(iso), now = new Date();
+    if (sameDay(d, now)) return clock(d);
+    var y = new Date(now); y.setDate(now.getDate() - 1);
+    if (sameDay(d, y)) return 'Yesterday';
+    if (now - d < 6 * 86400000) return d.toLocaleDateString(undefined, { weekday: 'long' });
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
-  function stamp(iso) {
-    var d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  function dayLabel(d) {
+    var now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
+    if (sameDay(d, now)) return 'Today';
+    if (sameDay(d, y)) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
   }
+  function fullStamp(iso) { var d = new Date(iso); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + clock(d); }
+
   function avatar(person, cls) {
     var a = el('span', 'msg-avatar ' + (cls || ''));
     if (person && person.avatarUrl) { var img = document.createElement('img'); img.src = person.avatarUrl; img.alt = ''; a.appendChild(img); }
@@ -108,49 +125,67 @@
   function mount(container, opts) {
     opts = opts || {};
     var getToken = opts.getToken;
-    var openWith = null;
-    var convs = [];
-    var timer = null;
+    var openWith = null, convs = [], timer = null, query = '', onlyUnread = false;
+    var shownCount = -1, shell = null;   // shell = the parts of the open chat that stay put while messages refresh
 
     container.innerHTML = '';
     container.classList.add('msg-root');
     var wrap = el('div', 'msg-wrap');
     var listCol = el('div', 'msg-list-col');
-    var listHead = el('div', 'msg-list-head');
-    listHead.appendChild(el('h2', null, 'Messages'));
-    listCol.appendChild(listHead);
+
+    var head = el('div', 'msg-list-head');
+    var titleRow = el('div', 'msg-list-title');
+    var unreadNote = el('span', 'msg-unread-note');
+    titleRow.append(el('h2', null, 'Messages'), unreadNote);
+    var search = el('input', 'msg-search'); search.type = 'search'; search.placeholder = 'Search people'; search.setAttribute('aria-label', 'Search people');
+    var filters = el('div', 'msg-filters');
+    var allBtn = el('button', 'msg-filter', 'All'), unreadBtn = el('button', 'msg-filter', 'Unread');
+    allBtn.type = unreadBtn.type = 'button';
+    filters.append(allBtn, unreadBtn);
+    head.append(titleRow, search, filters);
+    listCol.appendChild(head);
     var list = el('div', 'msg-list');
     listCol.appendChild(list);
     var threadCol = el('div', 'msg-thread-col');
     wrap.append(listCol, threadCol);
     container.appendChild(wrap);
 
-    function setUnread(n) { if (opts.onUnread) opts.onUnread(n); }
+    function setUnread(n) { unreadNote.textContent = n ? n + ' unread' : ''; if (opts.onUnread) opts.onUnread(n); }
+    function syncFilters() { allBtn.setAttribute('aria-pressed', String(!onlyUnread)); unreadBtn.setAttribute('aria-pressed', String(onlyUnread)); }
+    syncFilters();
+    allBtn.addEventListener('click', function () { onlyUnread = false; syncFilters(); renderList(); });
+    unreadBtn.addEventListener('click', function () { onlyUnread = true; syncFilters(); renderList(); });
+    search.addEventListener('input', function () { query = search.value.trim().toLowerCase(); renderList(); });
+
+    function message(strong, more) {
+      var e = el('div', 'msg-empty');
+      e.appendChild(el('strong', null, strong));
+      if (more) e.appendChild(el('span', null, more));
+      return e;
+    }
 
     function renderList() {
       list.innerHTML = '';
-      if (!convs.length) {
-        var empty = el('div', 'msg-empty');
-        empty.appendChild(el('strong', null, 'No messages yet'));
-        empty.appendChild(el('span', null, 'When someone writes to you, their message shows up here.'));
-        list.appendChild(empty);
-        return;
-      }
-      convs.forEach(function (c) {
+      if (!convs.length) { list.appendChild(message('No messages yet', 'When someone writes to you, their message shows up here.')); return; }
+      var shown = convs.filter(function (c) {
+        return (!onlyUnread || c.unread) && (!query || c.with.name.toLowerCase().indexOf(query) !== -1);
+      });
+      if (!shown.length) { list.appendChild(message(onlyUnread && !query ? 'Nothing unread' : 'No one matches that', onlyUnread && !query ? 'You are all caught up.' : 'Try a different name.')); return; }
+      shown.forEach(function (c) {
         var row = el('button', 'msg-row' + (openWith === c.with.uid ? ' active' : '') + (c.unread ? ' unread' : ''));
         row.type = 'button';
+        if (openWith === c.with.uid) row.setAttribute('aria-current', 'true');
         row.appendChild(avatar(c.with));
         var mid = el('span', 'msg-row-mid');
         var top = el('span', 'msg-row-top');
         top.appendChild(el('b', null, c.with.name));
         if (c.with.isGm) top.appendChild(el('i', 'msg-gm', 'GM'));
-        mid.appendChild(top);
-        mid.appendChild(el('span', 'msg-snippet', (c.mine ? 'You: ' : '') + c.preview));
+        top.appendChild(el('span', 'msg-time', rowTime(c.at)));
+        var bot = el('span', 'msg-row-bot');
+        bot.appendChild(el('span', 'msg-snippet', (c.mine ? 'You: ' : '') + c.preview));
+        if (c.unread) bot.appendChild(el('span', 'msg-badge', String(c.unread)));
+        mid.append(top, bot);
         row.appendChild(mid);
-        var side = el('span', 'msg-row-side');
-        side.appendChild(el('span', 'msg-time', ago(c.at)));
-        if (c.unread) side.appendChild(el('span', 'msg-badge', String(c.unread)));
-        row.appendChild(side);
         row.addEventListener('click', function () { openThread(c.with.uid); });
         list.appendChild(row);
       });
@@ -161,86 +196,118 @@
         convs = d.conversations || [];
         setUnread(d.unread || 0);
         renderList();
-      }).catch(function (err) { list.innerHTML = ''; list.appendChild(el('div', 'msg-empty', err.message)); });
+      }).catch(function (err) { list.innerHTML = ''; list.appendChild(message('Could not load messages', err.message)); });
     }
 
     function showEmptyThread() {
       threadCol.innerHTML = '';
+      shell = null; shownCount = -1;
       wrap.classList.remove('thread-open');
       var e = el('div', 'msg-thread-empty');
-      e.appendChild(el('strong', null, 'Pick a conversation'));
-      e.appendChild(el('span', null, 'Choose someone on the left to read and answer their messages.'));
+      e.appendChild(el('strong', null, 'Select a conversation'));
+      e.appendChild(el('span', null, 'Pick someone from the list to read and reply.'));
       threadCol.appendChild(e);
     }
 
-    function renderThread(d) {
+    // Builds the chat frame once per person: header, empty log, and the typing box.
+    function buildShell(person) {
       threadCol.innerHTML = '';
       wrap.classList.add('thread-open');
-      var head = el('div', 'msg-thread-head');
-      var back = el('button', 'msg-back', '‹ Back'); back.type = 'button';
+      var headEl = el('div', 'msg-thread-head');
+      var back = el('button', 'msg-back', '‹ Messages'); back.type = 'button';
       back.addEventListener('click', function () { openWith = null; renderList(); showEmptyThread(); });
-      head.appendChild(back);
-      head.appendChild(avatar(d.with, 'lg'));
+      headEl.append(back, avatar(person, 'lg'));
       var who = el('div', 'msg-who');
-      who.appendChild(el('b', null, d.with.name));
-      who.appendChild(el('span', null, d.with.isGm ? 'Game Master' : 'Player'));
-      head.appendChild(who);
-      if (d.with.slug === 'ash') { var pl = el('a', 'msg-link', 'View profile'); pl.href = 'ash.html'; head.appendChild(pl); }
+      who.appendChild(el('b', null, person.name));
+      var sub = (person.isGm ? 'Game Master' : 'Player') + (person.context ? ' · ' + person.context : '');
+      who.appendChild(el('span', null, sub));
+      headEl.appendChild(who);
+      if (person.slug === 'ash') { var pl = el('a', 'msg-link', 'View profile'); pl.href = 'ash.html'; headEl.appendChild(pl); }
       var rep = el('button', 'msg-report', 'Report'); rep.type = 'button';
       rep.title = 'Send this conversation to Ash if something is wrong';
       rep.addEventListener('click', function () {
         if (!window.confirm('Report this conversation to Ash? The last few messages will be sent to her.')) return;
-        api('report', { with: d.with.uid }, getToken).then(function () { window.alert('Thank you. Ash has been told.'); }).catch(function (e) { window.alert(e.message); });
+        api('report', { with: person.uid }, getToken).then(function () { window.alert('Thank you. Ash has been told.'); }).catch(function (e) { window.alert(e.message); });
       });
-      head.appendChild(rep);
-      threadCol.appendChild(head);
+      headEl.appendChild(rep);
 
       var log = el('div', 'msg-log');
-      d.messages.forEach(function (m) {
-        var b = el('div', 'msg-bubble ' + (m.mine ? 'mine' : 'theirs'));
-        b.appendChild(el('p', null, m.text));
-        b.appendChild(el('time', null, stamp(m.at)));
-        log.appendChild(b);
-      });
-      threadCol.appendChild(log);
-      log.scrollTop = log.scrollHeight;
+      var col = el('div', 'msg-col');
+      log.appendChild(col);
 
       var form = el('form', 'msg-compose');
-      var ta = el('textarea'); ta.rows = 2; ta.maxLength = 1000; ta.placeholder = 'Write a message...';
-      var send = el('button', 'btn btn-primary', 'Send'); send.type = 'submit';
-      var count = el('small', 'msg-count', '0 / 1000');
-      ta.addEventListener('input', function () { count.textContent = ta.value.length + ' / 1000'; });
-      ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
-      form.append(ta, send, count);
+      var inner = el('div', 'msg-compose-in');
+      var ta = el('textarea'); ta.rows = 1; ta.maxLength = 1000; ta.placeholder = 'Write to ' + person.name.split(' ')[0] + '...';
+      var send = el('button', 'msg-send', 'Send'); send.type = 'submit'; send.disabled = true;
+      var note = el('div', 'msg-compose-note');
+      var hint = el('span', null, 'Enter to send, Shift+Enter for a new line');
+      var count = el('span', 'msg-count');
+      note.append(hint, count);
+      inner.append(ta, send, note);
+      form.appendChild(inner);
+      function sync() {
+        send.disabled = !ta.value.trim();
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 150) + 'px';
+        count.textContent = ta.value.length > 800 ? ta.value.length + ' / 1000' : '';
+      }
+      ta.addEventListener('input', sync);
+      ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         var text = ta.value.trim();
         if (!text) return;
         send.disabled = true;
-        api('send', { toUid: d.with.uid, text: text }, getToken).then(function () {
-          ta.value = ''; count.textContent = '0 / 1000';
-          return openThread(d.with.uid, true);
-        }).catch(function (err) { window.alert(err.message); }).then(function () { send.disabled = false; });
+        api('send', { toUid: person.uid, text: text }, getToken).then(function () {
+          ta.value = ''; sync();
+          return openThread(person.uid, true);
+        }).catch(function (err) { window.alert(err.message); send.disabled = !ta.value.trim(); });
       });
-      threadCol.appendChild(form);
+
+      threadCol.append(headEl, log, form);
+      shell = { uid: person.uid, log: log, col: col, ta: ta };
+    }
+
+    // Fills the log: day labels, and runs of messages from the same person within a few minutes of each other.
+    function paintLog(d) {
+      var log = shell.log, col = shell.col;
+      var nearBottom = shownCount < 0 || log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+      col.innerHTML = '';
+      var run = null, runMine = null, runLast = null, prevDay = null;
+      function endRun() { if (run) run.appendChild(el('time', 'msg-t', clock(runLast))); run = null; }
+      d.messages.forEach(function (m) {
+        var at = new Date(m.at);
+        if (!prevDay || !sameDay(at, prevDay)) { endRun(); col.appendChild(el('div', 'msg-day', dayLabel(at))); }
+        if (!run || runMine !== m.mine || at - runLast > 5 * 60000 || !sameDay(at, prevDay)) {
+          endRun();
+          run = el('div', 'msg-run ' + (m.mine ? 'mine' : 'theirs')); runMine = m.mine;
+          col.appendChild(run);
+        }
+        var b = el('div', 'msg-b', m.text); b.title = fullStamp(m.at);
+        run.appendChild(b);
+        runLast = at; prevDay = at;
+      });
+      endRun();
+      shownCount = d.messages.length;
+      if (nearBottom) log.scrollTop = log.scrollHeight;
     }
 
     function openThread(uid, keepFocus) {
       openWith = uid;
       return api('thread', { with: uid }, getToken).then(function (d) {
-        renderThread(d);
-        if (keepFocus) { var t = threadCol.querySelector('textarea'); if (t) t.focus(); }
+        if (!shell || shell.uid !== uid) buildShell(d.with);
+        paintLog(d);
+        if (keepFocus || !('ontouchstart' in window)) shell.ta.focus();
         return loadList();
-      }).catch(function (err) { threadCol.innerHTML = ''; threadCol.appendChild(el('div', 'msg-thread-empty', err.message)); });
+      }).catch(function (err) { threadCol.innerHTML = ''; shell = null; threadCol.appendChild(el('div', 'msg-thread-empty', err.message)); });
     }
 
     function tick() {
       if (!container.offsetParent) return; // not on screen
       loadList();
-      if (openWith) {
+      if (openWith && shell) {
         api('thread', { with: openWith }, getToken).then(function (d) {
-          var log = threadCol.querySelector('.msg-log');
-          if (log && log.children.length !== d.messages.length) renderThread(d);
+          if (shell && shell.uid === openWith && d.messages.length !== shownCount) paintLog(d);
         }).catch(function () { /* keep what is on screen */ });
       }
     }
@@ -258,7 +325,7 @@
     return setInterval(go, 60000);
   }
 
-  // ------------------------------------------------------------------ "Message <name>": a GM's profile page
+  // ------------------------------------------------------------------ "Chat with <name>": a GM's profile page
   // (toSlug) for a player writing to them, or a GM's own player roster (toUid) for the reverse.
   function openCompose(o) {
     var back = el('div', 'msg-modal');
@@ -281,15 +348,16 @@
     function close() { document.body.classList.remove('msg-modal-open'); back.remove(); }
     cancel.addEventListener('click', close);
     back.addEventListener('mousedown', function (e) { if (e.target === back) close(); });
+    document.addEventListener('keydown', function esc(e) { if (!back.isConnected) { document.removeEventListener('keydown', esc); return; } if (e.key === 'Escape') close(); });
     box.addEventListener('submit', function (e) {
       e.preventDefault();
       var text = ta.value.trim();
-      if (!text) { status.textContent = 'Please write a message first.'; return; }
+      if (!text) { status.textContent = 'Write a message first.'; return; }
       send.disabled = true; status.textContent = 'Sending...';
       var payload = o.toUid ? { toUid: o.toUid, text: text } : { toSlug: o.toSlug, text: text };
       api('send', payload, o.getToken).then(function () {
         box.innerHTML = '';
-        box.appendChild(el('h3', null, 'Sent!'));
+        box.appendChild(el('h3', null, 'Sent'));
         box.appendChild(el('p', 'msg-modal-help', 'Your message is on its way to ' + o.name + '.'));
         var go = el('a', 'btn btn-primary', o.backLabel || 'Open my messages'); go.href = o.backHref || 'profile.html#me-messages';
         // A link back to the page you are already on only changes the address bar, so the button looks dead and the
