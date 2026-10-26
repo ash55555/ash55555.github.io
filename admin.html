@@ -726,7 +726,7 @@
   .cal-orbs { display: none; }
 </style>
 <link rel="stylesheet" href="gm-profile.css?v=20261008a">
-<link rel="stylesheet" href="messages.css?v=20261026b">
+<link rel="stylesheet" href="messages.css?v=20261026c">
 <style id='admin-sessions'>
 /* ===== Players and payments: sessions, session buttons, player actions ===== */
 .pay-sub-row { display: flex; align-items: center; justify-content: space-between; gap: 1em; flex-wrap: wrap; margin: 1.4em 0 .8em; }
@@ -3662,12 +3662,27 @@ window.AshSlots = (function () {
     if (s < 86400) return Math.round(s / 3600) + ' h ago';
     return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   }
+  // The number of unread notifications on the side-menu button (nothing at all when there are none).
+  function setRail(n) {
+    var railDot = document.getElementById('admin-rail-dot');
+    if (!railDot) return;
+    railDot.hidden = !n;
+    railDot.textContent = n > 9 ? '9+' : String(n || '');
+  }
+  // Where each kind of notification takes you when you click it (a game's own notices open that game instead).
+  var GO_TAB = { review: 'reviews', agreement: 'agreements', tip: 'finance', new_account: 'messages', reminder: 'calendar', charge_failed: 'campaigns', gave_up: 'campaigns', joined: 'campaigns', left: 'campaigns', skipped_player: 'campaigns' };
+  function goTab(name) {
+    var btn = document.querySelector('.me-rail-btn[data-tab="' + name + '"]');
+    if (!btn || btn.hidden || btn.offsetParent === null) return false;
+    if (name === 'messages' && window.AshAdminOpenMessages) window.AshAdminOpenMessages(); else if (window.AshAdminShowTab) window.AshAdminShowTab(name);
+    window.scrollTo(0, 0);
+    return true;
+  }
   function render(data) {
     var badge = document.getElementById('note-new');
     badge.hidden = !data.unread;
     badge.textContent = data.unread + ' new';
-    var railDot = document.getElementById('admin-rail-dot');
-    if (railDot) railDot.hidden = !data.unread;
+    setRail(data.unread);
     var gmOnly = window.AshRole && window.AshRole.isGm && !window.AshRole.isAdmin;
     document.getElementById('note-sub').textContent = gmOnly
       ? 'News about your own games, players and reviews shows up here.'
@@ -3684,7 +3699,9 @@ window.AshSlots = (function () {
     data.items.forEach(function (n) {
       var li = document.createElement('li');
       li.className = 'note-item' + (n.read ? '' : ' unread') + (n.game ? ' has-game' : '');
-      li.title = n.game ? 'Click to see this game in Players & payments' : (n.read ? '' : 'Click to mark as read');
+      var dest = n.game ? 'campaigns' : GO_TAB[n.kind];
+      if (dest) li.className += ' has-game';
+      li.title = n.game ? 'Click to see this game in Players & payments' : (dest ? 'Click to open it' : (n.read ? '' : 'Click to mark as read'));
       var kind = document.createElement('span'); kind.className = 'note-kind ' + n.kind; kind.textContent = LABELS[n.kind] || n.kind;
       var mid = document.createElement('div');
       var t = document.createElement('div'); t.className = 'note-title'; t.textContent = n.title;
@@ -3692,22 +3709,23 @@ window.AshSlots = (function () {
       mid.append(t, b);
       var time = document.createElement('span'); time.className = 'note-time'; time.textContent = ago(n.created_at);
       li.append(kind, mid, time);
-      if (!n.read || n.game) {
+      if (!n.read || dest) {
         li.addEventListener('click', function () {
           if (!n.read) {
             li.classList.remove('unread'); // clears the gold highlight right away
-            li.title = n.game ? 'Click to see this game in Players & payments' : '';
+            li.title = n.game ? 'Click to see this game in Players & payments' : (dest ? 'Click to open it' : '');
             var unreadLeft = listEl.querySelectorAll('.note-item.unread').length;
             var badge = document.getElementById('note-new');
             badge.hidden = !unreadLeft;
             badge.textContent = unreadLeft + ' new';
-            var railDot = document.getElementById('admin-rail-dot');
-            if (railDot) railDot.hidden = !unreadLeft;
+            setRail(unreadLeft);
             call('admin/notifications/read-one', { id: n.id }).catch(function () { /* the click already cleared it visually; a failed save here just means it may show gold again next reload */ });
           }
           if (n.game && window.AshAdminShowTab) {
             window.AshAdminShowTab('campaigns');
             if (window.AshAdminOpenGame) window.AshAdminOpenGame(n.game);
+          } else if (dest) {
+            goTab(dest);
           }
         });
       }
@@ -5186,6 +5204,6 @@ window.AshSlots = (function () {
   setInterval(function () { if (games.length) render(); }, 60000);
 })();
 </script>
-<link rel="stylesheet" href="admin-flat.css?v=20261026b">
+<link rel="stylesheet" href="admin-flat.css?v=20261026c">
 </body>
 </html>
