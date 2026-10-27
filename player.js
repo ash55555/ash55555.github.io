@@ -706,11 +706,60 @@ if (typeof firebase !== 'undefined' && firebase.apps.length) {
     }
     $('pp-auth-status').textContent = 'If ' + email + ' has an account, a link to choose a new password is on its way. Check Spam too.';
   });
-  $('pp-auth-form').addEventListener('submit', (e) => {
+  // Log in or create an account, in the same box. A brand-new player has no account to log in to.
+  let authMode = 'login';
+  function setAuthMode(mode) {
+    authMode = mode;
+    const signup = mode === 'signup';
+    $('pp-auth-confirm').hidden = !signup;
+    $('pp-auth-confirm').required = signup;
+    $('pp-auth-recaptcha').hidden = !signup;
+    $('pp-auth-forgot').hidden = signup;
+    $('pp-auth-pass').autocomplete = signup ? 'new-password' : 'current-password';
+    $('pp-auth-submit').textContent = signup ? 'Create account' : 'Log in';
+    $('pp-auth-switch').textContent = signup ? 'Already have an account? Log in' : 'New here? Create an account';
+    $('pp-auth-switch-top').textContent = signup ? 'Log in instead' : 'Create a free account';
+    $('pp-auth-intro').firstChild.nodeValue = signup
+      ? 'Make your free Ash Tabletop account to take your seat. '
+      : 'Log in to your Ash Tabletop account to continue. New here? ';
+    $('pp-auth-status').textContent = '';
+  }
+  $('pp-auth-switch').addEventListener('click', () => setAuthMode(authMode === 'login' ? 'signup' : 'login'));
+  $('pp-auth-switch-top').addEventListener('click', () => setAuthMode(authMode === 'login' ? 'signup' : 'login'));
+  $('pp-auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    $('pp-auth-status').textContent = 'Working...';
-    firebase.auth().signInWithEmailAndPassword($('pp-auth-email').value.trim(), $('pp-auth-pass').value)
-      .catch((err) => { $('pp-auth-status').textContent = err.message; });
+    const status = $('pp-auth-status');
+    const email = $('pp-auth-email').value.trim();
+    const pass = $('pp-auth-pass').value;
+    if (authMode === 'login') {
+      status.textContent = 'Working...';
+      firebase.auth().signInWithEmailAndPassword(email, pass).catch((err) => {
+        status.textContent = err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential'
+          ? 'No account matches that email and password. New here? Tap "Create an account" below.'
+          : err.message;
+      });
+      return;
+    }
+    if (pass.length < 6) { status.textContent = 'Choose a password with at least 6 characters.'; return; }
+    if (pass !== $('pp-auth-confirm').value) { status.textContent = "Those passwords don't match."; return; }
+    const token = typeof grecaptcha !== 'undefined' ? grecaptcha.getResponse() : '';
+    if (!token) { status.textContent = "Please check the box to confirm you're not a robot."; return; }
+    const btn = $('pp-auth-submit');
+    btn.disabled = true;
+    status.textContent = 'Working...';
+    try {
+      const API = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev';
+      const verify = await fetch(API + '/verify-recaptcha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) }).then((r) => r.json());
+      if (!verify.success) throw new Error("That robot check didn't go through. Please try again.");
+      const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
+      cred.user.getIdToken().then((idToken) => fetch(API + '/welcome-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) })).catch(() => {});
+      status.textContent = '';
+    } catch (err) {
+      status.textContent = err.code === 'auth/email-already-in-use' ? 'That email already has an account. Tap "Log in" instead.' : err.message;
+    } finally {
+      btn.disabled = false;
+      if (typeof grecaptcha !== 'undefined') grecaptcha.reset();
+    }
   });
 } else {
   resolveAuthReady();

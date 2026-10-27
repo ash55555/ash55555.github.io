@@ -181,13 +181,16 @@
         <section class="pp-cb-card">
           <h4>1. Your seat</h4>
           <div id="pp-inline-auth">
-            <p class="pp-cb-muted">Log in to the account you made on Ash Tabletop to continue.</p>
+            <p class="pp-cb-muted" id="pp-auth-intro">Log in to your Ash Tabletop account to continue. New here? <button type="button" class="link-button" id="pp-auth-switch-top">Create a free account</button></p>
             <button type="button" class="btn btn-google" id="pp-auth-google">Continue with Google</button>
             <div class="modal-divider"><span>or</span></div>
             <form id="pp-auth-form">
               <input id="pp-auth-email" type="email" required placeholder="Email" autocomplete="username" style="width:100%">
               <input id="pp-auth-pass" type="password" required placeholder="Password" autocomplete="current-password" style="width:100%;margin-top:.6em">
-              <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.8em">Log in</button>
+              <input id="pp-auth-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" minlength="6" style="width:100%;margin-top:.6em" hidden>
+              <div class="g-recaptcha" id="pp-auth-recaptcha" data-sitekey="6Ld-u8otAAAAAIms3pTww1E8rfstWjgqgOTU72xK" style="margin-top:.8em" hidden></div>
+              <button type="submit" class="btn btn-primary" id="pp-auth-submit" style="width:100%;justify-content:center;margin-top:.8em">Log in</button>
+              <button type="button" class="link-button" id="pp-auth-switch" style="margin-top:.6em;display:block">New here? Create an account</button>
               <button type="button" class="link-button" id="pp-auth-forgot" style="margin-top:.6em">Forgot your password?</button>
               <p class="modal-status" id="pp-auth-status" role="status" aria-live="polite"></p>
             </form>
@@ -310,6 +313,7 @@
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
 <script src="reviews-ui.js?v=20261009a"></script>
-<script src="player.js?v=20261018b"></script>
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<script src="player.js?v=20261028a"></script>
 </body>
 </html>
