@@ -388,6 +388,16 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     const unread = await env.DB.prepare('SELECT COUNT(*) AS n FROM notifications WHERE mode=? AND (uid IS NULL OR uid=?) AND read=0').bind(mode, env.ADMIN_UID).first();
     return json({ items, unread: unread ? unread.n : 0, emailOn: !!env.ADMIN_NOTIFY_EMAIL }, 200, corsHeaders);
   }
+  // Ash only: two sample review emails (as Ash, and as another Game Master) to Ash's own inbox, so she can see them in Gmail.
+  if (action === 'admin/review-email-test') {
+    if (!actor.isAdmin) return json({ error: 'Not authorized' }, 403, corsHeaders);
+    if (!env.ADMIN_NOTIFY_EMAIL) return json({ error: 'No email address is set up for you yet.' }, 400, corsHeaders);
+    const { reviewInviteEmailHtml, reviewUrl } = await import('./reviews.js');
+    const url = reviewUrl();
+    await sendEmail(env, env.ADMIN_NOTIFY_EMAIL, '[TEST] How was your game with Ash, Alex?', reviewInviteEmailHtml({ name: 'Alex', sessions: 3, url }));
+    await sendEmail(env, env.ADMIN_NOTIFY_EMAIL, '[TEST] How was your game with Silverbeam, Alex?', reviewInviteEmailHtml({ name: 'Alex', sessions: 1, url, dm: { name: 'Silverbeam', picture: 'https://ashtabletop.com/medie/d20-icon.png' } }));
+    return json({ ok: true, sent: 2 }, 200, corsHeaders);
+  }
   if (action === 'admin/notifications/test') {
     await notify(env, sendEmail, 'live', 'reminder', null, 'Test notification', 'If you can read this in your inbox and in your admin page, notifications are working. Nothing is wrong.');
     return json({ ok: true }, 200, corsHeaders);

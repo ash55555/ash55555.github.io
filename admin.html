@@ -1258,6 +1258,10 @@ body.pc-open { overflow: hidden; }
         <p class="slot-status" id="announce-status"></p>
       </div>
       <ul class="announce-errors" id="announce-errors" hidden></ul>
+      <hr style="border:0;border-top:1px solid var(--border);margin:1.6em 0 1.2em">
+      <h3 style="margin:0 0 .3em">Review email</h3>
+      <p class="note">Sends two sample "How was your game?" emails to your own inbox only: one as Ash, one as another Game Master. Nobody else gets anything.</p>
+      <div class="announce-footer"><button type="button" class="btn btn-ghost" id="rv-test-btn">Send me a test review email</button><p class="slot-status" id="rv-test-status"></p></div>
     </div>
 
     <div class="me-panel" data-panel="reviews" hidden>
@@ -5211,6 +5215,21 @@ window.AshSlots = (function () {
   }
   // keep "today" and the countdown honest while the page stays open
   setInterval(function () { if (games.length) render(); }, 60000);
+})();
+</script>
+<script>
+(function () {
+  var btn = document.getElementById('rv-test-btn'), st = document.getElementById('rv-test-status');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    btn.disabled = true; st.textContent = 'Sending...';
+    firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/pay/admin/review-email-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Could not send.'); return d; }); })
+      .then(function (d) { st.textContent = 'Sent ' + d.sent + ' test emails to your inbox. Check Spam if you do not see them.'; st.className = 'slot-status success'; })
+      .catch(function (e) { st.textContent = e.message; st.className = 'slot-status error'; })
+      .then(function () { btn.disabled = false; });
+  });
 })();
 </script>
 <link rel="stylesheet" href="admin-flat.css?v=20261028a">
