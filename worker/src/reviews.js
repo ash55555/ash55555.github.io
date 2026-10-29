@@ -10,6 +10,8 @@ import { gmStatus } from './gm.js';
 export const REVIEW_AFTER = 1;
 // A review can name at most this many qualities, so a long list of ticks never decides the picture.
 export const MAX_TAGS = 3;
+// The review email goes out this long after a session was charged, so the player has had time to get home and think.
+export const REVIEW_EMAIL_WAIT_MS = 3 * 60 * 60 * 1000;
 
 // Sessions at another Game Master's tables never count towards a review of Ash (or an invite to write one).
 const NOT_A_GM_GAME = "NOT EXISTS (SELECT 1 FROM campaign_content cc WHERE cc.owner_uid IS NOT NULL AND (charges.game = cc.slug OR charges.game LIKE cc.slug || '::%'))";
@@ -310,6 +312,8 @@ export async function runReviewInvites(env, sendEmail) {
   const mode = cfg(env).mode;
   if (mode !== 'live') return { skipped: 'review invites only go out in real-money mode' };
 
+  // Only charges that went through at least REVIEW_EMAIL_WAIT_MS ago count, so a new session waits three hours before it triggers an email.
+  const matured = new Date(Date.now() - REVIEW_EMAIL_WAIT_MS).toISOString();
   const testers = String(env.TEST_PLAYER_EMAILS || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean);
   const report = { invited: 0 };
   const playerContact = (uid) => env.DB.prepare(
@@ -321,10 +325,10 @@ export async function runReviewInvites(env, sendEmail) {
   // ---- Ash
   const counts = (await env.DB.prepare(
     `SELECT c.uid AS uid, COUNT(*) AS n FROM charges c
-     WHERE c.mode=? AND c.status='paid' AND c.refunded_amount < c.amount
+     WHERE c.mode=? AND c.status='paid' AND c.refunded_amount < c.amount AND c.updated_at <= ?
        AND NOT EXISTS (SELECT 1 FROM campaign_content cc WHERE cc.owner_uid IS NOT NULL AND (c.game = cc.slug OR c.game LIKE cc.slug || '::%'))
        AND NOT EXISTS (SELECT 1 FROM reviews r WHERE r.uid=c.uid)
-     GROUP BY c.uid HAVING COUNT(*) >= ?`).bind(mode, REVIEW_AFTER).all()).results;
+     GROUP BY c.uid HAVING COUNT(*) >= ?`).bind(mode, matured, REVIEW_AFTER).all()).results;
   for (const d of counts) {
     const last = await env.DB.prepare("SELECT body FROM notifications WHERE uid=? AND kind='review_invite' ORDER BY id DESC LIMIT 1").bind(d.uid).first();
     if (d.n <= sessionsSaid(last)) continue;
@@ -346,9 +350,9 @@ export async function runReviewInvites(env, sendEmail) {
   const gmCounts = (await env.DB.prepare(
     `SELECT c.uid AS uid, cc.owner_uid AS gm_uid, COUNT(*) AS n FROM charges c
      JOIN campaign_content cc ON (c.game = cc.slug OR c.game LIKE cc.slug || '::%')
-     WHERE c.mode=? AND c.status='paid' AND c.refunded_amount < c.amount AND cc.owner_uid IS NOT NULL AND cc.owner_uid != c.uid
+     WHERE c.mode=? AND c.status='paid' AND c.refunded_amount < c.amount AND c.updated_at <= ? AND cc.owner_uid IS NOT NULL AND cc.owner_uid != c.uid
        AND NOT EXISTS (SELECT 1 FROM gm_reviews r WHERE r.gm_uid = cc.owner_uid AND r.uid = c.uid)
-     GROUP BY c.uid, cc.owner_uid HAVING COUNT(*) >= ?`).bind(mode, REVIEW_AFTER).all()).results;
+     GROUP BY c.uid, cc.owner_uid HAVING COUNT(*) >= ?`).bind(mode, matured, REVIEW_AFTER).all()).results;
   for (const d of gmCounts) {
     const g = await env.DB.prepare('SELECT slug, data FROM gm_profiles WHERE uid=?').bind(d.gm_uid).first();
     if (!g) continue;
