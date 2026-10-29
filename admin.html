@@ -2779,7 +2779,7 @@ window.AshSlots = (function () {
           who.append(el('p', 'pay-muted', 'Anyone you untick is skipped for this session quietly: no email and no charge.'));
           card.append(who);
         }
-        card.append(el('p', 'pay-muted', 'Players who play get an email, and are billed when it starts if billing is on for this game.'));
+        card.append(el('p', 'pay-muted', 'Players who play get an email, and are billed one hour after it starts if billing is on for this game.'));
         card.append(msg);
         card.append(button('Add this session', function () {
           var d = fromInputs(dateIn.value, timeIn.value);
@@ -3003,14 +3003,14 @@ window.AshSlots = (function () {
       bar.className = 'pay-gamebar' + (data.running ? ' running' : '');
       var stateText = el('strong', null, data.running ? 'Billing is ON for this game' : 'Billing has NOT started for this game');
       var explain = el('span', 'pay-muted', data.running
-        ? 'Players are charged ' + money(data.game.price) + ' at the start of each session, as long as someone is actually playing it (the usual target is ' + data.game.min + ', but it still charges below that). Started ' + day(data.startedAt) + '.'
+        ? 'Players are charged ' + money(data.game.price) + ' one hour after the start of each session, as long as someone is actually playing it (the usual target is ' + data.game.min + ', but it still charges below that). Started ' + day(data.startedAt) + '.'
         : 'Nobody is charged yet, even if the table is full. Click Start game when you are ready, however many players you have. Only sessions after that moment are charged.');
       var goBtn = el('button', 'pay-go' + (data.running ? ' stop' : ''), data.running ? 'Pause billing' : 'Start game');
       goBtn.type = 'button';
       goBtn.addEventListener('click', function () {
         var msg = data.running
           ? 'Pause billing for ' + data.game.title + '? Nobody will be charged for new sessions until you start it again.'
-          : 'Start ' + data.game.title + '? From now on, every player with a saved card is charged ' + money(data.game.price) + ' at the start of each session they are playing, whether that is 1 player or a full table.';
+          : 'Start ' + data.game.title + '? From now on, every player with a saved card is charged ' + money(data.game.price) + ' one hour after the start of each session they are playing, whether that is 1 player or a full table.';
         if (!confirm(msg)) return;
         goBtn.disabled = true;
         statusEl.textContent = 'Working...';

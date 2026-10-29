@@ -47,3 +47,5 @@
 .rv-dm-card { padding: 1.3em 1.4em; margin-bottom: 1.2em; border-radius: 16px; border: 1px solid var(--border); background: var(--bg-panel-2); }
 .rv-dm-card:last-child { margin-bottom: 0; }
 .rv-empty { color: var(--text-muted); margin: 0; }
+.rv-tag:disabled, .rv-tag-off { opacity: .4; cursor: not-allowed; }
+.rv-tag:disabled:hover { border-color: var(--border); color: var(--text-muted); }

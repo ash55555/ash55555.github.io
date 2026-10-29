@@ -289,10 +289,15 @@ function setJoinSeats(v) {
 $('pp-seat-minus').addEventListener('click', () => setJoinSeats(joinSeats - 1));
 $('pp-seat-plus').addEventListener('click', () => setJoinSeats(joinSeats + 1));
 
+// Cards are charged one hour after a session starts.
+const CHARGE_DELAY_MS = 60 * 60 * 1000;
+const afterHour = (d) => new Date(d.getTime() + CHARGE_DELAY_MS);
+
 function billingHtml(next) {
-  return '<strong>You will be charged $' + tot() + ' USD on ' + fmtDay(next) + ' at ' + fmtTime(next) + '.</strong>' +
+  const nc = afterHour(next);
+  return '<strong>You will be charged $' + tot() + ' USD on ' + fmtDay(nc) + ' at ' + fmtTime(nc) + '.</strong>' +
     (seatCount() > 1 ? '<span>That is ' + seatCount() + ' seats at $' + TEST_GAME.price + ' each.</span>' : '') +
-    '<span>Then again every ' + weekdayName(next) + ' at ' + fmtTime(next) + ', when each session starts.</span>' +
+    '<span>Then again every ' + weekdayName(nc) + ' at ' + fmtTime(nc) + ', one hour after each session starts.</span>' +
     '<span>Billing begins once ' + dmName + ' starts the game (it needs enough players). If it has not started by then, you are not charged.</span>' +
     '<span>Skip a week and you are not charged for it. Leave any time and billing stops.</span>';
 }
@@ -388,7 +393,8 @@ function renderGame() {
     ? serverState.sessions.map((s) => ({ d: new Date(s.ts), ts: s.ts, skipped: s.skipped, canChange: s.canChange, by: s.skippedBy }))
     : sessions.map((d, i) => ({ d, ts: null, skipped: skippedIdx.has(i), canChange: preview, by: null }));
   const nextCharged = rows.find((r) => !r.skipped);
-  const chargeDate = real ? (nextCharged ? nextCharged.d : null) : (view === 'skipped' ? sessions[1] : next);
+  const sessionDate = real ? (nextCharged ? nextCharged.d : null) : (view === 'skipped' ? sessions[1] : next);
+  const chargeDate = sessionDate ? afterHour(sessionDate) : null;
   const card = real && serverState.card && serverState.card.last4 ? ' Card on file: ' + (serverState.card.brand || 'card') + ' ending ' + serverState.card.last4 + '.' : '';
   const notStarted = real && serverState.running === false;
   $('pp-billing-active').innerHTML = '<strong>' + (notStarted
@@ -396,7 +402,7 @@ function renderGame() {
     : chargeDate
       ? 'You will be charged $' + tot() + ' USD on ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.'
       : 'No charges are scheduled right now.') + '</strong>' +
-    (notStarted && chargeDate ? '<span>After it starts: $' + tot() + ' USD at the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
+    (notStarted && chargeDate ? '<span>After it starts: $' + tot() + ' USD one hour after the start of each session you play, beginning ' + fmtDay(chargeDate) + ' at ' + fmtTime(chargeDate) + '.</span>' : '') +
     (seatCount() > 1 && view !== 'notjoined' ? '<span>You hold ' + seatCount() + ' seats: $' + TEST_GAME.price + ' for each.</span>' : '') +
     (card ? '<span>' + card.trim() + '</span>' : '');
   $('pp-update-card').hidden = !real;
@@ -518,9 +524,9 @@ function renderAll() {
 // On this computer's preview (localhost) the three states are faked from the preview bar,
 // so you can see each one without needing real sessions. Nothing there is saved.
 const PREVIEW_REVIEWS = {
-  locked: { signedIn: true, sessions: 3, needed: 5, eligible: false, review: null },
-  ready: { signedIn: true, sessions: 6, needed: 5, eligible: true, review: null },
-  done: { signedIn: true, sessions: 6, needed: 5, eligible: true, review: { rating: 5, tags: ['Sets the mood', 'Always prepared'], comment: 'Best table I have played at. Ash makes every session feel like a movie.' } },
+  locked: { signedIn: true, sessions: 0, needed: 1, eligible: false, review: null },
+  ready: { signedIn: true, sessions: 6, needed: 1, eligible: true, review: null },
+  done: { signedIn: true, sessions: 6, needed: 1, eligible: true, review: { rating: 5, tags: ['Sets the mood', 'Always prepared'], comment: 'Best table I have played at. Ash makes every session feel like a movie.' } },
 };
 let previewReview = 'locked';
 
@@ -545,7 +551,7 @@ function reviewDmSlug() {
 async function loadReviewState() {
   if (preview && !me) return JSON.parse(JSON.stringify({ ...PREVIEW_REVIEWS[previewReview], tags: AshReviews.DEFAULT_TAGS }));
   await authReady;
-  if (!me) return { signedIn: false, needed: 5 };
+  if (!me) return { signedIn: false, needed: 1 };
   try { return { signedIn: true, ...(await reviewApi('status', { gm: reviewDmSlug() })) }; } catch (err) { return { signedIn: true, error: true }; }
 }
 
@@ -787,8 +793,9 @@ function fillBooking() {
   $("cb-consent-amt").textContent = tot();
   $("cb-price-amount").textContent = priceStr;
   $("cb-total").textContent = priceStr + " / session";
-  $("cb-charge-line").textContent = "Nothing today. " + priceStr + " on " + fmtDay(next) + " at " + fmtTime(next) + ", then every " + weekdayName(next) + " at " + fmtTime(next) + ".";
-  $("cb-first").textContent = "Nothing is charged today. Your first charge is on " + fmtDay(next) + " at " + fmtTime(next) + ", when the session starts.";
+  const nextCharge = afterHour(next);
+  $("cb-charge-line").textContent = "Nothing today. " + priceStr + " on " + fmtDay(nextCharge) + " at " + fmtTime(nextCharge) + ", then every " + weekdayName(nextCharge) + " at " + fmtTime(nextCharge) + ".";
+  $("cb-first").textContent = "Nothing is charged today. Your first charge is on " + fmtDay(nextCharge) + " at " + fmtTime(nextCharge) + ", one hour after the session starts.";
 }
 
 function markJoined() { closeModals(); view = 'joined'; skippedIdx = new Set(); renderAll(); toast("You're in! Welcome to the table."); }

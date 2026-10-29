@@ -24,6 +24,7 @@ const SKIP_CUTOFF_MS = 1 * HOUR_MS; // players can skip or undo a skip up to one
 const MAX_ATTEMPTS = 3;
 const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
+const CHARGE_DELAY_MS = HOUR_MS; // a session is charged this long after it starts
 const SESSIONS_SHOWN = 8;
 // The admin routes another Game Master may use (always limited to their own games and money).
 const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/player-seats', 'admin/game-price', 'admin/game-price-cancel', 'admin/start', 'admin/stop']);
@@ -1037,7 +1038,7 @@ function extraSessionEmailHtml({ name, game, times, tz }) {
     '<tr><td style="padding:28px 32px 10px;background:linear-gradient(135deg,#3b2a6d,#1c1230)"><p style="margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#f2b84f;font-weight:700">Ash Tabletop</p><h1 style="margin:8px 0 0;font-size:26px;line-height:1.2;color:#ffffff">' + escapeHtml(title) + '</h1></td></tr>' +
     '<tr><td style="padding:20px 32px 30px;color:#d9cdf2;font-size:16px;line-height:1.55"><p style="margin:0 0 16px">Hi ' + escapeHtml(name || 'there') + ', your DM added ' + (times.length === 1 ? 'a session' : 'sessions') + ' to <strong style="color:#ffffff">' + escapeHtml(game.title) + '</strong>:</p>' +
     '<div style="background:#2a1d47;border-radius:14px;border:1px solid #4a3877;border-left:4px solid #f2b84f;padding:16px 20px">' + rows + more + '</div>' +
-    '<p style="margin:16px 0 0;font-size:15px">You are charged $' + game.price + ' for each one you play, when it starts. Cannot make one? You can skip it on your player page up to 1 hour before.</p>' +
+    '<p style="margin:16px 0 0;font-size:15px">You are charged $' + game.price + ' for each one you play, one hour after it starts. Cannot make one? You can skip it on your player page up to 1 hour before.</p>' +
     '<p style="margin:22px 0 0;text-align:center"><a href="https://ashtabletop.com/player.html" style="display:inline-block;background:#f2b84f;color:#241407;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px">Open your player page</a></p>' +
     '</td></tr></table></td></tr></table></body></html>';
 }
@@ -1266,7 +1267,8 @@ export async function runCharges(env, sendEmail) {
     const account = await accountFor(env, game);
     if (!account) continue; // a Game Master whose payouts are not ready is never charged, and never through Ash's account
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
-    const sessions = (await sessionsFor(env, c.mode, gameKey, game, new Date(now.getTime() - CATCH_UP_MS), now)).map(iso);
+    // Only sessions that started at least CHARGE_DELAY_MS ago are charged, so nobody pays for a game that never got going.
+    const sessions = (await sessionsFor(env, c.mode, gameKey, game, new Date(now.getTime() - CATCH_UP_MS - CHARGE_DELAY_MS), new Date(now.getTime() - CHARGE_DELAY_MS))).map(iso);
 
     // A NEW charge needs both: Ash has started the game (and the session is after
     // that moment), and enough players are playing that session. Charges that

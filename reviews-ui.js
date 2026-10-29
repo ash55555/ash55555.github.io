@@ -84,11 +84,13 @@ var AshReviews = (function () {
       if (state.loading) { section.appendChild(el('p', 'rv-muted', 'Loading...')); return; }
       if (state.error) { section.appendChild(el('p', 'rv-muted', 'We could not load the review box right now. Please try again in a moment.')); return; }
 
-      var needed = state.needed || 5;
+      var needed = state.needed || 1;
+      var maxTags = state.maxTags || 3;
+      var sessionWord = needed === 1 ? 'session' : 'sessions';
       if (!state.signedIn) {
         section.appendChild(el('p', 'rv-muted', state.viaLink
           ? 'Log in to leave a review for ' + dmName + '.'
-          : 'Log in and play ' + needed + ' sessions with ' + dmName + ' to leave a review.'));
+          : 'Log in and play ' + (needed === 1 ? 'a session' : needed + ' sessions') + ' with ' + dmName + ' to leave a review.'));
         return;
       }
 
@@ -96,7 +98,7 @@ var AshReviews = (function () {
       var sessions = state.sessions || 0;
 
       if (!state.eligible) {
-        section.appendChild(el('p', 'rv-muted', 'You have played ' + sessions + ' of ' + needed + ' sessions with ' + dmName + '. After ' + needed + ' sessions you can leave a review here.'));
+        section.appendChild(el('p', 'rv-muted', 'You have played ' + sessions + ' of ' + needed + ' ' + sessionWord + ' with ' + dmName + '. After ' + needed + ' ' + sessionWord + ' you can leave a review here.'));
         var bar = el('div', 'rv-progress');
         var fill = el('div', 'rv-progress-fill');
         fill.style.width = Math.min(100, (sessions / needed) * 100) + '%';
@@ -210,7 +212,10 @@ var AshReviews = (function () {
 
       var tagsHead = el('p', 'rv-lead rv-lead-sm');
       tagsHead.appendChild(document.createTextNode('What does ' + dmName + ' do best? '));
-      tagsHead.appendChild(el('span', 'rv-muted', 'Pick any that fit'));
+      var tagCount = el('span', 'rv-muted', '');
+      function showCount() { tagCount.textContent = 'Pick up to ' + maxTags + ' (' + form.tags.length + ' of ' + maxTags + ')'; }
+      showCount();
+      tagsHead.appendChild(tagCount);
       section.appendChild(tagsHead);
       var tagWrap = el('div', 'rv-tags');
       (state.tags && state.tags.length ? state.tags : DEFAULT_TAGS).forEach(function (t) {
@@ -219,12 +224,27 @@ var AshReviews = (function () {
         b.setAttribute('aria-pressed', String(form.tags.indexOf(t) !== -1));
         b.addEventListener('click', function () {
           var at = form.tags.indexOf(t);
-          if (at === -1) form.tags.push(t); else form.tags.splice(at, 1);
+          if (at === -1) {
+            if (form.tags.length >= maxTags) return; // only the first few picks count, so the rest are asleep until one is taken off
+            form.tags.push(t);
+          } else form.tags.splice(at, 1);
           b.classList.toggle('on', at === -1);
           b.setAttribute('aria-pressed', String(at === -1));
+          showCount();
+          syncTags();
         });
         tagWrap.appendChild(b);
       });
+      // Once the limit is reached, the unpicked ones go quiet so it is clear why they do nothing.
+      function syncTags() {
+        var full = form.tags.length >= maxTags;
+        Array.prototype.forEach.call(tagWrap.children, function (btn) {
+          var on = btn.classList.contains('on');
+          btn.disabled = full && !on;
+          btn.classList.toggle('rv-tag-off', full && !on);
+        });
+      }
+      syncTags();
       section.appendChild(tagWrap);
 
       var commentId = opts.commentId || 'rv-comment';

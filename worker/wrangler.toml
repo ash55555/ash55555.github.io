@@ -17,6 +17,8 @@ TEST_PLAYER_EMAILS = "biancas@me.com"
 # Open to everyone (2026-09-28, Ash's go-ahead): anyone signed in can now book
 # a seat and save a card, not just the admin + TEST_PLAYER_EMAILS.
 PAY_OPEN = "yes"
+# Review invite emails are OFF until Ash has approved how the email looks. Remove this line to start sending them.
+REVIEW_INVITES = "off"
 
 # Card-on-file system. PAY_MODE "sandbox" = pretend money at sandbox.whop.com,
 # "live" = real money. CHARGING_MODE: "off" (never charge), "dry" (log what it
