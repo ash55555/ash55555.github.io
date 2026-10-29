@@ -392,10 +392,12 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
   if (action === 'admin/review-email-test') {
     if (!actor.isAdmin) return json({ error: 'Not authorized' }, 403, corsHeaders);
     if (!env.ADMIN_NOTIFY_EMAIL) return json({ error: 'No email address is set up for you yet.' }, 400, corsHeaders);
-    const { reviewInviteEmailHtml, reviewUrl } = await import('./reviews.js');
+    const { reviewInviteMail, reviewUrl } = await import('./reviews.js');
     const url = reviewUrl();
-    await sendEmail(env, env.ADMIN_NOTIFY_EMAIL, '[TEST] How was your game with Ash, Alex?', reviewInviteEmailHtml({ name: 'Alex', sessions: 3, url }));
-    await sendEmail(env, env.ADMIN_NOTIFY_EMAIL, '[TEST] How was your game with Silverbeam, Alex?', reviewInviteEmailHtml({ name: 'Alex', sessions: 1, url, dm: { name: 'Silverbeam', picture: 'https://ashtabletop.com/medie/d20-icon.png' } }));
+    for (const spec of [{ name: 'Alex', sessions: 3, url }, { name: 'Alex', sessions: 1, url, dm: { name: 'Silverbeam', picture: 'https://ashtabletop.com/medie/d20-icon.png' } }]) {
+      const mail = reviewInviteMail(env, spec);
+      await sendEmail(env, env.ADMIN_NOTIFY_EMAIL, '[TEST] ' + mail.subject, mail.html, mail.extra);
+    }
     return json({ ok: true, sent: 2 }, 200, corsHeaders);
   }
   if (action === 'admin/notifications/test') {

@@ -336,8 +336,8 @@ export async function runReviewInvites(env, sendEmail) {
     await notifyPlayer(env, mode, d.uid, 'review_invite', p.game, 'How was your game?',
       `You have played ${d.n} ${d.n === 1 ? 'session' : 'sessions'} with Ash. Would you like to leave a review?`);
     try {
-      await sendEmail(env, p.email, `How was your game with Ash${name ? ', ' + name.split(' ')[0] : ''}?`,
-        reviewInviteEmailHtml({ name, sessions: d.n, url: reviewUrl() }));
+      const mail = reviewInviteMail(env, { name, sessions: d.n, url: reviewUrl() });
+      await sendEmail(env, p.email, mail.subject, mail.html, mail.extra);
       report.invited++;
     } catch (err) { console.error('review invite email failed', p.email, err && err.message); }
   }
@@ -365,8 +365,8 @@ export async function runReviewInvites(env, sendEmail) {
     await notifyPlayer(env, mode, d.uid, 'review_invite_gm', null, title,
       `You have played ${d.n} ${d.n === 1 ? 'session' : 'sessions'} with ${dmName}. Would you like to leave a review?`);
     try {
-      await sendEmail(env, p.email, `How was your game with ${dmName}${name ? ', ' + name.split(' ')[0] : ''}?`,
-        reviewInviteEmailHtml({ name, sessions: d.n, url: reviewUrl(), dm: { name: dmName, picture } }));
+      const mail = reviewInviteMail(env, { name, sessions: d.n, url: reviewUrl(), dm: { name: dmName, picture } });
+      await sendEmail(env, p.email, mail.subject, mail.html, mail.extra);
       report.invited++;
     } catch (err) { console.error('review invite email failed', p.email, err && err.message); }
   }
@@ -376,6 +376,38 @@ export async function runReviewInvites(env, sendEmail) {
 // Where the email and the notice send the player: the Review Ash tab on their profile page.
 export function reviewUrl() {
   return 'https://ashtabletop.com/profile.html#me-review';
+}
+
+// Gmail files bulk-looking mail (an "announcements@" sender, no way to reply, no plain version) under Promotions.
+// This mail is a note from a person: it comes from a personal-looking address, Ash can be answered by replying,
+// and it carries a real plain-text version. Gmail still makes the final call for each inbox.
+export function reviewInviteMail(env, { name, sessions, url, dm }) {
+  const n = Number(sessions) || 1;
+  const dmName = String((dm && dm.name) || 'Ash');
+  const first = String(name || '').trim().split(/\s+/)[0];
+  const isAsh = !dm;
+  const text = [
+    `Hi ${first || 'there'},`,
+    '',
+    `You have played ${n} ${n === 1 ? 'session' : 'sessions'} with ${dmName}. Would you like to leave a review?`,
+    `Your honest words help other players find the right game and help ${dmName} keep getting better.`,
+    '',
+    'It takes about a minute: give a star rating, pick up to three qualities, and add a few words.',
+    `Leave a review: ${url}`,
+    '',
+    'You choose whether your review also appears on the website. We will check in after each session you play until you leave a review.',
+    isAsh ? '' : null,
+    isAsh ? 'Ash' : null,
+  ].filter((l) => l !== null).join('\n');
+  return {
+    subject: `How was your game with ${dmName}${first ? ', ' + first : ''}?`,
+    html: reviewInviteEmailHtml({ name, sessions: n, url, dm }),
+    extra: {
+      from: isAsh ? 'Ash <ash@mail.ashtabletop.com>' : `${dmName} on Ash Tabletop <hello@mail.ashtabletop.com>`,
+      ...(isAsh && env.ADMIN_NOTIFY_EMAIL ? { reply_to: env.ADMIN_NOTIFY_EMAIL } : {}),
+      text,
+    },
+  };
 }
 
 // dm = { name, picture } for the Game Master being reviewed. With none given it is Ash.
