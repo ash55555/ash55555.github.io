@@ -700,7 +700,7 @@ async function doLeave(ctx) {
 async function adminRoster(ctx) {
   const { env, gameKey, game, corsHeaders } = ctx;
   const now = new Date();
-  const players = (await env.DB.prepare('SELECT p.*, pr.token AS pr_token, pr.avatar_id AS avatar_id FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid WHERE p.mode=? AND p.game=? ORDER BY p.status, p.joined_at').bind(ctx.mode, gameKey).all()).results;
+  const players = (await env.DB.prepare('SELECT p.*, pr.token AS pr_token, pr.avatar_id AS avatar_id, pr.name AS pr_name FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid WHERE p.mode=? AND p.game=? ORDER BY p.status, p.joined_at').bind(ctx.mode, gameKey).all()).results;
   const skips = (await env.DB.prepare('SELECT uid, session_ts, by FROM skips WHERE mode=? AND game=?').bind(ctx.mode, gameKey).all()).results;
   const charges = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? ORDER BY session_ts DESC LIMIT 200').bind(ctx.mode, gameKey).all()).results;
   const sessions = (await upcomingFor(env, ctx.mode, gameKey, game, now, SESSIONS_SHOWN)).map(iso);
@@ -727,7 +727,8 @@ async function adminRoster(ctx) {
     weeklyNext: weekly[0] || null,
     maxBulk: MAX_BULK,
     players: players.map((p) => ({
-      uid: p.uid, email: p.email, name: p.name, status: p.status, joinedAt: p.joined_at,
+      // the name the player chose on their own profile wins; the one typed when they joined is only a fallback
+      uid: p.uid, email: p.email, name: p.pr_name || p.name, status: p.status, joinedAt: p.joined_at,
       token: p.pr_token || p.token || '', avatarId: p.avatar_id || null,
       card: p.card_last4 ? `${p.card_brand || 'card'} ${p.card_last4}` : '',
       priceOverride: p.price_override != null ? p.price_override : null,
@@ -911,7 +912,7 @@ async function adminAllCharges(env, corsHeaders, actor) {
   const owners = await loadOwners(env);
   const rows = (await env.DB.prepare('SELECT * FROM charges WHERE mode=? ORDER BY session_ts DESC LIMIT 300').bind(mode).all()).results.filter((c) => inScope(actor, owners, c.game));
   const players = rows.length
-    ? (await env.DB.prepare('SELECT game, uid, name, email FROM players WHERE mode=?').bind(mode).all()).results
+    ? (await env.DB.prepare("SELECT p.game, p.uid, COALESCE(NULLIF(pr.name, ''), p.name) AS name, p.email FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid WHERE p.mode=?").bind(mode).all()).results
     : [];
   const byKey = {};
   players.forEach((p) => { byKey[`${p.game}|${p.uid}`] = p; });

@@ -182,6 +182,12 @@ async function saveProfile(env, user, body, corsHeaders, self) {
        other=excluded.other, updated_at=excluded.updated_at`)
     .bind(user.sub, (user.email || '').toLowerCase(), next.name, next.pronouns, next.token, next.bio, next.avatar_id, next.avatar_data, next.interests, next.other, now).run();
 
+  // Game Masters see the player's name on their rosters, charges and alerts. Keep that copy the same as the profile,
+  // so a name changed later shows up everywhere. A failure here never blocks saving the profile itself.
+  if (next.name) {
+    try { await env.DB.prepare("UPDATE players SET name=? WHERE uid=? AND COALESCE(name, '') != ?").bind(next.name, user.sub, next.name).run(); } catch (err) { console.error('roster name sync failed', err && err.message); }
+  }
+
   const row = await env.DB.prepare('SELECT * FROM profiles WHERE uid=?').bind(user.sub).first();
   return json(view(row, self), 200, corsHeaders);
 }
