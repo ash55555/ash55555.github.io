@@ -70,7 +70,6 @@
     // campaign's admin actually saved — same as how every other card starts
     // with whatever was last authored, then gets corrected live.
     chip.dataset.day = '6'; chip.dataset.hour = '18'; chip.dataset.minute = '0'; chip.dataset.offset = '1';
-    chip.dataset.source = '6:00 PM GMT+1';
     chip.innerHTML =
       '<svg class="icon icon-sm"><use href="#icon-clock"/></svg>' +
       '<span class="session-text">' +
@@ -155,7 +154,6 @@
       chip.dataset.campaign = slug;
       chip.dataset.day = slot.day; chip.dataset.hour = slot.hour; chip.dataset.minute = slot.minute || 0; chip.dataset.offset = offset;
       chip.dataset.freq = slot.freq || 'weekly'; chip.dataset.anchor = slot.anchor || '';
-      if (slot.source) chip.dataset.source = slot.source;
       setGroup(chip, slot.group);
       var mainEl = chip.querySelector('.session-main');
       var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor) : null;

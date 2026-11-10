@@ -1,5 +1,5 @@
-// All campaign session times in the HTML are authored in a fixed GMT+1 (UTC+1)
-// reference. This finds each session's next real-world occurrence in UTC, then
+// All campaign session times in the HTML are authored in one fixed reference
+// time zone (the data-offset on each chip). This finds each session's next real-world occurrence in UTC, then
 // lets the browser render it in the visitor's own local timezone automatically.
 
 // freq ("weekly", the default, "biweekly" or "once") and anchor (a slot's "YYYY-MM-DD" date,

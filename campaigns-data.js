@@ -93,7 +93,6 @@ document.addEventListener('DOMContentLoaded', function () {
     chip.dataset.hour = slot.hour;
     chip.dataset.minute = slot.minute || 0;
     chip.dataset.offset = offset;
-    if (slot.source) chip.dataset.source = slot.source;
     if (groupEl && slot.group) groupEl.textContent = slot.group;
 
     var next = typeof nextOccurrenceUTC === 'function' ? nextOccurrenceUTC(slot.day, slot.hour, slot.minute || 0, offset, slot.freq, slot.anchor) : null;
