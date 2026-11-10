@@ -1302,6 +1302,16 @@ body.pc-open { overflow: hidden; }
 
     <p class="gm-preview-note" id="gm-preview-note" hidden>PREVIEW: saved only in this browser on your computer. Nothing on the live site changes.</p>
 
+    <section class="gm-card" id="gm-tiplink">
+      <h2>Your tip link</h2>
+      <p class="gm-help">Share this link anywhere: Discord, social media, your stream. It opens your page with the tip window already showing, so a player can say thank you in a few taps. <span id="gm-tip-note"></span></p>
+      <div class="ag-link-row">
+        <input type="text" id="gm-tip-url" readonly value="">
+        <button type="button" class="btn btn-primary" id="gm-tip-copy">Copy link</button>
+        <a class="btn btn-ghost" id="gm-tip-open" href="ash.html#tip" target="_blank" rel="noopener">Try it ›</a>
+      </div>
+    </section>
+
     <!-- 1 -->
     <section class="gm-card">
       <h2><span class="gm-step">1</span> Your look</h2>
@@ -5229,6 +5239,37 @@ window.AshSlots = (function () {
       .then(function (d) { st.textContent = 'Sent ' + d.sent + ' test emails to your inbox. Check Spam if you do not see them.'; st.className = 'slot-status success'; })
       .catch(function (e) { st.textContent = e.message; st.className = 'slot-status error'; })
       .then(function () { btn.disabled = false; });
+  });
+})();
+</script>
+<script>
+// The tip link in My GM Profile: the same address as "See my page", ending in #tip.
+(function () {
+  var view = document.getElementById('gm-view'), input = document.getElementById('gm-tip-url');
+  if (!view || !input) return;
+  var openBtn = document.getElementById('gm-tip-open'), copy = document.getElementById('gm-tip-copy'), note = document.getElementById('gm-tip-note');
+  var shownFor = '';
+  function refresh() {
+    var u = new URL(view.getAttribute('href') || 'ash.html', 'https://ashtabletop.com/');
+    u.searchParams.delete('preview');
+    u.hash = '#tip';
+    var link = u.href;
+    input.value = link; openBtn.href = link;
+    var slug = u.searchParams.get('slug') || 'ash';
+    if (shownFor === slug) return;
+    shownFor = slug;
+    // Tips only show on a page once that Game Master's payouts are approved.
+    fetch('https://ash-tabletop-announcements.ash-tabletop.workers.dev/tip/status?slug=' + encodeURIComponent(slug))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { note.textContent = d && d.ok ? '' : 'The Tip button shows on your page once your payouts are approved, so the link starts working then.'; })
+      .catch(function () {});
+  }
+  new MutationObserver(refresh).observe(view, { attributes: true, attributeFilter: ['href'] });
+  refresh();
+  copy.addEventListener('click', function () {
+    function done() { copy.textContent = 'Copied!'; setTimeout(function () { copy.textContent = 'Copy link'; }, 1800); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(input.value).then(done, function () { input.select(); document.execCommand('copy'); done(); });
+    else { input.select(); document.execCommand('copy'); done(); }
   });
 })();
 </script>

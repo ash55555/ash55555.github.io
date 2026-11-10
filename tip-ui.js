@@ -160,6 +160,17 @@
     btn.lastChild.textContent = 'Tip ' + d.name;
     btn.addEventListener('click', open);
     actions.appendChild(btn);
+    // A link ending in #tip (the one Game Masters copy from their dashboard) opens the tip window straight away.
+    if (window.location.hash === '#tip' && !/[?&]tip=/.test(window.location.search)) {
+      var openWhenReady = function () {
+        var u = window.firebase && firebase.auth && firebase.auth().currentUser;
+        if (u) { open(); return; }
+        // Not logged in yet: ask them to log in, then open the window once they are.
+        if (window.firebase && firebase.auth) { var off2 = firebase.auth().onAuthStateChanged(function (user) { if (user) { off2(); open(); } }); }
+        open();
+      };
+      if (window.firebase && firebase.auth) { var off1 = firebase.auth().onAuthStateChanged(function () { off1(); openWhenReady(); }); } else openWhenReady();
+    }
     var tipParams = new URLSearchParams(window.location.search);
     if (tipParams.get('tip') === 'thanks') {
       var tipId = tipParams.get('tip_id');
