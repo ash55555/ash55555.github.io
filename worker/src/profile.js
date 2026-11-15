@@ -14,6 +14,14 @@ import { gmStatus } from './gm.js';
 
 const SLOT_COUNT = 336;
 const TOKEN_IDS = ['dragon', 'wizard', 'dagger', 'elf', 'bat', 'dice'];
+
+// A new account gets a token picked from its own id, so new players are not all the same wizard. The same id always
+// gives the same token, and the player can change it any time.
+export function defaultToken(uid) {
+  let h = 0;
+  for (const c of String(uid || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TOKEN_IDS[h % TOKEN_IDS.length];
+}
 const MAX_AVATAR_CHARS = 70000; // base64 text of a ~256px picture is about 20 to 40 KB
 
 function json(data, status, corsHeaders) {
@@ -30,14 +38,14 @@ function avatarUrl(origin, row) {
   return row && row.avatar_id ? `${origin}/profile/avatar/${row.avatar_id}` : null;
 }
 
-function view(row, origin) {
-  if (!row) return { name: '', pronouns: '', token: 'wizard', bio: '', avatarUrl: null, interests: [], other: '', slots: '0'.repeat(SLOT_COUNT), tz: '' };
+function view(row, origin, uid) {
+  if (!row) return { name: '', pronouns: '', token: defaultToken(uid), bio: '', avatarUrl: null, interests: [], other: '', slots: '0'.repeat(SLOT_COUNT), tz: '' };
   let interests = [];
   try { interests = JSON.parse(row.interests || '[]'); } catch { interests = []; }
   return {
     name: row.name || '',
     pronouns: row.pronouns || '',
-    token: row.token || 'wizard',
+    token: row.token || defaultToken(row.uid || uid),
     bio: row.bio || '',
     avatarUrl: avatarUrl(origin, row),
     interests,
@@ -80,7 +88,7 @@ export async function handleProfile(request, env, corsHeaders, origin, action, s
   try {
     if (action === 'get') {
       const row = await env.DB.prepare('SELECT * FROM profiles WHERE uid=?').bind(user.sub).first();
-      const v = view(row, self);
+      const v = view(row, self, user.sub);
       if (!v.name) v.name = clean(user.name || (user.email || '').split('@')[0], 30);
       v.isAdmin = user.sub === env.ADMIN_UID;
       v.isGm = (await gmStatus(env, user.sub, user)).isGm;
@@ -138,7 +146,7 @@ async function saveProfile(env, user, body, corsHeaders, self) {
   const next = {
     name: existing ? existing.name : '',
     pronouns: existing ? existing.pronouns : '',
-    token: existing ? existing.token : 'wizard',
+    token: existing && existing.token ? existing.token : defaultToken(user.sub),
     bio: existing ? existing.bio : '',
     avatar_id: existing ? existing.avatar_id : null,
     avatar_data: existing ? existing.avatar_data : null,
@@ -189,7 +197,7 @@ async function saveProfile(env, user, body, corsHeaders, self) {
   }
 
   const row = await env.DB.prepare('SELECT * FROM profiles WHERE uid=?').bind(user.sub).first();
-  return json(view(row, self), 200, corsHeaders);
+  return json(view(row, self, user.sub), 200, corsHeaders);
 }
 
 async function saveAvailability(env, user, body, corsHeaders) {

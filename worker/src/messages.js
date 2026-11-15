@@ -11,6 +11,7 @@
 
 import { verifyUser, cfg, notify, escapeHtml } from './pay.js';
 import { gmStatus } from './gm.js';
+import { defaultToken } from './profile.js';
 
 const MAX_TEXT = 1000;
 const PER_HOUR = 20;
@@ -52,7 +53,7 @@ async function people(env, origin, uids) {
     out[uid] = {
       uid,
       name: gmName || (prof && prof.name) || emailName || 'Player',
-      token: (prof && prof.token) || 'wizard',
+      token: (prof && prof.token) || defaultToken(uid),
       // A game master's picture is the one on their game master profile (it changes whenever they change it);
       // everyone else, and a game master with no picture there, uses the picture on their ordinary profile.
       avatarUrl: gm && gmPicture ? `${origin}/gm/avatar?slug=${encodeURIComponent(gm.slug)}&v=${encodeURIComponent(gm.updated_at || '')}`
