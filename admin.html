@@ -179,6 +179,15 @@
   .gmf-badge.review { color: #8fe0ff; border-color: rgba(143,224,255,.6); background: rgba(143,224,255,.1); }
   .gmf-badge.rejected { color: #ff9db0; border-color: rgba(255,157,176,.6); background: rgba(255,157,176,.1); }
   .ag-link-row { display: flex; gap: .6em; flex-wrap: wrap; align-items: center; margin-top: .8em; }
+  .gm-qr-more { margin-top: 1em; border-top: 1px solid rgba(255,255,255,.14); padding-top: .8em; }
+  .gm-qr-more summary { cursor: pointer; font-weight: 600; display: inline-block; list-style: none; }
+  .gm-qr-more summary::-webkit-details-marker { display: none; }
+  .gm-qr-more[open] summary { margin-bottom: .8em; }
+  .gm-qr-wrap { display: flex; gap: 1.4em; flex-wrap: wrap; align-items: center; margin-top: .8em; }
+  #gm-qr-canvas { width: 176px; height: 176px; border-radius: 12px; background: #fff; flex: none; }
+  .gm-qr-side { display: flex; flex-direction: column; gap: .8em; align-items: flex-start; flex: 1 1 220px; }
+  .gm-qr-pick { display: flex; gap: .5em; flex-wrap: wrap; }
+  .gm-qr-pick .gm-pill.is-on { background: var(--accent, #f4b740); color: #1a1208; border-color: transparent; }
   .ag-link-row input { flex: 1 1 280px; font: inherit; color: var(--text); padding: .7em .95em; border-radius: 12px; border: 1px solid rgba(255,255,255,.24); background: rgba(10,6,24,.45); }
   .ag-list { display: grid; gap: .7em; }
   .ag-row { display: flex; align-items: center; gap: .9em 1.2em; flex-wrap: wrap; padding: .85em 1.05em; border-radius: 16px; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.05); }
@@ -1310,7 +1319,26 @@ body.pc-open { overflow: hidden; }
         <button type="button" class="btn btn-primary" id="gm-tip-copy">Copy link</button>
         <a class="btn btn-ghost" id="gm-tip-open" href="ash.html#tip" target="_blank" rel="noopener">Try it ›</a>
       </div>
+          <details class="gm-qr-more" id="gm-qr"><summary class="btn btn-ghost">Add a QR code</summary>
+      <p class="gm-help">Someone points their phone camera at it and lands on your page. Put it on a flyer, a poster, a business card or your stream overlay.</p>
+      <div class="gm-qr-wrap">
+        <canvas id="gm-qr-canvas" width="320" height="320" aria-label="QR code for your page"></canvas>
+        <div class="gm-qr-side">
+          <div class="gm-qr-pick" role="group" aria-label="What the QR code opens">
+            <button type="button" class="gm-pill is-on" data-qr="page">My page</button>
+            <button type="button" class="gm-pill" data-qr="tip">My tip link</button>
+          </div>
+          <p class="gm-help" id="gm-qr-url"></p>
+          <div class="gm-qr-pick">
+            <button type="button" class="btn btn-primary" id="gm-qr-save">Save picture</button>
+            <a class="btn btn-ghost" id="gm-qr-sign" href="sign.html?slug=ash" target="_blank" rel="noopener">Open printable sign ›</a>
+          </div>
+          <p class="gm-help">The printable sign is a one-page poster with your name and the code, ready for a desk, a booth or a wall. It has its own link, so anyone you send it to can print it: <span id="gm-qr-signurl"></span></p>
+        </div>
+      </div>
+    </details>
     </section>
+
 
     <!-- 1 -->
     <section class="gm-card">
@@ -5271,6 +5299,51 @@ window.AshSlots = (function () {
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(input.value).then(done, function () { input.select(); document.execCommand('copy'); done(); });
     else { input.select(); document.execCommand('copy'); done(); }
   });
+})();
+</script>
+<script src="qrcode.js?v=20261116a"></script>
+<script>
+// QR code for a Game Master's page or tip link, drawn in the browser (nothing is sent anywhere).
+(function () {
+  var canvas = document.getElementById('gm-qr-canvas'), tipInput = document.getElementById('gm-tip-url'), view = document.getElementById('gm-view');
+  if (!canvas || !tipInput || !view || typeof qrcode === 'undefined') return;
+  var urlNote = document.getElementById('gm-qr-url'), save = document.getElementById('gm-qr-save'), mode = 'page';
+  function pageUrl() {
+    var u = new URL(view.getAttribute('href') || 'ash.html', 'https://ashtabletop.com/');
+    u.searchParams.delete('preview'); u.hash = '';
+    return u.href;
+  }
+  function target() { return mode === 'tip' ? (tipInput.value || pageUrl() + '#tip') : pageUrl(); }
+  function draw(c, size, url) {
+    var qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    var n = qr.getModuleCount(), quiet = 4, cell = Math.floor(size / (n + quiet * 2)), pad = Math.floor((size - cell * n) / 2), g = c.getContext('2d');
+    c.width = c.height = size;
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, size, size);
+    g.fillStyle = '#10223a';
+    for (var r = 0; r < n; r++) for (var k = 0; k < n; k++) if (qr.isDark(r, k)) g.fillRect(pad + k * cell, pad + r * cell, cell, cell);
+  }
+  function refresh() { var url = target(); draw(canvas, 320, url); urlNote.textContent = url.replace(/^https:\/\//, ''); }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-qr]'), function (b) {
+    b.addEventListener('click', function () {
+      mode = b.getAttribute('data-qr');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-qr]'), function (x) { x.classList.toggle('is-on', x === b); });
+      refresh();
+    });
+  });
+  save.addEventListener('click', function () {
+    var big = document.createElement('canvas'); draw(big, 1024, target());
+    var a = document.createElement('a'); a.href = big.toDataURL('image/png'); a.download = 'ash-tabletop-qr-' + mode + '.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  // The printable sign has its own public page (sign.html), so anyone can open it and print it.
+  var signLink = document.getElementById('gm-qr-sign'), signUrl = document.getElementById('gm-qr-signurl');
+  function refreshSign() {
+    var slug = new URL(view.getAttribute('href') || 'ash.html', 'https://ashtabletop.com/').searchParams.get('slug') || 'ash';
+    var u = 'https://ashtabletop.com/sign.html?slug=' + encodeURIComponent(slug);
+    signLink.href = u; signUrl.textContent = u.replace('https://', '');
+  }
+  new MutationObserver(function () { refresh(); refreshSign(); }).observe(view, { attributes: true, attributeFilter: ['href'] });
+  refresh(); refreshSign();
 })();
 </script>
 <link rel="stylesheet" href="admin-flat.css?v=20261028a">
