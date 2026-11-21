@@ -58,6 +58,14 @@ var AshReviews = (function () {
   function renderDmProfile(container, opts) {
     var local = { editing: false, thanks: false, review: null, deleted: false, confirmingDelete: false, notice: '' };
     var form = { rating: 0, tags: [], comment: '', show: true };
+    // A star or quality tapped in the review email arrives as ?stars=4 or ?tag=Sets%20the%20mood.
+    try {
+      var qs = new URLSearchParams(window.location.search);
+      var qStars = parseInt(qs.get('stars'), 10);
+      if (qStars >= 1 && qStars <= 5) form.rating = qStars;
+      var qTag = qs.get('tag');
+      if (qTag) form.tags = [qTag];
+    } catch (e) { /* old browser: start empty */ }
 
     function draw() {
       container.innerHTML = '';
@@ -199,7 +207,12 @@ var AshReviews = (function () {
           b.addEventListener('mouseleave', function () { paint(form.rating); word.textContent = form.rating ? STAR_WORDS[form.rating] : 'Pick a rating'; });
           b.addEventListener('click', function () {
             form.rating = n; paint(n); word.textContent = STAR_WORDS[n];
-            starBtns.forEach(function (x, idx) { x.setAttribute('aria-checked', String(idx + 1 === n)); });
+            starBtns.forEach(function (x, idx) {
+              x.setAttribute('aria-checked', String(idx + 1 === n));
+              // The picked stars pop one after another.
+              x.classList.remove('pop'); void x.offsetWidth;
+              if (idx < n) { x.style.animationDelay = (idx * 60) + 'ms'; x.classList.add('pop'); }
+            });
             sync();
           });
           starBtns.push(b);
@@ -232,6 +245,7 @@ var AshReviews = (function () {
           b.setAttribute('aria-pressed', String(at === -1));
           showCount();
           syncTags();
+          sync(); // the send button needs at least one quality
         });
         tagWrap.appendChild(b);
       });
@@ -288,11 +302,12 @@ var AshReviews = (function () {
       section.appendChild(foot);
       section.appendChild(el('p', 'rv-note', 'Your review always goes to ' + dmName + '. If the box above is ticked, it also appears on ' + dmName + '’s website. Untick it to keep it private.'));
 
-      function sync() { send.disabled = !form.rating || !form.comment.trim(); }
+      // Stars, at least one quality and a few words are all needed before it can be sent.
+      function sync() { send.disabled = !form.rating || !form.tags.length || !form.comment.trim(); }
       sync();
 
       send.addEventListener('click', function () {
-        if (!form.rating || !form.comment.trim()) return;
+        if (!form.rating || !form.tags.length || !form.comment.trim()) return;
         send.disabled = true;
         status.textContent = 'Sending...';
         status.className = 'rv-status';

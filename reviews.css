@@ -13,9 +13,12 @@
 .rv-lead-sm { font-size: 0.98rem; margin-top: 1.2em; }
 .rv-lead .rv-muted { font-weight: 400; margin: 0; }
 .rv-stars { display: flex; gap: 0.25em; margin-top: 0.6em; }
-.rv-star-btn { background: none; border: 0; padding: 0; font-size: 2.4rem; line-height: 1; color: rgba(255, 255, 255, 0.18); cursor: pointer; transition: color 0.12s ease, transform 0.12s ease; }
-.rv-star-btn.on { color: var(--gold); text-shadow: 0 0 14px rgba(242, 184, 79, 0.45); }
+.rv-star-btn { width: 3.2rem; height: 3.2rem; background: url(medie/star-3d.png) center / contain no-repeat; border: 0; padding: 0; font-size: 0; color: transparent; cursor: pointer; filter: grayscale(1) brightness(0.55); transition: filter 0.2s ease, transform 0.12s ease; }
+.rv-star-btn.on { filter: none; }
 .rv-star-btn:hover { transform: scale(1.12); }
+.rv-star-btn.pop { animation: rv-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes rv-pop { 0% { transform: scale(1); } 40% { transform: scale(1.4) rotate(-8deg); } 70% { transform: scale(0.92) rotate(3deg); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .rv-star-btn.pop { animation: none; } }
 .rv-star-word { min-height: 1.4em; margin-top: 0.2em; color: var(--text-muted); font-weight: 700; font-size: 0.9rem; }
 .rv-tags { display: flex; flex-wrap: wrap; gap: 0.5em; margin-top: 0.5em; }
 .rv-tag { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border); color: var(--text-muted); border-radius: 999px; padding: 0.45em 0.95em; font: inherit; font-size: 0.88rem; cursor: pointer; transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease; }
