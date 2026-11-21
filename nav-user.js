@@ -55,8 +55,22 @@ var AshNav = (function () {
     root.querySelectorAll('.nu-panel').forEach(function (p) { p.hidden = true; });
   }
 
+  // Saves the player's own time zone once per visit, so their emails show their local time.
+  function saveTz(user) {
+    try {
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (!tz) return;
+      var key = 'ash-tz-saved';
+      if (sessionStorage.getItem(key) === tz) return;
+      user.getIdToken().then(function (idToken) {
+        return fetch(WORKER + '/profile/tz', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken, tz: tz }) });
+      }).then(function (res) { if (res && res.ok) { try { sessionStorage.setItem(key, tz); } catch (e) {} } }).catch(function () {});
+    } catch (e) { /* never block the page */ }
+  }
+
   function mount(container, user) {
     if (!container || !user) return;
+    saveTz(user);
     unmount(container);
     container.hidden = false;
     container.innerHTML =
