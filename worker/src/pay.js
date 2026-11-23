@@ -824,20 +824,21 @@ async function adminGames(env, mode, corsHeaders, actor) {
   }, 200, corsHeaders);
 }
 
-// Read-only: what Whop says is sitting in the account right now. Nothing here
+// Read-only: what Whop says is sitting in an account right now. Nothing here
 // moves money — actually withdrawing still happens on Whop's own dashboard,
-// which already has that built (and already knows Ash's real payout details).
+// which already has that built (and already knows the real payout details).
+// Takes any ledger account id, Ash's own company or another Game Master's
+// connected account, since Whop reports both the same shape.
 //
-// Uses its own dedicated API key (WHOP_BALANCE_API_KEY, "Read company balance"
-// permission only) instead of the shared charging/refund key, so a mistake here
-// can never touch the key that actually moves real money. Always reads the
-// live company's real balance, regardless of PAY_MODE — a "sandbox balance"
-// isn't a real number Ash would ever need to see.
-async function readCompanyBalance(env) {
-  const company = env.WHOP_COMPANY_ID;
-  const key = env.WHOP_BALANCE_API_KEY;
-  if (!company || !key) return { error: 'Balance reading is not set up yet (missing WHOP_BALANCE_API_KEY).', status: 500 };
-  const res = await fetch(`https://api.whop.com/api/v1/ledger_accounts/${company}`, {
+// Uses its own dedicated API key (WHOP_CONNECT_API_KEY, falling back to the
+// older WHOP_BALANCE_API_KEY, "Read company balance" permission only) instead
+// of the shared charging/refund key, so a mistake here can never touch the key
+// that actually moves real money. Always reads the live balance, regardless
+// of PAY_MODE — a "sandbox balance" isn't a real number anyone would need to see.
+export async function readLedgerBalance(env, accountId) {
+  const key = env.WHOP_CONNECT_API_KEY || env.WHOP_BALANCE_API_KEY;
+  if (!accountId || !key) return { error: 'Balance reading is not set up yet (missing WHOP_CONNECT_API_KEY).', status: 500 };
+  const res = await fetch(`https://api.whop.com/api/v1/ledger_accounts/${accountId}`, {
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
   });
   const data = await res.json().catch(() => ({}));
@@ -860,7 +861,7 @@ async function readCompanyBalance(env) {
 }
 
 async function adminBalance(env, corsHeaders) {
-  const b = await readCompanyBalance(env);
+  const b = await readLedgerBalance(env, env.WHOP_COMPANY_ID);
   if (b.error) return json({ error: b.error }, b.status, corsHeaders);
   return json({
     mode: 'live', ...b,
@@ -878,7 +879,7 @@ const WITHDRAW_ETA = 'usually 1 to 5 business days, sometimes up to 10';
 async function adminWithdraw(env, body, corsHeaders, sendEmail) {
   const key = env.WHOP_WITHDRAW_API_KEY;
   if (!key) return json({ error: 'Withdrawing from this page is not switched on yet. Please use Whop to withdraw for now.' }, 409, corsHeaders);
-  const b = await readCompanyBalance(env);
+  const b = await readLedgerBalance(env, env.WHOP_COMPANY_ID);
   if (b.error) return json({ error: b.error }, b.status, corsHeaders);
   const asked = Math.round(Number(body.amount) * 100) / 100;
   if (!(asked >= MIN_WITHDRAW)) return json({ error: `The smallest withdrawal is $${MIN_WITHDRAW}.` }, 400, corsHeaders);

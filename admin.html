@@ -174,6 +174,8 @@
   .gmf-card { padding: 1.1em 1.2em; border-radius: 18px; border: 1px solid rgba(255,255,255,.22); background: linear-gradient(135deg, rgba(255,255,255,.1), rgba(255,255,255,.03)); }
   .gmf-card h3 { margin: .5em 0 .3em; font-size: 1.25rem; font-weight: 900; }
   .gmf-btns { margin-top: .9em; }
+  .gmf-balance { margin-top: .9em; }
+  .gmf-balance .fin-balance-amount { margin: .35em 0 0; }
   .gmf-badge { display: inline-block; font-size: .72rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; border-radius: 999px; padding: .25em .85em; border: 1px solid rgba(242,184,79,.6); color: var(--gold); background: rgba(242,184,79,.1); }
   .gmf-badge.ready { color: #7fd99a; border-color: rgba(127,217,154,.6); background: rgba(127,217,154,.12); }
   .gmf-badge.review { color: #8fe0ff; border-color: rgba(143,224,255,.6); background: rgba(143,224,255,.1); }
@@ -4790,23 +4792,41 @@ window.AshSlots = (function () {
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function money(n) { return n == null ? '—' : '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
   function go(action, btn) {
     btn.disabled = true; status.textContent = 'One moment...'; status.className = 'slot-status';
     call(action).then(function (d) { window.location.href = d.url; })
       .catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
+  }
+  // Same balance look as Ash's own Finance tab, just read-only here: withdrawing still
+  // happens on Whop's own payouts page (the "Open my payouts" button), since the key that
+  // can move money only ever touches Ash's own account, never another GM's.
+  function loadBalance(box) {
+    var modeBadge = el('span', 'pay-badge'), amount = el('div', 'fin-balance-amount');
+    var line = el('p', 'slot-status', 'Loading your balance…');
+    box.append(line);
+    call('balance').then(function (d) {
+      line.remove();
+      modeBadge.className = 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn');
+      modeBadge.textContent = d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)';
+      amount.textContent = money(d.total);
+      box.append(modeBadge, amount);
+    }).catch(function (e) { line.textContent = e.message; line.className = 'slot-status error'; });
   }
   function draw(state) {
     card.innerHTML = '';
     var badge = el('span', 'gmf-badge ' + state);
     var title = el('h3'), text = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
     var primary = el('button', 'btn btn-primary'); primary.type = 'button';
-    var extra = null;
+    var extra = null, balanceBox = null;
     if (state === 'ready') {
       badge.textContent = 'Ready';
       title.textContent = 'You are set up to get paid';
       text.textContent = 'Your payout account is verified. Open your payouts to add or change where your money is sent and to withdraw.';
       primary.textContent = 'Open my payouts';
       primary.addEventListener('click', function () { go('portal', primary); });
+      balanceBox = el('div', 'gmf-balance');
+      loadBalance(balanceBox);
     } else if (state === 'review') {
       badge.textContent = 'In review';
       title.textContent = 'Whop is checking your details';
@@ -4842,7 +4862,9 @@ window.AshSlots = (function () {
     }
     btns.appendChild(primary);
     if (extra) btns.appendChild(extra);
-    card.append(badge, title, text, btns);
+    card.append(badge, title, text);
+    if (balanceBox) card.appendChild(balanceBox);
+    card.appendChild(btns);
   }
   function load() {
     status.textContent = ''; status.className = 'slot-status';

@@ -6,7 +6,7 @@
 // This file only handles the GM's side of setting that up: create the account, send them to
 // Whop's verification page, show where they are, and open their payouts portal.
 
-import { verifyUser, whop } from './pay.js';
+import { verifyUser, whop, readLedgerBalance } from './pay.js';
 import { gmStatus } from './gm.js';
 
 const SITE = 'https://ashtabletop.com';
@@ -75,6 +75,15 @@ export async function handleConnect(request, env, corsHeaders, origin, action, v
   if (st.isAdmin) return json({ state: 'owner' }, 200, corsHeaders);
 
   const row = await env.DB.prepare('SELECT account_id FROM gm_accounts WHERE uid=?').bind(user.sub).first();
+
+  // What this GM's own connected account actually has in it, same read-only view Ash gets
+  // on her own Finance tab. Withdrawing still only happens on Whop's own payouts page.
+  if (action === 'balance') {
+    if (!row) return json({ error: 'Set up your payouts first.' }, 400, corsHeaders);
+    const b = await readLedgerBalance(env, row.account_id);
+    if (b.error) return json({ error: b.error }, b.status, corsHeaders);
+    return json({ mode: 'live', ...b }, 200, corsHeaders);
+  }
 
   if (action === 'status') {
     if (!row) return json({ state: 'none' }, 200, corsHeaders);
