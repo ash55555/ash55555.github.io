@@ -25,6 +25,16 @@ const MAX_ATTEMPTS = 3;
 const RETRY_GAP_MS = 6 * HOUR_MS;
 const CATCH_UP_MS = 3 * DAY_MS; // the timer looks back this far for uncharged sessions
 const CHARGE_DELAY_MS = HOUR_MS; // a session is charged this long after it starts
+// A game's day/hour/minute/offset is read fresh from Firebase/D1 every run, not stored per
+// session. So editing a game's time (fixing a typo, changing it for daylight saving, moving
+// it to a different day, etc.) a few days after a session already happened recomputes that
+// same real session at a new timestamp -- which looks to the charge loop like a brand-new,
+// never-charged session. Kept comfortably under a week (the shortest real gap between two
+// sessions of the same game, since even a twice-a-week slot is its own separate game key, and
+// weekly/biweekly cadences are always at least 7/14 days apart) and comfortably over
+// CATCH_UP_MS + CHARGE_DELAY_MS (the whole span a schedule edit could possibly reshuffle), so
+// this is a safe signal that a nearby charge is the SAME session recomputed, not a second one.
+const SAME_SESSION_MS = 4 * DAY_MS;
 const SESSIONS_SHOWN = 8;
 // The admin routes another Game Master may use (always limited to their own games and money).
 const GM_ADMIN_ACTIONS = new Set(['admin/session-add', 'admin/session-bulk', 'admin/session-remove', 'admin/games', 'admin/stats', 'admin/charges', 'admin/roster', 'admin/skip', 'admin/refund', 'admin/retry', 'admin/remove', 'admin/player-price', 'admin/player-seats', 'admin/game-price', 'admin/game-price-cancel', 'admin/start', 'admin/stop']);
@@ -1281,7 +1291,12 @@ export async function runCharges(env, sendEmail) {
     if (!account) continue; // a Game Master whose payouts are not ready is never charged, and never through Ash's account
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
     // Only sessions that started at least CHARGE_DELAY_MS ago are charged, so nobody pays for a game that never got going.
-    const sessions = (await sessionsFor(env, c.mode, gameKey, game, new Date(now.getTime() - CATCH_UP_MS - CHARGE_DELAY_MS), new Date(now.getTime() - CHARGE_DELAY_MS))).map(iso);
+    const windowFrom = new Date(now.getTime() - CATCH_UP_MS - CHARGE_DELAY_MS);
+    const windowTo = new Date(now.getTime() - CHARGE_DELAY_MS);
+    const sessions = (await sessionsFor(env, c.mode, gameKey, game, windowFrom, windowTo)).map(iso);
+    // Extra sessions have their own fixed timestamp in extra_sessions and can legitimately
+    // land close to the weekly one, so the recomputed-schedule guard below must leave them alone.
+    const extraSet = new Set((await extraBetween(env, c.mode, gameKey, windowFrom, windowTo)).map(iso));
 
     // A NEW charge needs both: Ash has started the game (and the session is after
     // that moment), and enough players are playing that session. Charges that
@@ -1306,6 +1321,20 @@ export async function runCharges(env, sendEmail) {
         if (skipped) continue;
         const existing = await env.DB.prepare('SELECT 1 AS x FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
         if (!existing && !canStart.get(ts)) continue;
+
+        // The weekly/biweekly schedule may have been edited since this player was last
+        // charged, recomputing this same real session at a new timestamp. If a charge
+        // already exists for this player and game within a few days of this one, this is
+        // that same session seen again under its new time -- never charge it a second time.
+        // (Extra sessions have their own fixed, never-recomputed timestamp, so a genuinely
+        // nearby extra session is never mistaken for this.)
+        if (!existing && !extraSet.has(ts)) {
+          const nearby = await env.DB.prepare(
+            'SELECT 1 AS x FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts<>? AND session_ts BETWEEN ? AND ?')
+            .bind(c.mode, gameKey, p.uid, ts, iso(new Date(new Date(ts).getTime() - SAME_SESSION_MS)), iso(new Date(new Date(ts).getTime() + SAME_SESSION_MS))).first();
+          if (nearby) { console.log(`${gameKey} ${ts}: skipping, ${p.email} already has a charge within a few days of this time`); continue; }
+        }
+
         report.checked++;
         const g = playerGame(game, p);
 
