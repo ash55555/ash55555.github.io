@@ -8,7 +8,7 @@
 // The admin page converts each player's week to the admin's own clock when it draws
 // the heat map. Saves made before this change were in UTC (slots_fmt not "local").
 
-import { verifyUser, cfg } from './pay.js';
+import { verifyUser, cfg, saveTz } from './pay.js';
 import { noteAccount } from './accounts.js';
 import { gmStatus } from './gm.js';
 
@@ -97,6 +97,12 @@ export async function handleProfile(request, env, corsHeaders, origin, action, s
 
     if (action === 'save') return await saveProfile(env, user, body, corsHeaders, self);
     if (action === 'availability') return await saveAvailability(env, user, body, corsHeaders);
+    // Quietly remembers the player's own time zone from their browser, so emails can show their local time.
+    if (action === 'tz') {
+      const tz = await saveTz(env, user, body.tz);
+      if (!tz) return json({ error: 'Unknown time zone.' }, 400, corsHeaders);
+      return json({ ok: true, tz }, 200, corsHeaders);
+    }
 
     // Players see only their own notifications. Ash's player side shows the same single list as the
     // DM Notifications tab (the DM ones plus Ash's own), so reading one reads both. Only for Ash's account.

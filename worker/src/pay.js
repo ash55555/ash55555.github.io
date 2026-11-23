@@ -579,6 +579,9 @@ async function doComplete(ctx) {
   const email = (user.email || '').toLowerCase();
   const name = cleanName(body.name, email);
   const token = String(body.token || '').replace(/[^a-z]/g, '').slice(0, 12);
+  // Captured straight from their browser while booking, so their very first reminder
+  // email already shows the game time in their own zone, not a generic UTC list.
+  await saveTz(env, user, body.tz);
 
   if (existing && existing.status === 'active') {
     await env.DB.prepare('UPDATE players SET member_id=?, payment_method_id=?, card_brand=?, card_last4=? WHERE mode=? AND game=? AND uid=?')
@@ -1536,6 +1539,19 @@ async function playerTz(env, uid) {
     const row = await env.DB.prepare('SELECT tz FROM profiles WHERE uid=?').bind(uid).first();
     return (row && row.tz) || '';
   } catch { return ''; }
+}
+
+// Saves a player's own time zone, from wherever the browser happens to hand it to us
+// (a profile visit, or booking a seat). Silently does nothing for a missing/invalid zone.
+export async function saveTz(env, user, rawTz) {
+  const tz = String(rawTz || '').slice(0, 64);
+  if (!tz) return '';
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { return ''; }
+  await env.DB.prepare(
+    `INSERT INTO profiles (uid, email, name, slots, tz, slots_fmt, updated_at) VALUES (?,?,?,?,?,'local',?)
+     ON CONFLICT(uid) DO UPDATE SET tz=excluded.tz`)
+    .bind(user.sub, (user.email || '').toLowerCase(), String(user.name || (user.email || '').split('@')[0]).slice(0, 30), '0'.repeat(336), tz, new Date().toISOString()).run();
+  return tz;
 }
 
 // by = 'admin' (the DM skipped it for them) or 'player' (they skipped it themselves).
