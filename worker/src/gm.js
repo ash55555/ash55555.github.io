@@ -159,10 +159,25 @@ export async function handleGm(request, env, corsHeaders, origin, action, verify
     const profile = cleanProfile(body.profile);
     if (!profile.name) return json({ error: 'Please add your name first.' }, 400, corsHeaders);
     const slug = slugFor(env, user);
+    const now = new Date().toISOString();
     await env.DB.prepare(
       `INSERT INTO gm_profiles (uid, slug, data, updated_at) VALUES (?,?,?,?)
        ON CONFLICT(uid) DO UPDATE SET data=excluded.data, updated_at=excluded.updated_at`)
-      .bind(user.sub, slug, JSON.stringify(profile), new Date().toISOString()).run();
+      .bind(user.sub, slug, JSON.stringify(profile), now).run();
+
+    // A GM's picture here is their public face. Players should see that same picture
+    // everywhere else too (chat, rosters, their own nav), not whatever was left over on
+    // their ordinary profile. A failure here never blocks saving the GM profile itself.
+    if (profile.avatar) {
+      try {
+        const rnd = crypto.getRandomValues(new Uint8Array(12));
+        const avatarId = Array.from(rnd, (b) => b.toString(16).padStart(2, '0')).join('');
+        await env.DB.prepare(
+          `INSERT INTO profiles (uid, avatar_id, avatar_data, updated_at) VALUES (?,?,?,?)
+           ON CONFLICT(uid) DO UPDATE SET avatar_id=excluded.avatar_id, avatar_data=excluded.avatar_data, updated_at=excluded.updated_at`)
+          .bind(user.sub, avatarId, profile.avatar, now).run();
+      } catch (err) { console.error('gm avatar sync failed', err && err.message); }
+    }
     return json({ ok: true, slug }, 200, corsHeaders);
   }
 
