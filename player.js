@@ -27,6 +27,9 @@ const TEST_GAME = {
 // Games that use real Whop checkout (through the Worker). Others still use the pretend checkout.
 const WORKER_URL = "https://ash-tabletop-announcements.ash-tabletop.workers.dev";
 const gameKey = query.get("campaign") + (query.get("slot") ? "::" + query.get("slot") : "");
+// Captured right when a player books a seat, so their very first reminder email
+// already shows the game time in their own zone instead of a generic UTC list.
+const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } })();
 const realGame = hasGame; // every game booking goes through the Worker
 
 // CAMPAIGN_NAMES only knows the site's 5 original campaigns; anything made
@@ -883,7 +886,7 @@ function watchForSavedCard(configId, run) {
       return;
     }
     try {
-      const r = await api('complete', { configId, consent: true, adult: true, name: profile.name, token: profile.token, seats: joinSeats });
+      const r = await api('complete', { configId, consent: true, adult: true, name: profile.name, token: profile.token, seats: joinSeats, tz: TZ });
       if (r._status === 200 && run === checkoutRun && !finishing) { clearInterval(savedWatch); savedWatch = null; finishJoin(configId, run); }
     } catch (err) { /* still waiting; stay quiet */ }
   }, 4000);
@@ -923,7 +926,7 @@ async function finishJoin(configId, run, setupIntentId) {
   try {
     let status = null;
     for (let i = 0; i < 10 && !status; i++) {
-      const r = await api('complete', { configId, setupIntentId, consent: true, adult: true, name: profile.name, token: profile.token });
+      const r = await api('complete', { configId, setupIntentId, consent: true, adult: true, name: profile.name, token: profile.token, tz: TZ });
       if (r._status === 202) { await new Promise((ok) => setTimeout(ok, 1500)); continue; }
       status = r;
     }
