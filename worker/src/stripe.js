@@ -187,10 +187,14 @@ function stateFromRecipient(account) {
     && account.configuration.recipient.capabilities.bank_accounts && account.configuration.recipient.capabilities.bank_accounts.local;
   const status = bank && bank.status;
   if (status === 'active') return 'ready';
-  if (status === 'pending') return 'review';
+  // A freshly-requested capability sits at 'pending' from the moment it's requested, long before
+  // Stripe actually has anything to review -- that only means something until every outstanding
+  // requirement (name, address, bank details, ...) has actually been submitted through the hosted
+  // form. So "review" (nothing to do, just wait) only applies once requirements is empty; any
+  // entries still listed mean she needs to go finish the hosted form, same as a brand-new account.
   const entries = (account && account.requirements && account.requirements.entries) || [];
-  const pastDue = entries.some((e) => e.minimum_deadline && e.minimum_deadline.status === 'past_due');
-  return pastDue ? 'review' : 'verify';
+  if (entries.length === 0 && status === 'pending') return 'review';
+  return 'verify';
 }
 
 export async function handleConnectStripeRecipient(request, env, corsHeaders, origin, action, verify = verifyUser) {
