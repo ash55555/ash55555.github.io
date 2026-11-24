@@ -18,7 +18,7 @@ import { handleTip, handleTipStatus, runPendingTips } from './tip.js';
 import { handleMessages } from './messages.js';
 import { handleDmAgreement, runAgreementReminders } from './dm-agreement.js';
 import { handleConnect } from './connect.js';
-import { handleConnectStripe } from './stripe.js';
+import { handleConnectStripe, handleConnectStripeRecipient } from './stripe.js';
 import { runReminders } from './reminders.js';
 import { handleReview, handleReviewsPublic, runReviewInvites } from './reviews.js';
 import { noteAccount } from './accounts.js';
@@ -57,6 +57,9 @@ export default {
     }
     if (url.pathname.startsWith('/profile/')) {
       return handleProfile(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/profile/'.length), sendEmail);
+    }
+    if (url.pathname.startsWith('/connect-stripe-recipient/')) {
+      return handleConnectStripeRecipient(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/connect-stripe-recipient/'.length));
     }
     if (url.pathname.startsWith('/connect-stripe/')) {
       return handleConnectStripe(request, env, corsHeaders, originOk ? requestOrigin : null, url.pathname.slice('/connect-stripe/'.length));

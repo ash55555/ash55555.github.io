@@ -163,6 +163,92 @@ export async function handleConnectStripe(request, env, corsHeaders, origin, act
   return json({ error: 'Not found' }, 404, corsHeaders);
 }
 
+// Global Payouts: a second way for a GM to get paid on Stripe, for GMs whose own country isn't
+// eligible for a "full" connected account above (that type requires card_payments, which Stripe
+// only allows in a short list of countries). A "recipient" account never processes a charge or
+// requests card_payments -- it only receives money the platform sends it -- so Stripe allows it
+// in a much longer list of countries. Players for these GMs are charged on the platform's own
+// Stripe balance instead; actually paying the GM their share is a separate, later step not built
+// yet -- this covers identity + bank-detail onboarding only.
+//
+// Its own restricted API key (STRIPE_GP_KEY): Stripe requires a key scoped specifically to Money
+// Management for this API family and refuses the main full-access STRIPE_SECRET_KEY outright.
+const STRIPE_GP_VERSION = '2026-10-28.endive';
+async function stripeGPFetch(env, path, init = {}, acctId) {
+  const headers = { Authorization: `Bearer ${env.STRIPE_GP_KEY}`, 'Content-Type': 'application/json', 'Stripe-Version': STRIPE_GP_VERSION };
+  if (acctId) headers['Stripe-Context'] = acctId;
+  const res = await fetch('https://api.stripe.com' + path, { ...init, headers });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+function stateFromRecipient(account) {
+  const bank = account && account.configuration && account.configuration.recipient && account.configuration.recipient.capabilities
+    && account.configuration.recipient.capabilities.bank_accounts && account.configuration.recipient.capabilities.bank_accounts.local;
+  const status = bank && bank.status;
+  if (status === 'active') return 'ready';
+  if (status === 'pending') return 'review';
+  const entries = (account && account.requirements && account.requirements.entries) || [];
+  const pastDue = entries.some((e) => e.minimum_deadline && e.minimum_deadline.status === 'past_due');
+  return pastDue ? 'review' : 'verify';
+}
+
+export async function handleConnectStripeRecipient(request, env, corsHeaders, origin, action, verify = verifyUser) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400, corsHeaders); }
+  if (!body || !body.idToken) return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+  let user;
+  try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
+  const st = await gmStatus(env, user.sub);
+  if (!st.isGm) return json({ error: 'This is for Game Masters.' }, 403, corsHeaders);
+
+  const row = await env.DB.prepare('SELECT account_id FROM gm_stripe_recipients WHERE uid=?').bind(user.sub).first();
+
+  if (action === 'status') {
+    if (!row) return json({ state: 'none' }, 200, corsHeaders);
+    const r = await stripeGPFetch(env, `/v2/core/accounts/${encodeURIComponent(row.account_id)}?include[0]=configuration.recipient&include[1]=requirements`);
+    if (!r.ok) return json({ state: 'unknown' }, 200, corsHeaders);
+    return json({ state: stateFromRecipient(r.data) }, 200, corsHeaders);
+  }
+
+  if (action === 'start') {
+    let accountId = row && row.account_id;
+    if (!accountId) {
+      const country = String(body.country || '').trim().toUpperCase();
+      if (!/^[A-Z]{2}$/.test(country)) return json({ error: 'Pick your country first.' }, 400, corsHeaders);
+      const email = String(user.email || '').toLowerCase();
+      const prof = await env.DB.prepare('SELECT data FROM gm_profiles WHERE uid=?').bind(user.sub).first();
+      let name = '';
+      try { name = prof ? JSON.parse(prof.data).name : ''; } catch { name = ''; }
+      name = name || user.name || email.split('@')[0] || 'Game Master';
+      const r = await stripeGPFetch(env, '/v2/core/accounts', {
+        method: 'POST',
+        body: JSON.stringify({
+          contact_email: email,
+          display_name: (name + ' (Ash Tabletop GM)').slice(0, 80),
+          identity: { country, entity_type: 'individual' },
+          configuration: { recipient: { capabilities: { bank_accounts: { local: { requested: true } } } } },
+          metadata: { uid: user.sub, role: 'gm-recipient' },
+        }),
+      });
+      if (!r.ok || !r.data.id) return json({ error: niceStripeV2(r.data) }, 502, corsHeaders);
+      accountId = r.data.id;
+      await env.DB.prepare('INSERT INTO gm_stripe_recipients (uid, account_id, country, email, created_at) VALUES (?,?,?,?,?)').bind(user.sub, accountId, country, email, new Date().toISOString()).run();
+    }
+    const site = 'https://ashtabletop.com/admin.html#tab=gmfinance';
+    const l = await stripeGPFetch(env, '/v2/core/account_links', {
+      method: 'POST',
+      body: JSON.stringify({ account: accountId, use_case: { type: 'account_onboarding', account_onboarding: { collection_options: { fields: 'eventually_due' }, return_url: site, refresh_url: site } } }),
+    });
+    if (!l.ok || !l.data.url) return json({ error: niceStripeV2(l.data) }, 502, corsHeaders);
+    return json({ url: l.data.url }, 200, corsHeaders);
+  }
+
+  return json({ error: 'Not found' }, 404, corsHeaders);
+}
+
 // The Stripe connected account a game master's players pay into, but only once Stripe says it is
 // fully ready (details submitted, charges + payouts enabled). Until then this is null: nobody can
 // book or be charged for that table yet. Checked at most once a minute, same cache shape as

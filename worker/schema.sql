@@ -331,3 +331,16 @@ ALTER TABLE players ADD COLUMN stripe_payment_method_id TEXT;
 ALTER TABLE charges ADD COLUMN provider TEXT;
 ALTER TABLE tips ADD COLUMN provider TEXT;
 ALTER TABLE pbp_members ADD COLUMN provider TEXT;
+
+-- A GM who isn't eligible for a "full" Stripe connected account (gm_stripe_accounts above --
+-- that type requires card processing, which Stripe only allows in a short list of countries).
+-- A "recipient" account never processes a charge itself, so Stripe allows it in many more
+-- countries; the platform charges players itself and separately pays the GM their share.
+-- country is set once at creation (the GM's own real country) and never changes after that.
+CREATE TABLE IF NOT EXISTS gm_stripe_recipients (
+  uid TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  country TEXT NOT NULL,
+  email TEXT,
+  created_at TEXT NOT NULL
+);

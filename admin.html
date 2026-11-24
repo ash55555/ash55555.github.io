@@ -1010,6 +1010,12 @@ body.pc-open { overflow: hidden; }
         <div id="gmf-stripe-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
         <p class="slot-status" id="gmf-stripe-status"></p>
       </div>
+      <div class="pay-box" id="gmf-stripe-gp-box" style="margin-bottom:1.4em;">
+        <h2>🌍 Getting paid (outside the US, UK, EU, Canada or Switzerland)</h2>
+        <p class="note">If the Stripe account above isn't available for your country, use this instead. Ash Tabletop charges players directly and sends your share straight to your own local bank account, in your own currency. You confirm who you are and add your bank details on Stripe's secure pages -- we never see them.</p>
+        <div id="gmf-stripe-gp-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
+        <p class="slot-status" id="gmf-stripe-gp-status"></p>
+      </div>
     </div>
 
     <div class="me-panel" data-panel="agreements" hidden>
@@ -4741,11 +4747,14 @@ window.AshSlots = (function () {
     if (fin && gmf) {
       var payBox = gmf.querySelector('.pay-box');
       var stripeBox = document.getElementById('gmf-stripe-box');
+      var stripeGpBox = document.getElementById('gmf-stripe-gp-box');
       if (payBox) fin.insertBefore(payBox, fin.firstChild);
       if (stripeBox) fin.insertBefore(stripeBox, payBox ? payBox.nextSibling : fin.firstChild);
+      if (stripeGpBox) fin.insertBefore(stripeGpBox, stripeBox ? stripeBox.nextSibling : (payBox ? payBox.nextSibling : fin.firstChild));
       gmf.remove();
       if (window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
       if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(fin);
+      if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(fin);
     }
 
     // Wording that was written for Ash alone.
@@ -4783,9 +4792,12 @@ window.AshSlots = (function () {
         var finAdmin = document.querySelector('.me-panel[data-panel="finance"]');
         var gmfAdmin = document.querySelector('.me-panel[data-panel="gmfinance"]');
         var stripeBoxAdmin = document.getElementById('gmf-stripe-box');
+        var stripeGpBoxAdmin = document.getElementById('gmf-stripe-gp-box');
         if (finAdmin && stripeBoxAdmin) finAdmin.insertBefore(stripeBoxAdmin, finAdmin.firstChild);
+        if (finAdmin && stripeGpBoxAdmin) finAdmin.insertBefore(stripeGpBoxAdmin, stripeBoxAdmin ? stripeBoxAdmin.nextSibling : finAdmin.firstChild);
         if (gmfAdmin) gmfAdmin.remove();
         if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(finAdmin);
+        if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(finAdmin);
       }
       else if (!role.isGm) noAccess();
       else gmMode(role);
@@ -4978,6 +4990,95 @@ window.AshSlots = (function () {
     card.append(badge, title, text);
     if (balanceBox) card.appendChild(balanceBox);
     card.appendChild(btns);
+  }
+  function load() {
+    status.textContent = ''; status.className = 'slot-status';
+    call('status').then(function (d) { draw(d.state); }).catch(function (e) { card.innerHTML = ''; status.textContent = e.message; status.className = 'slot-status error'; });
+  }
+  new MutationObserver(function () { if (!panel.hidden) load(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
+})();
+</script>
+<script>
+// Global Payouts: for a GM whose own country can't get the "full" Stripe account above (that type
+// needs card processing, which Stripe only allows in a short list of countries). This account only
+// ever receives money -- Ash Tabletop charges players itself and sends the GM their own share --
+// so Stripe allows it in many more countries. Near-duplicate of the Stripe block above, except the
+// very first "start" call also needs the GM's own country (just a 2-letter code; nothing else about
+// them) since there is no account yet to read it back from.
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="gmfinance"]');
+  if (!panel) return;
+  var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/connect-stripe-recipient/';
+  window.AshGmFinanceStripeGPInit = function (host) {
+    panel = host;
+    new MutationObserver(function () { if (!host.hidden) load(); }).observe(host, { attributes: true, attributeFilter: ['hidden'] });
+    if (!host.hidden) load();
+  };
+  var card = document.getElementById('gmf-stripe-gp-card');
+  var status = document.getElementById('gmf-stripe-gp-status');
+  function call(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      var payload = Object.assign({ idToken: idToken }, extra || {});
+      return fetch(BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function go(action, btn, extra) {
+    btn.disabled = true; status.textContent = 'One moment...'; status.className = 'slot-status';
+    call(action, extra).then(function (d) { window.location.href = d.url; })
+      .catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
+  }
+  function draw(state) {
+    card.innerHTML = '';
+    var badge = el('span', 'gmf-badge ' + state);
+    var title = el('h3'), text = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
+    var primary = el('button', 'btn btn-primary'); primary.type = 'button';
+    if (state === 'ready') {
+      badge.textContent = 'Ready';
+      title.textContent = 'You are set up to get paid';
+      text.textContent = 'Your account is verified. Stripe sends your share straight to your own bank account after each session.';
+      card.append(badge, title, text);
+      return;
+    }
+    if (state === 'review') {
+      badge.textContent = 'In review';
+      title.textContent = 'Stripe is checking your details';
+      text.textContent = 'This usually takes a short while. You will not need to do anything. Come back and press refresh.';
+      primary.textContent = 'Refresh';
+      primary.addEventListener('click', load);
+      btns.appendChild(primary);
+      card.append(badge, title, text, btns);
+      return;
+    }
+    if (state === 'verify') {
+      badge.textContent = 'Almost there';
+      title.textContent = 'Finish verifying with Stripe';
+      text.textContent = 'You will be taken back to Stripe to finish confirming your identity and bank details.';
+      primary.textContent = 'Continue verifying';
+      primary.addEventListener('click', function () { go('start', primary); });
+      btns.appendChild(primary);
+      card.append(badge, title, text, btns);
+      return;
+    }
+    // state === 'none': first time -- needs the GM's own country before Stripe can create the account.
+    badge.textContent = 'Step 1';
+    title.textContent = 'Verify it is you and add where to send your money';
+    text.textContent = 'Tell us your country, then Stripe will ask for your name and your local bank details directly -- we never see them.';
+    var countryRow = el('div', 'gmf-country-row');
+    countryRow.style.margin = '.6em 0';
+    var countryInput = document.createElement('input');
+    countryInput.type = 'text'; countryInput.maxLength = 2; countryInput.placeholder = 'Country code (e.g. MA, FR, BR)';
+    countryInput.className = 'gmf-country-input';
+    countryRow.appendChild(countryInput);
+    primary.textContent = 'Verify and add my bank details';
+    primary.addEventListener('click', function () {
+      var country = (countryInput.value || '').trim().toUpperCase();
+      if (country.length !== 2) { status.textContent = 'Enter your 2-letter country code first.'; status.className = 'slot-status error'; return; }
+      go('start', primary, { country: country });
+    });
+    btns.appendChild(primary);
+    card.append(badge, title, text, countryRow, btns);
   }
   function load() {
     status.textContent = ''; status.className = 'slot-status';
