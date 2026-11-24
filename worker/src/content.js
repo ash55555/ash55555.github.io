@@ -5,6 +5,7 @@
 
 import { verifyUser, cfg, notifyPlayer } from './pay.js';
 import { gmPayoutAccount } from './connect.js';
+import { gmStripePayoutAccount } from './stripe.js';
 import { actorFor, MAX_GM_CAMPAIGNS, MAX_GM_SLOTS, cleanSlot, slotToUtc } from './owner.js';
 import { followersOf } from './follow.js';
 
@@ -19,6 +20,14 @@ const DEFAULT_TAG = 'Adventure'; // a Game Master picks their own; this is just 
 // existed, is treated as 'campaign'.
 const VALID_TYPES = new Set(['campaign', 'oneshot', 'pbp']);
 const cleanType = (v) => (VALID_TYPES.has(v) ? v : 'campaign');
+
+// Which payment provider a campaign uses. Set once at creation, exactly like type above, and
+// never changed after that (switching providers mid-campaign would strand players' saved cards).
+// Two different fallbacks for two different situations: reading an old/existing row with nothing
+// in this column means 'whop' (every campaign made before this column existed), but a brand-new
+// campaign with nothing valid in its creation payload defaults to 'stripe' (everything new does).
+const VALID_PROVIDERS = new Set(['whop', 'stripe']);
+const cleanProvider = (v, fallback) => (VALID_PROVIDERS.has(v) ? v : fallback);
 
 // The 5 campaigns that already have their own hand-built page and URL. New
 // campaigns created from the admin get a shared template page instead (see
@@ -64,6 +73,7 @@ function view(row, origin) {
   FIELDS.forEach((f) => { out[f] = row[f] || ''; });
   out.tag = row.tag || DEFAULT_TAG;
   out.type = cleanType(row.type);
+  out.provider = cleanProvider(row.provider, 'whop');
   return out;
 }
 
@@ -108,7 +118,8 @@ export async function handleContentPublic(request, env, corsHeaders) {
     const gm = await env.DB.prepare('SELECT slug FROM gm_profiles WHERE uid=?').bind(row.owner_uid).first();
     out.gm = gm ? gm.slug : '';
     out.slots = publicSlots(row);
-    out.bookable = !!(await gmPayoutAccount(env, row.owner_uid)); // seats can be booked once their payout account is approved
+    // seats can be booked once their payout account is approved, on whichever provider this campaign actually uses
+    out.bookable = !!(await (row.provider === 'stripe' ? gmStripePayoutAccount(env, row.owner_uid) : gmPayoutAccount(env, row.owner_uid)));
   }
   return json(out, 200, { 'Cache-Control': 'public, max-age=30', ...corsHeaders });
 }
@@ -122,7 +133,7 @@ export async function handleContentPublicList(request, env, corsHeaders) {
   // asks for them by their profile name (?gm=their-slug) and gets only theirs, with their sessions.
   const gmSlug = String(url.searchParams.get('gm') || '');
   let rows;
-  const META_COLS = 'price, min_players, open_mode, open_at, type';
+  const META_COLS = 'price, min_players, open_mode, open_at, type, provider';
   if (gmSlug && gmSlug !== 'ash') {
     const gm = await env.DB.prepare('SELECT uid FROM gm_profiles WHERE slug=?').bind(gmSlug).first();
     rows = gm ? (await env.DB.prepare(
@@ -131,15 +142,22 @@ export async function handleContentPublicList(request, env, corsHeaders) {
     rows = (await env.DB.prepare(
       `SELECT slug, title, eyebrow, hook, tag, banner_id, slots_json, owner_uid, ${META_COLS} FROM campaign_content WHERE published=1 AND owner_uid IS NULL ORDER BY created_at ASC`).all()).results;
   }
+  // Keyed by owner+provider, not just owner: the same GM could have one provider ready and not
+  // the other (that's the whole point of keeping both running side by side).
   const ready = {};
-  for (const r of rows) if (r.owner_uid && !(r.owner_uid in ready)) ready[r.owner_uid] = !!(await gmPayoutAccount(env, r.owner_uid));
+  for (const r of rows) {
+    if (!r.owner_uid) continue;
+    const key = r.owner_uid + ':' + (r.provider || 'whop');
+    if (key in ready) continue;
+    ready[key] = !!(await (r.provider === 'stripe' ? gmStripePayoutAccount(env, r.owner_uid) : gmPayoutAccount(env, r.owner_uid)));
+  }
   const campaigns = rows.map((r) => ({
     slug: r.slug, title: r.title, eyebrow: r.eyebrow, hook: r.hook, tag: r.tag || DEFAULT_TAG, type: cleanType(r.type),
     price: r.price > 0 ? r.price : DEFAULT_PRICE,
     minPlayers: r.min_players > 0 ? r.min_players : DEFAULT_MIN_PLAYERS,
     openMode: r.open_mode === 'date' ? 'date' : 'now',
     openAt: r.open_mode === 'date' ? r.open_at : null,
-    ...(r.owner_uid ? { bookable: ready[r.owner_uid] } : {}),
+    ...(r.owner_uid ? { bookable: ready[r.owner_uid + ':' + (r.provider || 'whop')] } : {}),
     bannerUrl: r.banner_id ? `${url.origin}/content/banner/${r.banner_id}` : null,
     ...(r.owner_uid ? { slots: publicSlots(r) } : {}),
   }));
@@ -304,12 +322,17 @@ async function saveCampaign(env, actor, body, self, corsHeaders) {
   // changes after that — switching a live play-by-post to a scheduled campaign (or back)
   // would strand its members/sessions, so an update just keeps whatever it already was.
   const type = isNew ? cleanType(body.type) : cleanType(existing.type);
+  // Same immutable-after-creation treatment for which payment provider a campaign uses.
+  // body.provider is only ever read here, on a brand-new campaign -- an update never sends it
+  // (see admin.html) and this ignores it even if it did, so a campaign can never change
+  // providers mid-life and strand an already-booked player's saved card.
+  const provider = isNew ? cleanProvider(body.provider, 'stripe') : cleanProvider(existing.provider, 'whop');
 
   if (isNew) {
     await env.DB.prepare(
-      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, tag, type, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', fields.tag || DEFAULT_TAG, type, bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
+      `INSERT INTO campaign_content (slug, title, eyebrow, hook, intro, world, stakes, audience, tag, type, provider, banner_id, banner_data, published, created_at, updated_at, owner_uid, price, min_players, open_mode, open_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      .bind(slug, title, fields.eyebrow || '', fields.hook || '', fields.intro || '', fields.world || '', fields.stakes || '', fields.audience || '', fields.tag || DEFAULT_TAG, type, provider, bannerId, bannerData, published, now, now, actor.isAdmin ? null : actor.uid, price, minPlayers, openMode, openAt)
       .run();
   } else {
     await env.DB.prepare(

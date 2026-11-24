@@ -324,7 +324,11 @@ function personalizeDm() {
   }
   const closed = $('pp-join-closed');
   if (closed) closed.textContent = 'Online booking for this group is opening soon. Tap Talk to ' + name + ' above and they will save you a seat.';
-  document.querySelectorAll('.pp-fineprint').forEach((p) => { p.textContent = p.textContent.replace(/Message Ash/g, 'Message ' + name); });
+  // Only touch a paragraph that actually says "Message Ash" -- re-stamping every .pp-fineprint
+  // paragraph via textContent, even ones that don't match, was flattening other paragraphs'
+  // nested HTML (links, the <span> the consent price lives in) back to plain text on every
+  // render, which broke booking for any other Game Master's campaign.
+  document.querySelectorAll('.pp-fineprint').forEach((p) => { if (p.textContent.includes('Message Ash')) p.textContent = p.textContent.replace(/Message Ash/g, 'Message ' + name); });
 }
 
 function renderGame() {
@@ -788,6 +792,7 @@ function fillBooking() {
   $("cb-seat-word").textContent = seatCount() === 1 ? "One seat" : seatCount() + " seats";
   syncSeatPicker();
   $("cb-game").textContent = TEST_GAME.title;
+  $("cb-dm-name").textContent = dmName;
   $("cb-when").textContent = weekdayName(next) + "s at " + fmtTime(next);
   const filled = SAMPLE_OTHERS.length;
   $("cb-seats").textContent = (filled + seatCount()) + " of " + TEST_GAME.seatsMax + " filled with you";
@@ -819,6 +824,53 @@ function loadWhopElements() {
   return whopElementsPromise;
 }
 
+// The Stripe mirror of loadWhopElements/the Whop branch of mountCardForm above -- only reached
+// for a brand-new campaign whose provider is Stripe (doSetup's response carries `provider`).
+let stripeJsPromise = null;
+function loadStripeJs() {
+  if (window.Stripe) return Promise.resolve();
+  if (!stripeJsPromise) {
+    stripeJsPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://js.stripe.com/v3/';
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('The payment form could not load. Please try again.'));
+      document.head.appendChild(s);
+    });
+  }
+  return stripeJsPromise;
+}
+
+async function mountCardFormStripe(data, run) {
+  const note = $('pp-checkout-note');
+  try {
+    await loadStripeJs();
+    if (run !== checkoutRun) return;
+    const stripe = window.Stripe(data.publishableKey, { stripeAccount: data.connectedAccountId });
+    const elements = stripe.elements({ clientSecret: data.clientSecret });
+    const paymentElement = elements.create('payment');
+    paymentElement.mount($('pp-embed'));
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'btn btn-primary';
+    submitBtn.style.marginTop = '1em';
+    submitBtn.textContent = 'Save card';
+    submitBtn.addEventListener('click', async () => {
+      submitBtn.disabled = true;
+      note.hidden = false; note.textContent = 'Saving your card...';
+      const { error, setupIntent } = await stripe.confirmSetup({ elements, redirect: 'if_required' });
+      if (run !== checkoutRun) return;
+      if (error) { note.textContent = error.message || 'Your card was not saved. Please try again.'; submitBtn.disabled = false; return; }
+      note.hidden = true;
+      finishJoin(null, run, setupIntent.id);
+    });
+    $('pp-embed').appendChild(submitBtn);
+  } catch (err) {
+    if (err.status === 403) { bookingClosed = true; closeModals(); renderAll(); return; }
+    note.hidden = false; note.textContent = err.message;
+  }
+}
+
 // Step 2 of booking: the player ticks the consent boxes, then Whop's secure form
 // (save card only, nothing charged today) appears. Once Whop says the card is
 // saved, the Worker double-checks with Whop and records the player as joined.
@@ -830,7 +882,7 @@ async function openRealCheckout() {
   const note = $('pp-checkout-note');
   const updating = !!(serverState && serverState.joined);
   $('pp-checkout-title').textContent = updating ? 'Update your card' : 'Confirm booking';
-  $('pp-checkout-sub').textContent = "You'll add your card on Whop's own secure form, so your card details never touch this website.";
+  $('pp-checkout-sub').textContent = "You'll add your card on our payment partner's own secure form, so your card details never touch this website.";
   $('pp-billing-modal').hidden = true;
   $('pp-checkout-go').hidden = true;
   $('pp-paid-done').hidden = true;
@@ -854,6 +906,7 @@ async function mountCardForm(run, lenient) {
   note.textContent = 'Getting your secure card form ready...';
   try {
     const data = await api('setup', { returnQuery: window.location.search, lenient: lenient === true, seats: joinSeats });
+    if (data.provider === 'stripe') { note.hidden = true; troubleBox.hidden = true; return mountCardFormStripe(data, run); }
     await loadWhopElements();
     if (run !== checkoutRun) return;
     const elements = window.WhopElements(data.environment === 'sandbox' ? { environment: 'sandbox' } : {});

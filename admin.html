@@ -1004,6 +1004,12 @@ body.pc-open { overflow: hidden; }
         <div id="gmf-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
         <p class="slot-status" id="gmf-status"></p>
       </div>
+      <div class="pay-box" id="gmf-stripe-box" style="margin-bottom:1.4em;">
+        <h2>💳 Getting paid (Stripe)</h2>
+        <p class="note">For brand-new campaigns only -- your existing tables keep working on Whop above, untouched. Players pay straight into <strong>your own account on Stripe</strong>, our other payment partner. Ash Tabletop's 5% is taken automatically on each payment, and Stripe's own fees apply. You confirm who you are and add where to send your money on Stripe's secure pages.</p>
+        <div id="gmf-stripe-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
+        <p class="slot-status" id="gmf-stripe-status"></p>
+      </div>
     </div>
 
     <div class="me-panel" data-panel="agreements" hidden>
@@ -1741,7 +1747,8 @@ window.AshSlots = (function () {
   };
 })();
 </script>
-<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1 && /preview=(glass|gm)/.test(location.search)) document.write('<scr' + 'ipt src="admin-preview.js"></scr' + 'ipt>');</script>
+<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1) document.write('<scr' + 'ipt src="ash-preview.js"></scr' + 'ipt>');</script>
+<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1 && /preview=glass/.test(location.search)) document.write('<scr' + 'ipt src="admin-preview.js"></scr' + 'ipt>');</script>
 <script>
 (function () {
   // Cloudflare Worker that actually sends the emails. Placeholder until the
@@ -4007,6 +4014,9 @@ window.AshSlots = (function () {
   var campaigns = [];
   var current = null;        // slug being edited, or null for a brand-new campaign
   var currentType = 'campaign'; // 'campaign' | 'oneshot' | 'pbp', set by the type picker or loaded with the campaign
+  // 'whop' | 'stripe', the payment provider a campaign uses. Set once at creation (every brand-new
+  // campaign defaults to 'stripe' -- no picker needed) and never changed after that, same as currentType.
+  var currentProvider = 'stripe';
   var pendingBanner = null;  // data URL waiting to be saved
   var slotState = null;      // { mode: 'single'|'multi', slotId, slot }
   var tagValue = 'Adventure'; // the one genre tag this campaign is shown under
@@ -4364,6 +4374,7 @@ window.AshSlots = (function () {
     document.getElementById('cc-time-label').textContent = 'Session time (' + z + ')';
     current = slug;
     currentType = forcedType || 'campaign';
+    currentProvider = 'stripe'; // overwritten below once an existing campaign's own provider loads
     pendingBanner = null;
     slotState = null;
     var seq = ++editSeq;
@@ -4400,6 +4411,7 @@ window.AshSlots = (function () {
     call('get', { slug: slug }).then(function (d) {
       if (seq !== editSeq) return; // a newer campaign was opened while this was loading
       currentType = d.type || 'campaign';
+      currentProvider = d.provider || 'whop';
       document.getElementById('cc-f-title').value = d.title || '';
       document.getElementById('cc-f-eyebrow').value = d.eyebrow || '';
       document.getElementById('cc-f-hook').value = d.hook || '';
@@ -4484,6 +4496,7 @@ window.AshSlots = (function () {
     var body = {
       title: title,
       type: currentType,
+      provider: currentProvider,
       eyebrow: document.getElementById('cc-f-eyebrow').value,
       tag: tagValue || 'Adventure',
       hook: document.getElementById('cc-f-hook').value,
@@ -4727,9 +4740,12 @@ window.AshSlots = (function () {
     if (wd && wd.closest('.pay-box')) wd.closest('.pay-box').remove();
     if (fin && gmf) {
       var payBox = gmf.querySelector('.pay-box');
+      var stripeBox = document.getElementById('gmf-stripe-box');
       if (payBox) fin.insertBefore(payBox, fin.firstChild);
+      if (stripeBox) fin.insertBefore(stripeBox, payBox ? payBox.nextSibling : fin.firstChild);
       gmf.remove();
       if (window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
+      if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(fin);
     }
 
     // Wording that was written for Ash alone.
@@ -4760,7 +4776,17 @@ window.AshSlots = (function () {
     }).then(function (r) { return r.json(); }).then(function (d) {
       var role = { isGm: !!d.isGm, isAdmin: !!d.isAdmin, slug: d.slug || '', name: d.name || '' };
       window.AshRole = role;
-      if (role.isAdmin) { /* Ash sees everything */ }
+      if (role.isAdmin) {
+        // Ash is not special-cased on the Stripe side (unlike Whop): her own new campaigns route
+        // through her own connected account too, so she gets the same "Connect Stripe" card any
+        // other Game Master does, moved to the top of her own Finance tab.
+        var finAdmin = document.querySelector('.me-panel[data-panel="finance"]');
+        var gmfAdmin = document.querySelector('.me-panel[data-panel="gmfinance"]');
+        var stripeBoxAdmin = document.getElementById('gmf-stripe-box');
+        if (finAdmin && stripeBoxAdmin) finAdmin.insertBefore(stripeBoxAdmin, finAdmin.firstChild);
+        if (gmfAdmin) gmfAdmin.remove();
+        if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(finAdmin);
+      }
       else if (!role.isGm) noAccess();
       else gmMode(role);
       window.__resolveRole(role);
@@ -4857,6 +4883,93 @@ window.AshSlots = (function () {
       badge.textContent = state === 'verify' ? 'Almost there' : 'Step 1';
       title.textContent = 'Verify it is you and add where to send your money';
       text.textContent = 'You will be taken to Whop to confirm your identity and add your bank or card details. It takes a few minutes. When you are done, you come back here.';
+      primary.textContent = state === 'verify' ? 'Continue verifying' : 'Verify and add my bank details';
+      primary.addEventListener('click', function () { go('start', primary); });
+    }
+    btns.appendChild(primary);
+    if (extra) btns.appendChild(extra);
+    card.append(badge, title, text);
+    if (balanceBox) card.appendChild(balanceBox);
+    card.appendChild(btns);
+  }
+  function load() {
+    status.textContent = ''; status.className = 'slot-status';
+    call('status').then(function (d) { draw(d.state); }).catch(function (e) { card.innerHTML = ''; status.textContent = e.message; status.className = 'slot-status error'; });
+  }
+  new MutationObserver(function () { if (!panel.hidden) load(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
+})();
+</script>
+<script>
+// Finance for a Game Master: set up payouts on Stripe. Near-duplicate of the Whop block above --
+// same state-card pattern (none|verify|review|rejected|ready), just a second, parallel provider.
+// Unlike the Whop card, this one is also shown to Ash herself: she is not special-cased on the
+// Stripe side, so her own new campaigns route through her own connected account too.
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="gmfinance"]');
+  if (!panel) return;
+  var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/connect-stripe/';
+  window.AshGmFinanceStripeInit = function (host) {
+    panel = host;
+    new MutationObserver(function () { if (!host.hidden) load(); }).observe(host, { attributes: true, attributeFilter: ['hidden'] });
+    if (!host.hidden) load();
+  };
+  var card = document.getElementById('gmf-stripe-card');
+  var status = document.getElementById('gmf-stripe-status');
+  function call(action) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function money(n) { return n == null ? '—' : '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
+  function go(action, btn) {
+    btn.disabled = true; status.textContent = 'One moment...'; status.className = 'slot-status';
+    call(action).then(function (d) { window.location.href = d.url; })
+      .catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
+  }
+  function loadBalance(box) {
+    var modeBadge = el('span', 'pay-badge'), amount = el('div', 'fin-balance-amount');
+    var line = el('p', 'slot-status', 'Loading your balance…');
+    box.append(line);
+    call('balance').then(function (d) {
+      line.remove();
+      modeBadge.className = 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn');
+      modeBadge.textContent = d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)';
+      amount.textContent = money(d.total);
+      box.append(modeBadge, amount);
+    }).catch(function (e) { line.textContent = e.message; line.className = 'slot-status error'; });
+  }
+  function draw(state) {
+    card.innerHTML = '';
+    var badge = el('span', 'gmf-badge ' + state);
+    var title = el('h3'), text = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
+    var primary = el('button', 'btn btn-primary'); primary.type = 'button';
+    var extra = null, balanceBox = null;
+    if (state === 'ready') {
+      badge.textContent = 'Ready';
+      title.textContent = 'You are set up to get paid';
+      text.textContent = 'Your payout account is verified. Open your Stripe dashboard to add or change where your money is sent and to withdraw.';
+      primary.textContent = 'Open my Stripe dashboard';
+      primary.addEventListener('click', function () { go('portal', primary); });
+      balanceBox = el('div', 'gmf-balance');
+      loadBalance(balanceBox);
+    } else if (state === 'review') {
+      badge.textContent = 'In review';
+      title.textContent = 'Stripe is checking your details';
+      text.textContent = 'This usually takes a short while. You will not need to do anything. Come back and press refresh.';
+      primary.textContent = 'Refresh';
+      primary.addEventListener('click', load);
+    } else if (state === 'rejected') {
+      badge.textContent = 'Needs attention';
+      title.textContent = 'Stripe could not verify your details';
+      text.textContent = 'Please message Ash and we will help you sort it out.';
+      primary.textContent = 'Try again';
+      primary.addEventListener('click', function () { go('start', primary); });
+    } else {
+      badge.textContent = state === 'verify' ? 'Almost there' : 'Step 1';
+      title.textContent = 'Verify it is you and add where to send your money';
+      text.textContent = 'You will be taken to Stripe to confirm your identity and add your bank or card details. It takes a few minutes. When you are done, you come back here.';
       primary.textContent = state === 'verify' ? 'Continue verifying' : 'Verify and add my bank details';
       primary.addEventListener('click', function () { go('start', primary); });
     }

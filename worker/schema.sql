@@ -303,3 +303,31 @@ CREATE TABLE IF NOT EXISTS game_prices (
 
 -- One person can hold 2 seats (they bring a second player, or play two characters) and pay for both.
 ALTER TABLE players ADD COLUMN seats INTEGER NOT NULL DEFAULT 1;
+
+-- Stripe: a second payment provider, for brand-new campaigns only (every existing campaign and
+-- booked player stays on Whop, untouched, forever). Which provider a campaign uses is set once at
+-- creation, exactly like the `type` column above, and never changes after that. NULL/'whop' means
+-- the original Whop flow; every row made before this column existed is unaffected.
+ALTER TABLE campaign_content ADD COLUMN provider TEXT;
+
+-- A GM's own connected Stripe account. A separate table from gm_accounts (not a column on it)
+-- because a GM -- Ash included -- can have a Whop account AND a Stripe account at the same time.
+CREATE TABLE IF NOT EXISTS gm_stripe_accounts (
+  uid TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  email TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- Which provider a player's saved card is with, and the Stripe-shaped identifiers for it (Stripe's
+-- customer/payment-method ids don't fit member_id/payment_method_id above, which are Whop-specific
+-- and NOT NULL). For a Stripe player those two Whop columns are written as '' and never read.
+ALTER TABLE players ADD COLUMN provider TEXT;
+ALTER TABLE players ADD COLUMN stripe_customer_id TEXT;
+ALTER TABLE players ADD COLUMN stripe_payment_method_id TEXT;
+
+-- Which provider actually processed a charge (payment_id keeps meaning "that provider's payment
+-- id", now sometimes a Stripe PaymentIntent id instead of a Whop one).
+ALTER TABLE charges ADD COLUMN provider TEXT;
+ALTER TABLE tips ADD COLUMN provider TEXT;
+ALTER TABLE pbp_members ADD COLUMN provider TEXT;

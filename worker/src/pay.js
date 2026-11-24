@@ -14,6 +14,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { actorFor, loadOwners, inScope, slotToUtc } from './owner.js';
 import { gmPayoutAccount } from './connect.js';
+import { gmStripePayoutAccount, chargeStripe, refundStripe, stripeFetch, cfgStripe, getStripeIntent } from './stripe.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -86,7 +87,7 @@ export async function loadGames(env, fresh = false) {
   if (slugs.length && env.DB) {
     for (const slug of slugs) {
       try {
-        const row = await env.DB.prepare('SELECT title, price, min_players, open_mode, open_at FROM campaign_content WHERE slug=?').bind(slug).first();
+        const row = await env.DB.prepare('SELECT title, price, min_players, open_mode, open_at, provider FROM campaign_content WHERE slug=?').bind(slug).first();
         if (row) metaBySlug[slug] = row;
       } catch { /* falls back to the raw slug and site defaults below */ }
     }
@@ -120,6 +121,7 @@ export async function loadGames(env, fresh = false) {
         openMode, openAt,
         legacyFilled: Number.isInteger(s.filled) && s.filled > 0 ? s.filled : 0,
         enabled: s.enabled !== false,
+        provider: meta.provider || 'whop',
       };
     }
   }
@@ -130,7 +132,7 @@ export async function loadGames(env, fresh = false) {
     // Ash's own games must never be held up by this: if the lookup fails (for example the database has not been
     // updated yet), her schedule loads exactly as before and only the other Game Masters' games are missing.
     let owned = [];
-    try { owned = (await env.DB.prepare('SELECT slug, title, owner_uid, slots_json, price, min_players, open_mode, open_at FROM campaign_content WHERE owner_uid IS NOT NULL').all()).results; } catch (err) { console.error('could not read the other Game Masters games', err && err.message); }
+    try { owned = (await env.DB.prepare('SELECT slug, title, owner_uid, slots_json, price, min_players, open_mode, open_at, provider FROM campaign_content WHERE owner_uid IS NOT NULL').all()).results; } catch (err) { console.error('could not read the other Game Masters games', err && err.message); }
     for (const c of owned) {
       let slots = {};
       try { slots = JSON.parse(c.slots_json || '{}') || {}; } catch { slots = {}; }
@@ -156,6 +158,7 @@ export async function loadGames(env, fresh = false) {
           legacyFilled: 0,
           enabled: s.enabled !== false,
           owner: c.owner_uid,
+          provider: c.provider || 'whop',
         };
       }
     }
@@ -410,6 +413,58 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
     }
     return json({ ok: true, sent: 2 }, 200, corsHeaders);
   }
+  // Ash only: the real "Game reminder" email, sent to whatever address she gives so she can see
+  // exactly what a player receives. When that address belongs to a real active player, it uses
+  // THEIR own game, session and saved time zone, not a generic stand-in.
+  if (action === 'admin/reminder-email-test') {
+    if (!actor.isAdmin) return json({ error: 'Not authorized' }, 403, corsHeaders);
+    const to = String(body.to || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return json({ error: 'Please give a real email address.' }, 400, corsHeaders);
+    const mode = cfg(env).mode;
+    let games;
+    try { games = await loadGames(env, true); } catch { return json({ error: 'Could not read the schedule.' }, 400, corsHeaders); }
+    const now = new Date();
+
+    const realPlayer = await env.DB.prepare(
+      `SELECT p.uid, p.game, p.name AS pname, pr.name, pr.tz FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid
+       WHERE p.mode=? AND lower(p.email)=? AND p.status='active' LIMIT 1`).bind(mode, to.toLowerCase()).first();
+
+    let key, game, next, name, tz;
+    if (realPlayer && games[realPlayer.game]) {
+      key = realPlayer.game; game = games[realPlayer.game];
+      next = (await upcomingFor(env, mode, key, game, now, 1))[0];
+      name = realPlayer.name || realPlayer.pname;
+      tz = realPlayer.tz || '';
+    }
+    if (!next) {
+      // Not a real player (or their game has nothing upcoming): fall back to the soonest
+      // session on the whole schedule, shown with Ash's own time zone as a stand-in.
+      let soonest = null;
+      for (const [k, g] of Object.entries(games)) {
+        if (!g.enabled) continue;
+        const n = (await upcomingFor(env, mode, k, g, now, 1))[0];
+        if (n && (!soonest || n.getTime() < soonest.ts.getTime())) soonest = { key: k, game: g, ts: n };
+      }
+      if (!soonest) return json({ error: 'There is no upcoming session to show.' }, 400, corsHeaders);
+      ({ key, game, ts: next } = soonest);
+      name = 'there';
+      const adminProfile = await env.DB.prepare('SELECT tz FROM profiles WHERE uid=?').bind(env.ADMIN_UID).first();
+      tz = (adminProfile && adminProfile.tz) || '';
+    }
+
+    const ts = iso(next);
+    const players = (await env.DB.prepare(
+      `SELECT p.uid, p.name AS pname, pr.name FROM players p LEFT JOIN profiles pr ON pr.uid = p.uid
+       WHERE p.mode=? AND p.game=? AND p.status='active'`).bind(mode, key).all()).results;
+    const skips = new Set((await env.DB.prepare('SELECT uid FROM skips WHERE mode=? AND game=? AND session_ts=?').bind(mode, key, ts).all()).results.map((r) => r.uid));
+    const openSeats = Math.max(0, (game.max || 0) - (game.legacyFilled || 0) - players.length);
+    const others = players.filter((p) => !(realPlayer && p.uid === realPlayer.uid) && !skips.has(p.uid))
+      .map((p) => String(p.name || p.pname || '').trim()).filter(Boolean);
+    const { playerEmail } = await import('./reminders.js');
+    const html = playerEmail({ name, game, ts, tz, msLeft: next.getTime() - now.getTime(), openSeats, others });
+    await sendEmail(env, to, `[TEST] Reminder: ${game.title} is in 24 hours`, html);
+    return json({ ok: true, game: game.title, ts, usedRealPlayer: !!realPlayer }, 200, corsHeaders);
+  }
   if (action === 'admin/notifications/test') {
     await notify(env, sendEmail, 'live', 'reminder', null, 'Test notification', 'If you can read this in your inbox and in your admin page, notifications are working. Nothing is wrong.');
     return json({ ok: true }, 200, corsHeaders);
@@ -470,6 +525,10 @@ export async function handlePay(request, env, corsHeaders, origin, action, sendE
 // Where a game's money goes: Ash's own Whop account for her games, and for another Game Master the account they set up
 // under Ash Tabletop, but only once Whop says it is ready. Null means nobody can book or be charged for that table yet.
 async function accountFor(env, game) {
+  // On the Stripe side Ash is not special-cased: her own new campaigns route to her own
+  // connected account, same as any other Game Master (the platform account belongs to
+  // whoever set up Stripe for Ash Tabletop, not to her).
+  if (game.provider === 'stripe') return await gmStripePayoutAccount(env, game.owner || env.ADMIN_UID);
   return game.owner ? await gmPayoutAccount(env, game.owner) : cfg(env).company;
 }
 // Ash Tabletop keeps this share of every payment made to another Game Master (taken by Whop as the application fee).
@@ -498,6 +557,7 @@ async function getPlayer(ctx, uid = ctx.user.sub) {
 // ------------------------------------------------------------ player: join
 
 async function doSetup(ctx) {
+  if (ctx.game.provider === 'stripe') return doSetupStripe(ctx);
   const { env, user, gameKey, game, corsHeaders } = ctx;
   const existing = await getPlayer(ctx);
   const updating = !!(existing && existing.status === 'active');
@@ -539,6 +599,7 @@ async function doSetup(ctx) {
 // Called by the browser after Whop says the card was saved. We do not trust the
 // browser: we ask Whop directly which card was saved for this checkout.
 async function doComplete(ctx) {
+  if (ctx.game.provider === 'stripe') return doCompleteStripe(ctx);
   const { env, user, body, gameKey, game, corsHeaders } = ctx;
   if (body.consent !== true || body.adult !== true) {
     return json({ error: 'Please tick both boxes to continue.' }, 400, corsHeaders);
@@ -595,6 +656,93 @@ async function doComplete(ctx) {
          card_last4=excluded.card_last4, status='active', consent_at=excluded.consent_at, joined_at=excluded.joined_at, left_at=NULL, price_override=NULL, seats=excluded.seats`)
       .bind(ctx.mode, gameKey, user.sub, email, name, token, memberId, pm.id, card.brand || null, card.last4 || null, now, now, wantSeats).run();
     // A fresh join starts with a clean slate of skips.
+    await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, gameKey, user.sub).run();
+    await notify(env, ctx.sendEmail, ctx.mode, 'joined', gameKey, `${name} joined ${game.title}`, `${email} booked ${wantSeats > 1 ? wantSeats + ' seats (charged for each)' : 'a seat'}.\nCard on file: ${card.brand || 'card'} ${card.last4 || ''}.`);
+  }
+  return doStatus(ctx);
+}
+
+// The Stripe mirror of doSetup/doComplete above: same shape, same checks, same ON CONFLICT
+// upsert into `players`, just talking to Stripe instead of Whop and writing the Stripe-shaped
+// columns. Only reached for a campaign whose provider is 'stripe' (see the guards above).
+async function doSetupStripe(ctx) {
+  const { env, user, gameKey, game, corsHeaders } = ctx;
+  const existing = await getPlayer(ctx);
+  const updating = !!(existing && existing.status === 'active');
+  const account = await accountFor(env, game);
+  if (!account) return json({ error: 'This game master has not finished setting up payouts yet, so seats cannot be booked.' }, 409, corsHeaders);
+  if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
+  if (!updating) {
+    const want = cleanSeats(ctx.body.seats);
+    const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
+    if (seats.open <= 0) return json({ error: 'This game is full right now. Talk to Ash about a spot.' }, 409, corsHeaders);
+    if (seats.open < want) return json({ error: `Only ${seats.open} seat${seats.open === 1 ? ' is' : 's are'} open right now, so you can book up to ${seats.open}.` }, 409, corsHeaders);
+  }
+  const c = cfgStripe(env);
+  const email = (user.email || '').toLowerCase();
+  // A Customer lives inside the GM's own connected account (Stripe-Account header), so a
+  // returning player on the same table reuses the one they already have there.
+  let customerId = existing && existing.provider === 'stripe' ? existing.stripe_customer_id : null;
+  if (!customerId) {
+    const r = await stripeFetch(env, '/customers', { method: 'POST', body: new URLSearchParams({ email, 'metadata[uid]': user.sub, 'metadata[game]': gameKey }).toString() }, account);
+    if (!r.ok || !r.data.id) return json({ error: 'Could not start card setup.', detail: r.data }, 502, corsHeaders);
+    customerId = r.data.id;
+  }
+  const si = await stripeFetch(env, '/setup_intents', {
+    method: 'POST',
+    // automatic_payment_methods (not the old payment_method_types list, which Stripe no longer
+    // accepts -- payment methods are now managed from the connected account's own Dashboard
+    // settings) with redirects off, so a card can be confirmed in one step with no return_url.
+    body: new URLSearchParams({ customer: customerId, 'automatic_payment_methods[enabled]': 'true', 'automatic_payment_methods[allow_redirects]': 'never', usage: 'off_session', 'metadata[uid]': user.sub, 'metadata[game]': gameKey }).toString(),
+  }, account);
+  if (!si.ok || !si.data.client_secret) return json({ error: 'Could not start card setup.', detail: si.data }, 502, corsHeaders);
+  return json({ provider: 'stripe', clientSecret: si.data.client_secret, connectedAccountId: account, publishableKey: c.publishableKey, environment: c.mode, updating }, 200, corsHeaders);
+}
+
+// Called by the browser after Stripe confirms the SetupIntent. We do not trust the browser: we
+// ask Stripe directly, scoped to the GM's own connected account, which card was saved.
+async function doCompleteStripe(ctx) {
+  const { env, user, body, gameKey, game, corsHeaders } = ctx;
+  if (body.consent !== true || body.adult !== true) return json({ error: 'Please tick both boxes to continue.' }, 400, corsHeaders);
+  if (!body.setupIntentId) return json({ error: 'Missing checkout.' }, 400, corsHeaders);
+  const account = await accountFor(env, game);
+  if (!account) return json({ error: 'This game master has not finished setting up payouts yet.' }, 409, corsHeaders);
+  const r = await stripeFetch(env, `/setup_intents/${encodeURIComponent(body.setupIntentId)}`, {}, account);
+  if (!r.ok) return json({ error: 'Could not confirm your card yet.', detail: r.data }, 502, corsHeaders);
+  const intent = r.data;
+  if (!(intent.metadata && intent.metadata.uid === user.sub && intent.metadata.game === gameKey)) {
+    return json({ error: 'Your card was not saved. Please try again.' }, 409, corsHeaders);
+  }
+  if (intent.status === 'processing') return json({ pending: true }, 202, corsHeaders);
+  if (intent.status !== 'succeeded' || !intent.payment_method || !intent.customer) {
+    return json({ error: 'Your card was not saved. Please try again.' }, 409, corsHeaders);
+  }
+  const pmRes = await stripeFetch(env, `/payment_methods/${encodeURIComponent(intent.payment_method)}`, {}, account);
+  const card = (pmRes.ok && pmRes.data.card) || {};
+  const now = iso(new Date());
+  const existing = await getPlayer(ctx);
+  const wantSeats = cleanSeats(body.seats);
+  if (!existing || existing.status !== 'active') {
+    const seats = seatInfo(game, await activeCount(env, ctx.mode, gameKey));
+    if (seats.open <= 0) return json({ error: 'This game just filled up. Talk to Ash about a spot.' }, 409, corsHeaders);
+    if (seats.open < wantSeats) return json({ error: `Only ${seats.open} seat${seats.open === 1 ? ' is' : 's are'} left, so you can book up to ${seats.open}.` }, 409, corsHeaders);
+  }
+  const email = (user.email || '').toLowerCase();
+  const name = cleanName(body.name, email);
+  const token = String(body.token || '').replace(/[^a-z]/g, '').slice(0, 12);
+  await saveTz(env, user, body.tz);
+
+  if (existing && existing.status === 'active') {
+    await env.DB.prepare('UPDATE players SET provider=?, stripe_customer_id=?, stripe_payment_method_id=?, card_brand=?, card_last4=? WHERE mode=? AND game=? AND uid=?')
+      .bind('stripe', intent.customer, intent.payment_method, card.brand || null, card.last4 || null, ctx.mode, gameKey, user.sub).run();
+  } else {
+    await env.DB.prepare(
+      `INSERT INTO players (mode, game, uid, email, name, token, member_id, payment_method_id, provider, stripe_customer_id, stripe_payment_method_id, card_brand, card_last4, status, consent_at, joined_at, seats)
+       VALUES (?,?,?,?,?,?, '', '', 'stripe', ?,?,?,?, 'active', ?, ?, ?)
+       ON CONFLICT(mode, game, uid) DO UPDATE SET email=excluded.email, name=excluded.name, token=excluded.token,
+         provider='stripe', stripe_customer_id=excluded.stripe_customer_id, stripe_payment_method_id=excluded.stripe_payment_method_id,
+         card_brand=excluded.card_brand, card_last4=excluded.card_last4, status='active', consent_at=excluded.consent_at, joined_at=excluded.joined_at, left_at=NULL, price_override=NULL, seats=excluded.seats`)
+      .bind(ctx.mode, gameKey, user.sub, email, name, token, intent.customer, intent.payment_method, card.brand || null, card.last4 || null, now, now, wantSeats).run();
     await env.DB.prepare('DELETE FROM skips WHERE mode=? AND game=? AND uid=?').bind(ctx.mode, gameKey, user.sub).run();
     await notify(env, ctx.sendEmail, ctx.mode, 'joined', gameKey, `${name} joined ${game.title}`, `${email} booked ${wantSeats > 1 ? wantSeats + ' seats (charged for each)' : 'a seat'}.\nCard on file: ${card.brand || 'card'} ${card.last4 || ''}.`);
   }
@@ -793,8 +941,13 @@ async function adminRefund(ctx) {
   if (amount !== null && (!(amount > 0) || amount > row.amount - row.refunded_amount)) {
     return json({ error: 'That refund amount is not valid.' }, 400, corsHeaders);
   }
-  const r = await whop(ctx.env, `/payments/${row.payment_id}/refund`, { method: 'POST', body: JSON.stringify(amount ? { partial_amount: amount } : {}) });
-  if (!r.ok) return json({ error: 'Whop would not refund this payment.', detail: r.data }, 502, corsHeaders);
+  // The charge row's own provider is the permanent record of who processed it -- a campaign's
+  // provider is fixed at creation and never changes, but reading it from the charge itself means
+  // this never has to depend on that invariant holding.
+  const r = row.provider === 'stripe'
+    ? await refundStripe(ctx.env, await accountFor(ctx.env, ctx.game), row.payment_id, amount ? Math.round(amount * 100) : undefined)
+    : await whop(ctx.env, `/payments/${row.payment_id}/refund`, { method: 'POST', body: JSON.stringify(amount ? { partial_amount: amount } : {}) });
+  if (!r.ok) return json({ error: (row.provider === 'stripe' ? 'Stripe' : 'Whop') + ' would not refund this payment.', detail: r.data }, 502, corsHeaders);
   const refunded = row.refunded_amount + (amount || (row.amount - row.refunded_amount));
   const full = refunded >= row.amount - 0.001;
   await env.DB.prepare('UPDATE charges SET refunded_amount=?, status=?, updated_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?')
@@ -1344,8 +1497,8 @@ export async function runCharges(env, sendEmail) {
 
         if (mode === 'dry') { report.wouldCharge++; console.log(`[dry] would charge ${p.email} $${g.price} for ${gameKey} ${ts}`); continue; }
 
-        await env.DB.prepare("INSERT OR IGNORE INTO charges (mode, game, uid, session_ts, status, amount, updated_at) VALUES (?,?,?,?, 'new', ?, ?)")
-          .bind(c.mode, gameKey, p.uid, ts, g.price, iso(now)).run();
+        await env.DB.prepare("INSERT OR IGNORE INTO charges (mode, game, uid, session_ts, status, amount, provider, updated_at) VALUES (?,?,?,?, 'new', ?,?,?)")
+          .bind(c.mode, gameKey, p.uid, ts, g.price, g.provider || 'whop', iso(now)).run();
         const row = await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
 
         if (['paid', 'refunded', 'failed_final', 'unknown'].includes(row.status)) continue;
@@ -1367,22 +1520,24 @@ export async function runCharges(env, sendEmail) {
         if (!claim.meta || claim.meta.changes !== 1) continue;
 
         const key = chargeKey(c.mode, gameKey, p.uid, ts);
-        const r = await whop(env, '/payments', {
-          method: 'POST',
-          body: JSON.stringify({
-            account_id: account,
-            member_id: p.member_id,
-            payment_method_id: p.payment_method_id,
-            plan: {
-              currency: 'usd',
-              plan_type: 'one_time',
-              initial_price: g.price,
-              title: 'Ash Tabletop game session',
-              ...(g.owner ? gmPlanExtras(g) : {}),
-            },
-            metadata: { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts },
-          }),
-        });
+        const r = g.provider === 'stripe'
+          ? await chargeStripe(env, account, p.stripe_customer_id, p.stripe_payment_method_id, g.price, platformFee(g.price), { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts })
+          : await whop(env, '/payments', {
+              method: 'POST',
+              body: JSON.stringify({
+                account_id: account,
+                member_id: p.member_id,
+                payment_method_id: p.payment_method_id,
+                plan: {
+                  currency: 'usd',
+                  plan_type: 'one_time',
+                  initial_price: g.price,
+                  title: 'Ash Tabletop game session',
+                  ...(g.owner ? gmPlanExtras(g) : {}),
+                },
+                metadata: { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts },
+              }),
+            });
         await settle(env, c, sendEmail, p, g, gameKey, ts, r);
         const outcome = r.ok ? classify(r.data) : 'failed';
         if (outcome === 'paid') report.charged++; else if (outcome === 'pending') report.pending++; else report.failed++;
@@ -1434,7 +1589,7 @@ async function reconcile(env, c, row, sendEmail, p, game) {
   const last = row.last_attempt_at ? new Date(row.last_attempt_at).getTime() : 0;
   if (now.getTime() - last < (row.payment_id ? 60 * 1000 : 10 * 60 * 1000)) return;
   if (row.payment_id) {
-    const r = await whop(env, `/payments/${row.payment_id}`);
+    const r = game.provider === 'stripe' ? await getStripeIntent(env, await accountFor(env, game), row.payment_id) : await whop(env, `/payments/${row.payment_id}`);
     if (r.ok) {
       const d = r.data;
       const kind = classify(d);

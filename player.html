@@ -127,7 +127,7 @@
         <p class="pp-open-seats" id="pp-open-seats"></p>
         <ol class="pp-steps" id="pp-join-steps">
           <li class="done"><strong>Make your profile.</strong> Your name and token, on the left.</li>
-          <li><strong>Add a payment method.</strong> You do this on a secure Whop page. Your card details never touch this website.</li>
+          <li><strong>Add a payment method.</strong> You do this on our payment partner's secure page. Your card details never touch this website.</li>
           <li><strong>You're in!</strong> You'll get a seat and show up on the roster.</li>
         </ol>
         <div class="pp-billing" id="pp-billing-preview"></div>
@@ -218,7 +218,7 @@
 
         <section class="pp-cb-card">
           <h4>2. Payment</h4>
-          <p class="pp-cb-muted" id="pp-checkout-sub">Add your card on Whop's secure form below. Your card details never touch this website.</p>
+          <p class="pp-cb-muted" id="pp-checkout-sub">Add your card on our payment partner's secure form below. Your card details never touch this website.</p>
           <div class="pp-when-charged"><strong>You are charged one hour after each session starts.</strong><span id="cb-charge-line"></span></div>
           <p class="pp-trouble" id="pp-trouble" hidden>
             <span>Stuck on the bank verification, or it keeps spinning? Reload the form, try another card, or open this page in Chrome or Safari.</span>
@@ -227,7 +227,7 @@
           </p>
           <div class="pp-billing" id="pp-billing-modal"></div>
           <div id="pp-embed"></div>
-          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with Whop and charged $<span id="cb-consent-amt">10</span> USD at the start time of each session you have not skipped, until you leave the game. Skip a session or leave any time up to 1 hour before it starts.</p>
+          <p class="pp-fineprint pp-consent" id="pp-consent" hidden>By adding your card you confirm you are 18 or older and agree to the <a href="terms.html" target="_blank" rel="noopener">terms and refund policy</a>. Your card is saved securely with our payment partner and charged $<span id="cb-consent-amt">10</span> USD at the start time of each session you have not skipped, until you leave the game. Skip a session or leave any time up to 1 hour before it starts.</p>
           <button type="button" class="btn btn-primary" id="pp-checkout-go" style="width:100%; justify-content:center; margin-top:1em;">Pretend I paid</button>
           <button type="button" class="btn btn-ghost" id="pp-paid-done" style="width:100%; justify-content:center; margin-top:0.7em;" hidden>I finished paying</button>
           <p class="pp-fineprint" id="pp-checkout-note" hidden></p>
@@ -245,7 +245,7 @@
           </dl>
           <div class="pp-cb-gm">
             <div class="pp-token pp-token-sm" style="--tk:#6b46c1" aria-hidden="true">🐉</div>
-            <div><span class="pp-cb-label">Game Master</span><strong>Ash</strong></div>
+            <div><span class="pp-cb-label">Game Master</span><strong id="cb-dm-name">Ash</strong></div>
           </div>
           <div class="pp-cb-summary">
             <span class="pp-cb-label">Summary</span>
@@ -310,6 +310,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="firebase-init.js?v=20260926b"></script>
+<script>if (["localhost", "127.0.0.1"].indexOf(location.hostname) !== -1) document.write('<scr' + 'ipt src="ash-preview.js"></scr' + 'ipt>');</script>
 <script src="tz.js?v=20260927a"></script>
 <script src="nav-user.js?v=20261005b"></script>
 <script src="reviews-ui.js?v=20261029a"></script>

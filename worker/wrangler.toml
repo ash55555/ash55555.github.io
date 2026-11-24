@@ -27,6 +27,15 @@ PAY_MODE = "live"
 CHARGING_MODE = "on"
 WHOP_SANDBOX_COMPANY_ID = "biz_A06wLWpjYsaAxB"
 
+# Stripe: the second payment provider, for brand-new campaigns only. STRIPE_MODE picks test vs
+# live, same idea as PAY_MODE above. The publishable key is not sensitive (same reasoning as
+# FIREBASE_API_KEY above) so it lives here; the secret keys are set with:
+#   wrangler secret put STRIPE_SECRET_KEY
+#   wrangler secret put STRIPE_TEST_SECRET_KEY
+STRIPE_MODE = "live"
+STRIPE_PUBLISHABLE_KEY = "pk_live_51UfM8DHJ6eHA5F3PmmlpcoErUsyeSo0N43nYD7XfbuPEWl3UUAsgZoiWrFHPDem57VDink5tZXSDW911SEAcAPo000smUNXoZq"
+STRIPE_TEST_PUBLISHABLE_KEY = "pk_test_51UfLXhQactbVzNVTTShC9v29yCsdP3IA5RRClias89lGgIUUYD3DnRsQbbM0RxZoaWfPtBSWnVRlhkPqjiPL1uvn000vxCoIhI"
+
 # EMAIL_API_KEY is a secret, never stored here.
 # Set it once with: wrangler secret put EMAIL_API_KEY
 

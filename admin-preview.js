@@ -5,15 +5,15 @@
   var local = ['localhost', '127.0.0.1'].indexOf(window.location.hostname) !== -1;
   var q = new URLSearchParams(window.location.search);
   var mode = q.get('preview');
-  if (!local || (mode !== 'glass' && mode !== 'gm')) return;
-  // preview=gm: sign in as a made-up Game Master. The page then talks to gm-demo-server.mjs (the real Worker code
-  // on a throwaway database), so every tab behaves for real. &as=theo shows the other sample Game Master.
-  var gmUid = mode === 'gm' ? (q.get('as') === 'theo' ? 'demo-gm-theo' : 'demo-gm-mira') : '';
+  // preview=gm now lives in ash-preview.js (shared across every page, sticky via localStorage so
+  // clicking around the real site doesn't drop back to your real account). This file only still
+  // handles preview=glass: a fully offline sample with no gm-demo-server needed at all.
+  if (!local || mode !== 'glass') return;
   if (typeof firebase === 'undefined') return;
   window.AshAdminPreview = true;
 
   // ---- pretend to be signed in as the DM
-  var user = { uid: gmUid || 'preview', email: (gmUid || 'dm') + '@example.com', getIdToken: function () { return Promise.resolve(gmUid ? 'demo:' + gmUid : 'preview-token'); } };
+  var user = { uid: 'preview', email: 'dm@example.com', getIdToken: function () { return Promise.resolve('preview-token'); } };
   var realAuth = firebase.auth;
   var fakeAuth = {
     currentUser: user,
@@ -162,13 +162,6 @@
     return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
-  if (mode === 'gm') {
-    var gmNote = document.createElement('div');
-    gmNote.textContent = 'PREVIEW: made-up Game Master and players. Runs on this computer only. Nothing is saved to the live site.';
-    gmNote.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:9999;padding:.45em 1em;border-radius:999px;background:rgba(14,9,32,.85);border:1px solid rgba(255,255,255,.25);color:#ffcf6b;font:700 .78rem Nunito,sans-serif;pointer-events:none';
-    document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(gmNote); });
-    return;
-  }
   var realFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     var url = typeof input === 'string' ? input : input.url;
