@@ -298,7 +298,8 @@ export async function handleConnectStripeRecipient(request, env, corsHeaders, or
 
   if (action === 'start') {
     let accountId = row && row.account_id;
-    if (!accountId) {
+    const firstTime = !accountId;
+    if (firstTime) {
       const country = String(body.country || '').trim().toUpperCase();
       if (!/^[A-Z]{2}$/.test(country)) return json({ error: 'Pick your country first.' }, 400, corsHeaders);
       const email = String(user.email || '').toLowerCase();
@@ -321,13 +322,17 @@ export async function handleConnectStripeRecipient(request, env, corsHeaders, or
       await env.DB.prepare('INSERT INTO gm_stripe_recipients (uid, account_id, country, email, created_at) VALUES (?,?,?,?,?)').bind(user.sub, accountId, country, email, new Date().toISOString()).run();
     }
     const site = 'https://ashtabletop.com/admin.html#tab=gmfinance';
-    // 'currently_due', not 'eventually_due' -- confirmed directly against a real, fully-verified
-    // account: Stripe's own account_links call fails outright for 'eventually_due' once there is
-    // truly nothing left eventually due (the exact case for a GM revisiting an already-ready
-    // account to fix a mistake), while 'currently_due' still opens the same hosted form either way.
+    // Stripe refuses an "ONBOARDING" link outright once onboarding has already started or
+    // finished for this account (confirmed directly against a real account: "You cannot create
+    // an ONBOARDING account link... onboarding has already started or completed"), which is
+    // exactly the case the very first time a GM comes back to this card at all, ready or not --
+    // only a genuinely brand-new account (just created above, this same request) still wants
+    // "ONBOARDING"; every later visit, including "my bank details were wrong", needs "UPDATE".
     const l = await stripeGPFetch(env, '/v2/core/account_links', {
       method: 'POST',
-      body: JSON.stringify({ account: accountId, use_case: { type: 'account_onboarding', account_onboarding: { collection_options: { fields: 'currently_due' }, return_url: site, refresh_url: site } } }),
+      body: JSON.stringify(firstTime
+        ? { account: accountId, use_case: { type: 'account_onboarding', account_onboarding: { collection_options: { fields: 'currently_due' }, return_url: site, refresh_url: site } } }
+        : { account: accountId, use_case: { type: 'account_update', account_update: { collection_options: { fields: 'currently_due' }, return_url: site, refresh_url: site } } }),
     });
     if (!l.ok || !l.data.url) return json({ error: niceStripeV2(l.data) }, 502, corsHeaders);
     return json({ url: l.data.url }, 200, corsHeaders);
