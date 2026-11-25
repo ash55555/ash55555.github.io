@@ -1016,6 +1016,12 @@ body.pc-open { overflow: hidden; }
         <div id="gmf-stripe-gp-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
         <p class="slot-status" id="gmf-stripe-gp-status"></p>
       </div>
+      <div class="pay-box" id="gmf-platform-box" style="margin-bottom:1.4em;" hidden>
+        <h2>📥 Other GMs' fees (Stripe)</h2>
+        <p class="note">Ash Tabletop's 5% from every other GM's Stripe sessions collects here first, before it can go anywhere. Press the button to send the whole amount straight into your own account above, the same account your own session earnings already use.</p>
+        <div id="gmf-platform-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
+        <p class="slot-status" id="gmf-platform-status"></p>
+      </div>
     </div>
 
     <div class="me-panel" data-panel="agreements" hidden>
@@ -4793,11 +4799,15 @@ window.AshSlots = (function () {
         var gmfAdmin = document.querySelector('.me-panel[data-panel="gmfinance"]');
         var stripeBoxAdmin = document.getElementById('gmf-stripe-box');
         var stripeGpBoxAdmin = document.getElementById('gmf-stripe-gp-box');
+        var platformBoxAdmin = document.getElementById('gmf-platform-box');
         if (finAdmin && stripeBoxAdmin) finAdmin.insertBefore(stripeBoxAdmin, finAdmin.firstChild);
         if (finAdmin && stripeGpBoxAdmin) finAdmin.insertBefore(stripeGpBoxAdmin, stripeBoxAdmin ? stripeBoxAdmin.nextSibling : finAdmin.firstChild);
+        if (finAdmin && platformBoxAdmin) finAdmin.insertBefore(platformBoxAdmin, stripeGpBoxAdmin ? stripeGpBoxAdmin.nextSibling : (stripeBoxAdmin ? stripeBoxAdmin.nextSibling : finAdmin.firstChild));
         if (gmfAdmin) gmfAdmin.remove();
+        if (platformBoxAdmin) platformBoxAdmin.hidden = false;
         if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(finAdmin);
         if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(finAdmin);
+        if (window.AshGmFinancePlatformInit) window.AshGmFinancePlatformInit(finAdmin);
       }
       else if (!role.isGm) noAccess();
       else gmMode(role);
@@ -5083,6 +5093,61 @@ window.AshSlots = (function () {
   function load() {
     status.textContent = ''; status.className = 'slot-status';
     call('status').then(function (d) { draw(d.state); }).catch(function (e) { card.innerHTML = ''; status.textContent = e.message; status.className = 'slot-status error'; });
+  }
+  new MutationObserver(function () { if (!panel.hidden) load(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+  firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });
+})();
+</script>
+<script>
+// Admin-only: the platform's own collected 5% from every other GM's Stripe sessions. It lands in
+// Ash Tabletop's own Stripe balance first (Stripe's own rules leave no way around that one hop),
+// and this box moves it straight on into the admin's own payout account above with one button, so
+// it never just sits there.
+(function () {
+  var panel = document.querySelector('.me-panel[data-panel="finance"]');
+  var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/connect-stripe-recipient/';
+  window.AshGmFinancePlatformInit = function (host) {
+    panel = host;
+    new MutationObserver(function () { if (!host.hidden) load(); }).observe(host, { attributes: true, attributeFilter: ['hidden'] });
+    if (!host.hidden) load();
+  };
+  var card = document.getElementById('gmf-platform-card');
+  var status = document.getElementById('gmf-platform-status');
+  function call(action, extra) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      var payload = Object.assign({ idToken: idToken }, extra || {});
+      return fetch(BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
+  }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function money(cents) { return '$' + (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function draw(cents) {
+    card.innerHTML = '';
+    var title = el('h3'), text = el('p', 'pay-muted');
+    if (!cents) {
+      title.textContent = money(0) + ' waiting';
+      text.textContent = 'Nothing collected from other GMs yet.';
+      card.append(title, text);
+      return;
+    }
+    title.textContent = money(cents) + ' waiting';
+    text.textContent = 'Collected from other GMs’ sessions, not yet sent to you.';
+    var btns = el('div', 'gmf-btns');
+    var primary = el('button', 'btn btn-primary', 'Send it all to my account'); primary.type = 'button';
+    primary.addEventListener('click', function () {
+      primary.disabled = true; status.textContent = 'Sending...'; status.className = 'slot-status';
+      call('platform-forward').then(function () {
+        status.textContent = 'Sent. It will reach your bank the same way your own session earnings do.';
+        status.className = 'slot-status';
+        load();
+      }).catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; primary.disabled = false; });
+    });
+    btns.appendChild(primary);
+    card.append(title, text, btns);
+  }
+  function load() {
+    status.textContent = ''; status.className = 'slot-status';
+    call('platform-balance').then(function (d) { draw(d.cents || 0); }).catch(function (e) { card.innerHTML = ''; status.textContent = e.message; status.className = 'slot-status error'; });
   }
   new MutationObserver(function () { if (!panel.hidden) load(); }).observe(panel, { attributes: true, attributeFilter: ['hidden'] });
   firebase.auth().onAuthStateChanged(function (user) { if (user && !panel.hidden) load(); });

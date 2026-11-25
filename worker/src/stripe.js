@@ -174,8 +174,12 @@ export async function handleConnectStripe(request, env, corsHeaders, origin, act
 // Its own restricted API key (STRIPE_GP_KEY): Stripe requires a key scoped specifically to Money
 // Management for this API family and refuses the main full-access STRIPE_SECRET_KEY outright.
 const STRIPE_GP_VERSION = '2026-10-28.endive';
-async function stripeGPFetch(env, path, init = {}, acctId) {
-  const headers = { Authorization: `Bearer ${env.STRIPE_GP_KEY}`, 'Content-Type': 'application/json', 'Stripe-Version': STRIPE_GP_VERSION };
+// Outbound Payments specifically are documented against a newer preview version than the rest of
+// the Money Management family above -- Stripe's own API reference for this one resource uses
+// 2026-11-18.endive, not 2026-10-28.endive.
+const STRIPE_OBP_VERSION = '2026-11-18.endive';
+async function stripeGPFetch(env, path, init = {}, acctId, version) {
+  const headers = { Authorization: `Bearer ${env.STRIPE_GP_KEY}`, 'Content-Type': 'application/json', 'Stripe-Version': version || STRIPE_GP_VERSION };
   if (acctId) headers['Stripe-Context'] = acctId;
   const res = await fetch('https://api.stripe.com' + path, { ...init, headers });
   const data = await res.json().catch(() => ({}));
@@ -215,6 +219,47 @@ export async function handleConnectStripeRecipient(request, env, corsHeaders, or
     const r = await stripeGPFetch(env, `/v2/core/accounts/${encodeURIComponent(row.account_id)}?include[0]=configuration.recipient&include[1]=requirements`);
     if (!r.ok) return json({ state: 'unknown' }, 200, corsHeaders);
     return json({ state: stateFromRecipient(r.data) }, 200, corsHeaders);
+  }
+
+  // The platform's own collected fees (every other GM's 5%), sitting in the platform's Money
+  // Management financial account -- same number the Balances page in the Stripe dashboard shows.
+  // Admin-only: this is the platform's shared pool, not any individual GM's own earnings.
+  if (action === 'platform-balance') {
+    if (!st.isAdmin) return json({ error: 'Not authorized' }, 403, corsHeaders);
+    const fas = await stripeGPFetch(env, '/v2/money_management/financial_accounts');
+    const fa = fas.ok && fas.data.data && fas.data.data[0];
+    if (!fa) return json({ error: niceStripeV2(fas.data) }, 502, corsHeaders);
+    const usd = (fa.balance && fa.balance.available && fa.balance.available.usd) || { value: 0 };
+    return json({ cents: usd.value || 0 }, 200, corsHeaders);
+  }
+
+  // Forward the platform's whole collected balance to the admin's own recipient account (an
+  // OutboundPayment, Stripe's Money Management API) -- it then reaches her own bank the same way
+  // her own session earnings already do. Admin-only, and only once her own payout account is
+  // actually set up (status 'ready'), since that's where the money is headed.
+  if (action === 'platform-forward') {
+    if (!st.isAdmin) return json({ error: 'Not authorized' }, 403, corsHeaders);
+    if (!row) return json({ error: 'Finish setting up your own payout account first.' }, 400, corsHeaders);
+    const fas = await stripeGPFetch(env, '/v2/money_management/financial_accounts');
+    const fa = fas.ok && fas.data.data && fas.data.data[0];
+    if (!fa) return json({ error: niceStripeV2(fas.data) }, 502, corsHeaders);
+    const cents = (fa.balance && fa.balance.available && fa.balance.available.usd && fa.balance.available.usd.value) || 0;
+    if (cents <= 0) return json({ error: 'Nothing to forward yet.' }, 400, corsHeaders);
+    const pmRes = await stripeGPFetch(env, '/v2/money_management/payout_methods', {}, row.account_id);
+    const method = pmRes.ok && pmRes.data.data && pmRes.data.data[0];
+    if (!method) return json({ error: 'No payout method on file yet -- finish verifying your bank first.' }, 400, corsHeaders);
+    const currency = (method.bank_account && method.bank_account.supported_currencies && method.bank_account.supported_currencies[0]) || 'usd';
+    const obp = await stripeGPFetch(env, '/v2/money_management/outbound_payments', {
+      method: 'POST',
+      body: JSON.stringify({
+        amount: { value: cents, currency: 'usd' },
+        from: { financial_account: fa.id, currency: 'usd' },
+        to: { recipient: row.account_id, payout_method: method.id, currency },
+        description: 'Ash Tabletop platform fees',
+      }),
+    }, undefined, STRIPE_OBP_VERSION);
+    if (!obp.ok) return json({ error: niceStripeV2(obp.data) }, 502, corsHeaders);
+    return json({ status: obp.data.status, cents }, 200, corsHeaders);
   }
 
   if (action === 'start') {
