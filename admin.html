@@ -4751,16 +4751,12 @@ window.AshSlots = (function () {
     var wd = document.getElementById('fin-withdraw-btn');
     if (wd && wd.closest('.pay-box')) wd.closest('.pay-box').remove();
     if (fin && gmf) {
-      // The Whop card only matters to a GM who actually has a Whop-provider campaign of their
-      // own -- every brand-new campaign is Stripe-only now, so a GM with none yet never sees it
-      // at all (it stays inside gmf and is discarded with it below, same as the heavier,
-      // full-KYC Stripe card, gmf-stripe-box, which nobody is routed into any more either).
-      var payBox = role.hasWhopCampaigns ? gmf.querySelector('.pay-box') : null;
+      // The Whop card never shows for a Game Master at all any more, full stop -- it stays
+      // inside gmf and is discarded with it below, same as the heavier, full-KYC Stripe card
+      // (gmf-stripe-box), which nobody is routed into any more either.
       var stripeGpBox = document.getElementById('gmf-stripe-gp-box');
-      if (payBox) fin.insertBefore(payBox, fin.firstChild);
-      if (stripeGpBox) fin.insertBefore(stripeGpBox, payBox ? payBox.nextSibling : fin.firstChild);
+      if (stripeGpBox) fin.insertBefore(stripeGpBox, fin.firstChild);
       gmf.remove();
-      if (payBox && window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
       if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(fin);
     }
 
