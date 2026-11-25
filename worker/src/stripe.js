@@ -201,6 +201,50 @@ function stateFromRecipient(account) {
   return 'verify';
 }
 
+// Sends cents from the platform's own Money Management financial account to a recipient's own
+// bank, via Stripe's Outbound Payments. Used both by the admin's own "send it to me" button above
+// and by the per-GM payout sweep in pay.js -- same mechanism, different amount/recipient.
+export async function forwardToRecipient(env, recipientAccountId, cents, description) {
+  const fas = await stripeGPFetch(env, '/v2/money_management/financial_accounts');
+  const fa = fas.ok && fas.data.data && fas.data.data[0];
+  if (!fa) return { ok: false, error: niceStripeV2(fas.data) };
+  const pmRes = await stripeGPFetch(env, '/v2/money_management/payout_methods', {}, recipientAccountId);
+  const method = pmRes.ok && pmRes.data.data && pmRes.data.data[0];
+  if (!method) return { ok: false, error: 'No payout method on file yet.' };
+  const currency = (method.bank_account && method.bank_account.supported_currencies && method.bank_account.supported_currencies[0]) || 'usd';
+  const obp = await stripeGPFetch(env, '/v2/money_management/outbound_payments', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: { value: cents, currency: 'usd' },
+      from: { financial_account: fa.id, currency: 'usd' },
+      to: { recipient: recipientAccountId, payout_method: method.id, currency },
+      description,
+    }),
+  }, undefined, STRIPE_OBP_VERSION);
+  if (!obp.ok) return { ok: false, error: niceStripeV2(obp.data) };
+  return { ok: true, status: obp.data.status };
+}
+
+// The Global Payouts mirror of gmStripePayoutAccount below: a GM whose own recipient account is
+// fully verified and ready to actually receive money, or null if not (same minute-long cache
+// shape, so a busy charge run doesn't re-check Stripe once per player).
+const recipientReadyCache = new Map();
+export function forgetStripeRecipientPayoutAccount(uid) { recipientReadyCache.delete(uid); }
+export async function gmStripeRecipientPayoutAccount(env, uid) {
+  const hit = recipientReadyCache.get(uid);
+  if (hit && Date.now() - hit.at < 60000) return hit.id;
+  const row = await env.DB.prepare('SELECT account_id FROM gm_stripe_recipients WHERE uid=?').bind(uid).first();
+  let id = null;
+  if (row) {
+    try {
+      const r = await stripeGPFetch(env, `/v2/core/accounts/${encodeURIComponent(row.account_id)}?include[0]=configuration.recipient&include[1]=requirements`);
+      if (r.ok && stateFromRecipient(r.data) === 'ready') id = row.account_id;
+    } catch { id = null; }
+  }
+  recipientReadyCache.set(uid, { id, at: Date.now() });
+  return id;
+}
+
 export async function handleConnectStripeRecipient(request, env, corsHeaders, origin, action, verify = verifyUser) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
   if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
@@ -218,7 +262,9 @@ export async function handleConnectStripeRecipient(request, env, corsHeaders, or
     if (!row) return json({ state: 'none' }, 200, corsHeaders);
     const r = await stripeGPFetch(env, `/v2/core/accounts/${encodeURIComponent(row.account_id)}?include[0]=configuration.recipient&include[1]=requirements`);
     if (!r.ok) return json({ state: 'unknown' }, 200, corsHeaders);
-    return json({ state: stateFromRecipient(r.data) }, 200, corsHeaders);
+    const state = stateFromRecipient(r.data);
+    if (state === 'ready') forgetStripeRecipientPayoutAccount(user.sub); // so booking opens right away, not a minute later
+    return json({ state }, 200, corsHeaders);
   }
 
   // The platform's own collected fees (every other GM's 5%), sitting in the platform's Money
@@ -245,21 +291,9 @@ export async function handleConnectStripeRecipient(request, env, corsHeaders, or
     if (!fa) return json({ error: niceStripeV2(fas.data) }, 502, corsHeaders);
     const cents = (fa.balance && fa.balance.available && fa.balance.available.usd && fa.balance.available.usd.value) || 0;
     if (cents <= 0) return json({ error: 'Nothing to forward yet.' }, 400, corsHeaders);
-    const pmRes = await stripeGPFetch(env, '/v2/money_management/payout_methods', {}, row.account_id);
-    const method = pmRes.ok && pmRes.data.data && pmRes.data.data[0];
-    if (!method) return json({ error: 'No payout method on file yet -- finish verifying your bank first.' }, 400, corsHeaders);
-    const currency = (method.bank_account && method.bank_account.supported_currencies && method.bank_account.supported_currencies[0]) || 'usd';
-    const obp = await stripeGPFetch(env, '/v2/money_management/outbound_payments', {
-      method: 'POST',
-      body: JSON.stringify({
-        amount: { value: cents, currency: 'usd' },
-        from: { financial_account: fa.id, currency: 'usd' },
-        to: { recipient: row.account_id, payout_method: method.id, currency },
-        description: 'Ash Tabletop platform fees',
-      }),
-    }, undefined, STRIPE_OBP_VERSION);
-    if (!obp.ok) return json({ error: niceStripeV2(obp.data) }, 502, corsHeaders);
-    return json({ status: obp.data.status, cents }, 200, corsHeaders);
+    const result = await forwardToRecipient(env, row.account_id, cents, 'Ash Tabletop platform fees');
+    if (!result.ok) return json({ error: result.error }, 502, corsHeaders);
+    return json({ status: result.status, cents }, 200, corsHeaders);
   }
 
   if (action === 'start') {

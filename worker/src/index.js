@@ -10,7 +10,7 @@
 // anything, then hands each email to the email API.
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { handlePay, handleSeats, handleRoster, runCharges } from './pay.js';
+import { handlePay, handleSeats, handleRoster, runCharges, payStripeRecipients } from './pay.js';
 import { handleProfile, handleAvatar } from './profile.js';
 import { handleGm } from './gm.js';
 import { handleHome } from './home.js';
@@ -195,6 +195,9 @@ export default {
         .then(() => runPendingPbp(env, sendEmail))
         .then((r) => console.log('pending pbp run', JSON.stringify(r)))
         .catch((err) => console.error('pending pbp run failed', err && err.message))
+        .then(() => payStripeRecipients(env))
+        .then((r) => console.log('recipient payout run', JSON.stringify(r)))
+        .catch((err) => console.error('recipient payout run failed', err && err.message))
     );
   },
 };

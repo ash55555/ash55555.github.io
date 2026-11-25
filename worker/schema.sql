@@ -344,3 +344,12 @@ CREATE TABLE IF NOT EXISTS gm_stripe_recipients (
   email TEXT,
   created_at TEXT NOT NULL
 );
+
+-- Which of the two Stripe paths a charge actually went through ('merchant' straight into the
+-- GM's own connected account, or 'recipient' onto the platform's own balance, their share sent
+-- on separately). Only meaningful when provider='stripe'; NULL on every row from before this
+-- existed, which was always 'merchant' (recipient charging did not exist yet).
+ALTER TABLE charges ADD COLUMN stripe_kind TEXT;
+-- When a 'recipient' GM's share of this charge was actually sent on to them (payStripeRecipients
+-- in pay.js). NULL until then, so that sweep knows what it still owes.
+ALTER TABLE charges ADD COLUMN stripe_recipient_paid_at TEXT;

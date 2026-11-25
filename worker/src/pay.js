@@ -14,7 +14,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { actorFor, loadOwners, inScope, slotToUtc } from './owner.js';
 import { gmPayoutAccount } from './connect.js';
-import { gmStripePayoutAccount, chargeStripe, refundStripe, stripeFetch, cfgStripe, getStripeIntent } from './stripe.js';
+import { gmStripePayoutAccount, gmStripeRecipientPayoutAccount, forwardToRecipient, chargeStripe, refundStripe, stripeFetch, cfgStripe, getStripeIntent } from './stripe.js';
 
 const FIREBASE_JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -531,6 +531,19 @@ async function accountFor(env, game) {
   if (game.provider === 'stripe') return await gmStripePayoutAccount(env, game.owner || env.ADMIN_UID);
   return game.owner ? await gmPayoutAccount(env, game.owner) : cfg(env).company;
 }
+// The fuller picture accountFor's bare id can't carry: which of the two Stripe paths a GM is on.
+// 'merchant' is a direct charge straight into their own connected account (accountFor's id, used
+// exactly as before). 'recipient' means that GM's own country can't have that kind of account --
+// the charge has to happen on the platform's own balance instead, with their share sent out to
+// them separately afterwards (see payStripeRecipients below). Null means neither is ready yet.
+async function stripeAccountKind(env, game) {
+  const uid = game.owner || env.ADMIN_UID;
+  const merchant = await gmStripePayoutAccount(env, uid);
+  if (merchant) return { kind: 'merchant', account: merchant, uid };
+  const recipient = await gmStripeRecipientPayoutAccount(env, uid);
+  if (recipient) return { kind: 'recipient', account: recipient, uid };
+  return null;
+}
 // Ash Tabletop keeps this share of every payment made to another Game Master (taken by Whop as the application fee).
 const PLATFORM_FEE_RATE = 0.05;
 // What is added to a payment made to another Game Master: Ash Tabletop's share, and a product to attach it to.
@@ -669,8 +682,14 @@ async function doSetupStripe(ctx) {
   const { env, user, gameKey, game, corsHeaders } = ctx;
   const existing = await getPlayer(ctx);
   const updating = !!(existing && existing.status === 'active');
-  const account = await accountFor(env, game);
-  if (!account) return json({ error: 'This game master has not finished setting up payouts yet, so seats cannot be booked.' }, 409, corsHeaders);
+  const sk = await stripeAccountKind(env, game);
+  if (!sk) return json({ error: 'This game master has not finished setting up payouts yet, so seats cannot be booked.' }, 409, corsHeaders);
+  // A 'merchant' GM's Customer/SetupIntent live inside their own connected account (the
+  // Stripe-Account header below); a 'recipient' GM can't process a charge at all, so these live on
+  // the platform's own account instead -- account stays undefined, which stripeFetch already
+  // treats as "no header", and Stripe.js below already treats a missing connectedAccountId the
+  // same way, so nothing downstream needs to know which kind of GM this is.
+  const account = sk.kind === 'merchant' ? sk.account : undefined;
   if (!updating && !game.enabled) return json({ error: 'This group is not taking new players right now. Message Ash to be added to the waitlist.' }, 409, corsHeaders);
   if (!updating) {
     const want = cleanSeats(ctx.body.seats);
@@ -705,8 +724,9 @@ async function doCompleteStripe(ctx) {
   const { env, user, body, gameKey, game, corsHeaders } = ctx;
   if (body.consent !== true || body.adult !== true) return json({ error: 'Please tick both boxes to continue.' }, 400, corsHeaders);
   if (!body.setupIntentId) return json({ error: 'Missing checkout.' }, 400, corsHeaders);
-  const account = await accountFor(env, game);
-  if (!account) return json({ error: 'This game master has not finished setting up payouts yet.' }, 409, corsHeaders);
+  const sk = await stripeAccountKind(env, game);
+  if (!sk) return json({ error: 'This game master has not finished setting up payouts yet.' }, 409, corsHeaders);
+  const account = sk.kind === 'merchant' ? sk.account : undefined;
   const r = await stripeFetch(env, `/setup_intents/${encodeURIComponent(body.setupIntentId)}`, {}, account);
   if (!r.ok) return json({ error: 'Could not confirm your card yet.', detail: r.data }, 502, corsHeaders);
   const intent = r.data;
@@ -941,11 +961,14 @@ async function adminRefund(ctx) {
   if (amount !== null && (!(amount > 0) || amount > row.amount - row.refunded_amount)) {
     return json({ error: 'That refund amount is not valid.' }, 400, corsHeaders);
   }
-  // The charge row's own provider is the permanent record of who processed it -- a campaign's
-  // provider is fixed at creation and never changes, but reading it from the charge itself means
-  // this never has to depend on that invariant holding.
+  // The charge row's own provider (and, for Stripe, its own stripe_kind) is the permanent record
+  // of who processed it and where the money actually is -- a campaign's provider/kind can only be
+  // set once and never changes, but reading it from the charge itself means a refund never has to
+  // depend on that invariant holding, or on the GM's account still being ready right now. A row
+  // from before stripe_kind existed was always a 'merchant' charge (recipient charging did not
+  // exist yet), so a missing value defaults to that, not to 'recipient'.
   const r = row.provider === 'stripe'
-    ? await refundStripe(ctx.env, await accountFor(ctx.env, ctx.game), row.payment_id, amount ? Math.round(amount * 100) : undefined)
+    ? await refundStripe(ctx.env, row.stripe_kind === 'recipient' ? undefined : await accountFor(ctx.env, ctx.game), row.payment_id, amount ? Math.round(amount * 100) : undefined)
     : await whop(ctx.env, `/payments/${row.payment_id}/refund`, { method: 'POST', body: JSON.stringify(amount ? { partial_amount: amount } : {}) });
   if (!r.ok) return json({ error: (row.provider === 'stripe' ? 'Stripe' : 'Whop') + ' would not refund this payment.', detail: r.data }, 502, corsHeaders);
   const refunded = row.refunded_amount + (amount || (row.amount - row.refunded_amount));
@@ -1444,8 +1467,19 @@ export async function runCharges(env, sendEmail) {
   try { allGames = await loadGames(env, true); } catch (err) { return { skipped: 'could not read the schedule: ' + err.message }; }
 
   for (const [gameKey, game] of Object.entries(allGames)) {
-    const account = await accountFor(env, game);
-    if (!account) continue; // a Game Master whose payouts are not ready is never charged, and never through Ash's account
+    // account stays undefined (not null) for a 'recipient' GM on purpose -- that is the correct,
+    // ready value for them (it means "charge the platform's own account, no Stripe-Account
+    // header"), so readiness below has to check sk itself, never account's truthiness.
+    let account, stripeKind = null;
+    if (game.provider === 'stripe') {
+      const sk = await stripeAccountKind(env, game);
+      if (!sk) continue; // a Game Master whose payouts are not ready is never charged, and never through Ash's account
+      stripeKind = sk.kind;
+      account = sk.kind === 'merchant' ? sk.account : undefined;
+    } else {
+      account = await accountFor(env, game);
+      if (!account) continue; // a Game Master whose payouts are not ready is never charged, and never through Ash's account
+    }
     const players = (await env.DB.prepare("SELECT * FROM players WHERE mode=? AND game=? AND status='active'").bind(c.mode, gameKey).all()).results;
     // Only sessions that started at least CHARGE_DELAY_MS ago are charged, so nobody pays for a game that never got going.
     const windowFrom = new Date(now.getTime() - CATCH_UP_MS - CHARGE_DELAY_MS);
@@ -1497,8 +1531,8 @@ export async function runCharges(env, sendEmail) {
 
         if (mode === 'dry') { report.wouldCharge++; console.log(`[dry] would charge ${p.email} $${g.price} for ${gameKey} ${ts}`); continue; }
 
-        await env.DB.prepare("INSERT OR IGNORE INTO charges (mode, game, uid, session_ts, status, amount, provider, updated_at) VALUES (?,?,?,?, 'new', ?,?,?)")
-          .bind(c.mode, gameKey, p.uid, ts, g.price, g.provider || 'whop', iso(now)).run();
+        await env.DB.prepare("INSERT OR IGNORE INTO charges (mode, game, uid, session_ts, status, amount, provider, stripe_kind, updated_at) VALUES (?,?,?,?, 'new', ?,?,?,?)")
+          .bind(c.mode, gameKey, p.uid, ts, g.price, g.provider || 'whop', stripeKind, iso(now)).run();
         const row = await env.DB.prepare('SELECT * FROM charges WHERE mode=? AND game=? AND uid=? AND session_ts=?').bind(c.mode, gameKey, p.uid, ts).first();
 
         if (['paid', 'refunded', 'failed_final', 'unknown'].includes(row.status)) continue;
@@ -1520,8 +1554,14 @@ export async function runCharges(env, sendEmail) {
         if (!claim.meta || claim.meta.changes !== 1) continue;
 
         const key = chargeKey(c.mode, gameKey, p.uid, ts);
+        // A direct charge's application_fee_amount only makes sense on a connected account (it is
+        // Stripe's own mechanism for splitting a charge that someone else is the merchant of
+        // record for). A 'recipient' charge has no connected account at all -- it lands on the
+        // platform's own balance in full, GM and fee together -- so no fee field is sent here;
+        // the GM's own share is carved out and sent on to them separately, see
+        // payStripeRecipients below.
         const r = g.provider === 'stripe'
-          ? await chargeStripe(env, account, p.stripe_customer_id, p.stripe_payment_method_id, g.price, platformFee(g.price), { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts })
+          ? await chargeStripe(env, account, p.stripe_customer_id, p.stripe_payment_method_id, g.price, stripeKind === 'merchant' ? platformFee(g.price) : undefined, { charge_key: key, uid: p.uid, game: gameKey, session_ts: ts })
           : await whop(env, '/payments', {
               method: 'POST',
               body: JSON.stringify({
@@ -1545,6 +1585,52 @@ export async function runCharges(env, sendEmail) {
     }
   }
   return report;
+}
+
+// The other half of a 'recipient' GM's own charges above: their share (price minus Ash
+// Tabletop's 5%) sits in the platform's own balance right alongside the fee until this sweep
+// sends it on to their own bank, one Outbound Payment per GM covering everything they are owed.
+// Only a charge at least a day old is included -- a short, deliberate head start for a refund to
+// still come out of the platform's own balance before that GM's share has already left it.
+const RECIPIENT_PAYOUT_DELAY_MS = DAY_MS;
+export async function payStripeRecipients(env) {
+  const cutoff = iso(new Date(Date.now() - RECIPIENT_PAYOUT_DELAY_MS));
+  const rows = (await env.DB.prepare(
+    "SELECT mode, game, uid, session_ts, amount FROM charges WHERE provider='stripe' AND stripe_kind='recipient' AND status='paid' AND stripe_recipient_paid_at IS NULL AND updated_at<=?"
+  ).bind(cutoff).all()).results;
+  if (!rows.length) return { paid: 0 };
+
+  let allGames;
+  try { allGames = await loadGames(env, true); } catch (err) { return { skipped: 'could not read the schedule: ' + err.message }; }
+
+  const byOwner = new Map(); // owner uid -> { cents, rows: [...] }
+  for (const row of rows) {
+    const game = allGames[row.game];
+    const ownerUid = (game && game.owner) || env.ADMIN_UID;
+    const net = row.amount - (platformFee(row.amount) || 0);
+    const entry = byOwner.get(ownerUid) || { cents: 0, rows: [] };
+    entry.cents += Math.round(net * 100);
+    entry.rows.push(row);
+    byOwner.set(ownerUid, entry);
+  }
+
+  let paid = 0;
+  for (const [ownerUid, entry] of byOwner) {
+    if (entry.cents <= 0) continue;
+    const recipientId = await gmStripeRecipientPayoutAccount(env, ownerUid);
+    // Their account stopped being ready between the charge and now (rare) -- leave these rows
+    // unmarked so the next run tries again once they are ready again.
+    if (!recipientId) continue;
+    const result = await forwardToRecipient(env, recipientId, entry.cents, 'Ash Tabletop session earnings');
+    if (!result.ok) { console.error('recipient payout failed', ownerUid, result.error); continue; }
+    const now = iso(new Date());
+    for (const row of entry.rows) {
+      await env.DB.prepare('UPDATE charges SET stripe_recipient_paid_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?')
+        .bind(now, row.mode, row.game, row.uid, row.session_ts).run();
+      paid++;
+    }
+  }
+  return { paid };
 }
 
 async function settle(env, c, sendEmail, p, game, gameKey, ts, r) {
