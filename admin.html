@@ -1011,8 +1011,8 @@ body.pc-open { overflow: hidden; }
         <p class="slot-status" id="gmf-stripe-status"></p>
       </div>
       <div class="pay-box" id="gmf-stripe-gp-box" style="margin-bottom:1.4em;">
-        <h2>🌍 Getting paid (outside the US, UK, EU, Canada or Switzerland)</h2>
-        <p class="note">If the Stripe account above isn't available for your country, use this instead. Ash Tabletop charges players directly and sends your share straight to your own local bank account, in your own currency. You confirm who you are and add your bank details on Stripe's secure pages -- we never see them.</p>
+        <h2>💳 Getting paid (Stripe)</h2>
+        <p class="note">For brand-new campaigns only -- your existing tables keep working on Whop above, untouched. Ash Tabletop charges players for you and keeps your share waiting as a balance, same as a normal account. Once you are owed $25 or more, withdraw it straight to your own bank, in your own currency, whenever you want. You confirm who you are and add your bank details on Stripe's secure pages -- we never see them.</p>
         <div id="gmf-stripe-gp-card" class="gmf-card"><p class="pay-muted">Loading...</p></div>
         <p class="slot-status" id="gmf-stripe-gp-status"></p>
       </div>
@@ -4752,14 +4752,14 @@ window.AshSlots = (function () {
     if (wd && wd.closest('.pay-box')) wd.closest('.pay-box').remove();
     if (fin && gmf) {
       var payBox = gmf.querySelector('.pay-box');
-      var stripeBox = document.getElementById('gmf-stripe-box');
+      // The heavier, full-KYC Stripe card (gmf-stripe-box) is never moved out here on purpose --
+      // it stays inside gmf and is discarded with it below. Every GM gets the one, lighter
+      // Stripe card (gmf-stripe-gp-box) instead, regardless of their own country.
       var stripeGpBox = document.getElementById('gmf-stripe-gp-box');
       if (payBox) fin.insertBefore(payBox, fin.firstChild);
-      if (stripeBox) fin.insertBefore(stripeBox, payBox ? payBox.nextSibling : fin.firstChild);
-      if (stripeGpBox) fin.insertBefore(stripeGpBox, stripeBox ? stripeBox.nextSibling : (payBox ? payBox.nextSibling : fin.firstChild));
+      if (stripeGpBox) fin.insertBefore(stripeGpBox, payBox ? payBox.nextSibling : fin.firstChild);
       gmf.remove();
       if (window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
-      if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(fin);
       if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(fin);
     }
 
@@ -4793,19 +4793,16 @@ window.AshSlots = (function () {
       window.AshRole = role;
       if (role.isAdmin) {
         // Ash is not special-cased on the Stripe side (unlike Whop): her own new campaigns route
-        // through her own connected account too, so she gets the same "Connect Stripe" card any
-        // other Game Master does, moved to the top of her own Finance tab.
+        // through her own account too, the same one, lighter Stripe card any other Game Master
+        // gets (see gmMode above for why the heavier gmf-stripe-box is never used at all).
         var finAdmin = document.querySelector('.me-panel[data-panel="finance"]');
         var gmfAdmin = document.querySelector('.me-panel[data-panel="gmfinance"]');
-        var stripeBoxAdmin = document.getElementById('gmf-stripe-box');
         var stripeGpBoxAdmin = document.getElementById('gmf-stripe-gp-box');
         var platformBoxAdmin = document.getElementById('gmf-platform-box');
-        if (finAdmin && stripeBoxAdmin) finAdmin.insertBefore(stripeBoxAdmin, finAdmin.firstChild);
-        if (finAdmin && stripeGpBoxAdmin) finAdmin.insertBefore(stripeGpBoxAdmin, stripeBoxAdmin ? stripeBoxAdmin.nextSibling : finAdmin.firstChild);
-        if (finAdmin && platformBoxAdmin) finAdmin.insertBefore(platformBoxAdmin, stripeGpBoxAdmin ? stripeGpBoxAdmin.nextSibling : (stripeBoxAdmin ? stripeBoxAdmin.nextSibling : finAdmin.firstChild));
+        if (finAdmin && stripeGpBoxAdmin) finAdmin.insertBefore(stripeGpBoxAdmin, finAdmin.firstChild);
+        if (finAdmin && platformBoxAdmin) finAdmin.insertBefore(platformBoxAdmin, stripeGpBoxAdmin ? stripeGpBoxAdmin.nextSibling : finAdmin.firstChild);
         if (gmfAdmin) gmfAdmin.remove();
         if (platformBoxAdmin) platformBoxAdmin.hidden = false;
-        if (window.AshGmFinanceStripeInit) window.AshGmFinanceStripeInit(finAdmin);
         if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(finAdmin);
         if (window.AshGmFinancePlatformInit) window.AshGmFinancePlatformInit(finAdmin);
       }
@@ -5020,6 +5017,7 @@ window.AshSlots = (function () {
   var panel = document.querySelector('.me-panel[data-panel="gmfinance"]');
   if (!panel) return;
   var BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/connect-stripe-recipient/';
+  var PAY_BASE = 'https://ash-tabletop-announcements.ash-tabletop.workers.dev/stripe-recipient-pay/';
   window.AshGmFinanceStripeGPInit = function (host) {
     panel = host;
     new MutationObserver(function () { if (!host.hidden) load(); }).observe(host, { attributes: true, attributeFilter: ['hidden'] });
@@ -5034,6 +5032,36 @@ window.AshSlots = (function () {
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function money(cents) { return '$' + (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function callPay(action) {
+    return firebase.auth().currentUser.getIdToken().then(function (idToken) {
+      return fetch(PAY_BASE + action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
+    }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
+  }
+  // A balance, same as any normal account, not an automatic payout -- it only ever moves when the
+  // GM themselves presses Withdraw, and only once they are owed the minimum.
+  function loadBalance() {
+    callPay('balance').then(function (d) {
+      var min = d.minimumCents || 2500;
+      var bal = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
+      if (d.cents >= min) {
+        bal.textContent = money(d.cents) + ' ready to withdraw.';
+        var btn = el('button', 'btn btn-primary', 'Withdraw ' + money(d.cents)); btn.type = 'button';
+        btn.addEventListener('click', function () {
+          btn.disabled = true; status.textContent = 'Sending...'; status.className = 'slot-status';
+          callPay('withdraw').then(function () {
+            status.textContent = 'Sent to your own bank account.'; status.className = 'slot-status';
+            load();
+          }).catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
+        });
+        btns.appendChild(btn);
+        card.append(bal, btns);
+      } else {
+        bal.textContent = money(d.cents) + ' so far. Withdraw once you reach ' + money(min) + '.';
+        card.append(bal);
+      }
+    }).catch(function (e) { card.append(el('p', 'pay-muted', e.message)); });
+  }
   function go(action, btn, extra) {
     btn.disabled = true; status.textContent = 'One moment...'; status.className = 'slot-status';
     call(action, extra).then(function (d) { window.location.href = d.url; })
@@ -5047,8 +5075,9 @@ window.AshSlots = (function () {
     if (state === 'ready') {
       badge.textContent = 'Ready';
       title.textContent = 'You are set up to get paid';
-      text.textContent = 'Your account is verified. Stripe sends your share straight to your own bank account after each session.';
+      text.textContent = 'Your account is verified. Your share of each session waits here as a balance, like any normal account -- withdraw it to your own bank whenever you want.';
       card.append(badge, title, text);
+      loadBalance();
       return;
     }
     if (state === 'review') {

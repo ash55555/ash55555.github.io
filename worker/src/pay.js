@@ -14,6 +14,7 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { actorFor, loadOwners, inScope, slotToUtc } from './owner.js';
 import { gmPayoutAccount } from './connect.js';
+import { gmStatus } from './gm.js';
 import { gmStripePayoutAccount, gmStripeRecipientPayoutAccount, forwardToRecipient, chargeStripe, refundStripe, stripeFetch, cfgStripe, getStripeIntent } from './stripe.js';
 
 const FIREBASE_JWKS_URL =
@@ -1588,49 +1589,70 @@ export async function runCharges(env, sendEmail) {
 }
 
 // The other half of a 'recipient' GM's own charges above: their share (price minus Ash
-// Tabletop's 5%) sits in the platform's own balance right alongside the fee until this sweep
-// sends it on to their own bank, one Outbound Payment per GM covering everything they are owed.
-// Only a charge at least a day old is included -- a short, deliberate head start for a refund to
-// still come out of the platform's own balance before that GM's share has already left it.
-const RECIPIENT_PAYOUT_DELAY_MS = DAY_MS;
-export async function payStripeRecipients(env) {
-  const cutoff = iso(new Date(Date.now() - RECIPIENT_PAYOUT_DELAY_MS));
+// Tabletop's 5%) sits in the platform's own balance right alongside the fee, same as it would in
+// their own Stripe dashboard on the other path -- never sent out on its own. Only the GM's own
+// deliberate withdraw (below) ever moves it, so a refund can still come straight out of it right
+// up until that moment, exactly the same safety a normal balance already gives for free.
+const RECIPIENT_WITHDRAW_MIN_CENTS = 2500; // $25 -- below this a transfer is mostly fees
+
+// Every one of a GM's own unpaid 'recipient' charges, with the running total of what Ash
+// Tabletop's share has already been carved out of, so this is exactly what would reach their bank.
+async function recipientOwed(env, ownerUid) {
   const rows = (await env.DB.prepare(
-    "SELECT mode, game, uid, session_ts, amount FROM charges WHERE provider='stripe' AND stripe_kind='recipient' AND status='paid' AND stripe_recipient_paid_at IS NULL AND updated_at<=?"
-  ).bind(cutoff).all()).results;
-  if (!rows.length) return { paid: 0 };
-
+    "SELECT mode, game, uid, session_ts, amount FROM charges WHERE provider='stripe' AND stripe_kind='recipient' AND status='paid' AND stripe_recipient_paid_at IS NULL"
+  ).all()).results;
+  if (!rows.length) return { cents: 0, rows: [] };
   let allGames;
-  try { allGames = await loadGames(env, true); } catch (err) { return { skipped: 'could not read the schedule: ' + err.message }; }
-
-  const byOwner = new Map(); // owner uid -> { cents, rows: [...] }
+  try { allGames = await loadGames(env, true); } catch { return { cents: 0, rows: [] }; }
+  let cents = 0;
+  const mine = [];
   for (const row of rows) {
     const game = allGames[row.game];
-    const ownerUid = (game && game.owner) || env.ADMIN_UID;
-    const net = row.amount - (platformFee(row.amount) || 0);
-    const entry = byOwner.get(ownerUid) || { cents: 0, rows: [] };
-    entry.cents += Math.round(net * 100);
-    entry.rows.push(row);
-    byOwner.set(ownerUid, entry);
+    const uid = (game && game.owner) || env.ADMIN_UID;
+    if (uid !== ownerUid) continue;
+    cents += Math.round((row.amount - (platformFee(row.amount) || 0)) * 100);
+    mine.push(row);
+  }
+  return { cents, rows: mine };
+}
+
+// A 'recipient' GM's own balance and withdraw button -- the mirror, for their side, of the
+// admin's own "send it to me" button in stripe.js's platform-balance/platform-forward. Only ever
+// moves money when the GM themselves asks, and only once they are owed at least the minimum.
+export async function handleStripeRecipientPay(request, env, corsHeaders, origin, action, verify = verifyUser) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405, corsHeaders);
+  if (!origin) return json({ error: 'Origin not allowed' }, 403, corsHeaders);
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Invalid JSON body' }, 400, corsHeaders); }
+  if (!body || !body.idToken) return json({ error: 'Please sign in again.' }, 401, corsHeaders);
+  let user;
+  try { user = await verify(env, body.idToken); } catch { return json({ error: 'Please sign in again.' }, 401, corsHeaders); }
+  const st = await gmStatus(env, user.sub);
+  if (!st.isGm) return json({ error: 'This is for Game Masters.' }, 403, corsHeaders);
+
+  if (action === 'balance') {
+    const { cents } = await recipientOwed(env, user.sub);
+    return json({ cents, minimumCents: RECIPIENT_WITHDRAW_MIN_CENTS }, 200, corsHeaders);
   }
 
-  let paid = 0;
-  for (const [ownerUid, entry] of byOwner) {
-    if (entry.cents <= 0) continue;
-    const recipientId = await gmStripeRecipientPayoutAccount(env, ownerUid);
-    // Their account stopped being ready between the charge and now (rare) -- leave these rows
-    // unmarked so the next run tries again once they are ready again.
-    if (!recipientId) continue;
-    const result = await forwardToRecipient(env, recipientId, entry.cents, 'Ash Tabletop session earnings');
-    if (!result.ok) { console.error('recipient payout failed', ownerUid, result.error); continue; }
+  if (action === 'withdraw') {
+    const { cents, rows } = await recipientOwed(env, user.sub);
+    if (cents < RECIPIENT_WITHDRAW_MIN_CENTS) {
+      return json({ error: `You need at least $${(RECIPIENT_WITHDRAW_MIN_CENTS / 100).toFixed(2)} before you can withdraw.` }, 400, corsHeaders);
+    }
+    const recipientId = await gmStripeRecipientPayoutAccount(env, user.sub);
+    if (!recipientId) return json({ error: 'Finish setting up your payout account first.' }, 400, corsHeaders);
+    const result = await forwardToRecipient(env, recipientId, cents, 'Ash Tabletop session earnings');
+    if (!result.ok) return json({ error: result.error }, 502, corsHeaders);
     const now = iso(new Date());
-    for (const row of entry.rows) {
+    for (const row of rows) {
       await env.DB.prepare('UPDATE charges SET stripe_recipient_paid_at=? WHERE mode=? AND game=? AND uid=? AND session_ts=?')
         .bind(now, row.mode, row.game, row.uid, row.session_ts).run();
-      paid++;
     }
+    return json({ cents }, 200, corsHeaders);
   }
-  return { paid };
+
+  return json({ error: 'Not found' }, 404, corsHeaders);
 }
 
 async function settle(env, c, sendEmail, p, game, gameKey, ts, r) {
