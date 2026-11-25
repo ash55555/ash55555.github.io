@@ -4854,7 +4854,10 @@ window.AshSlots = (function () {
       line.remove();
       modeBadge.className = 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn');
       modeBadge.textContent = d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)';
-      amount.textContent = money(d.total);
+      // A very small balance is easy to mistake for an amount that's ready and waiting --
+      // Whop's own payouts page has its own real minimum before it will actually move, so a
+      // tiny number here reads as "still building up" instead of "something you can take out now".
+      amount.textContent = (d.total != null && d.total < 25) ? money(d.total) + ' so far -- still building up.' : money(d.total);
       box.append(modeBadge, amount);
     }).catch(function (e) { line.textContent = e.message; line.className = 'slot-status error'; });
   }
@@ -5076,7 +5079,10 @@ window.AshSlots = (function () {
       badge.textContent = 'Ready';
       title.textContent = 'You are set up to get paid';
       text.textContent = 'Your account is verified. Your share of each session waits here as a balance, like any normal account -- withdraw it to your own bank whenever you want.';
-      card.append(badge, title, text);
+      var fix = el('button', 'btn btn-ghost', 'My bank details were wrong -- fix them'); fix.type = 'button';
+      fix.addEventListener('click', function () { go('start', fix); });
+      btns.appendChild(fix);
+      card.append(badge, title, text, btns);
       loadBalance();
       return;
     }
