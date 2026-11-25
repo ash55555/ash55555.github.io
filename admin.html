@@ -4751,15 +4751,16 @@ window.AshSlots = (function () {
     var wd = document.getElementById('fin-withdraw-btn');
     if (wd && wd.closest('.pay-box')) wd.closest('.pay-box').remove();
     if (fin && gmf) {
-      var payBox = gmf.querySelector('.pay-box');
-      // The heavier, full-KYC Stripe card (gmf-stripe-box) is never moved out here on purpose --
-      // it stays inside gmf and is discarded with it below. Every GM gets the one, lighter
-      // Stripe card (gmf-stripe-gp-box) instead, regardless of their own country.
+      // The Whop card only matters to a GM who actually has a Whop-provider campaign of their
+      // own -- every brand-new campaign is Stripe-only now, so a GM with none yet never sees it
+      // at all (it stays inside gmf and is discarded with it below, same as the heavier,
+      // full-KYC Stripe card, gmf-stripe-box, which nobody is routed into any more either).
+      var payBox = role.hasWhopCampaigns ? gmf.querySelector('.pay-box') : null;
       var stripeGpBox = document.getElementById('gmf-stripe-gp-box');
       if (payBox) fin.insertBefore(payBox, fin.firstChild);
       if (stripeGpBox) fin.insertBefore(stripeGpBox, payBox ? payBox.nextSibling : fin.firstChild);
       gmf.remove();
-      if (window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
+      if (payBox && window.AshGmFinanceInit) window.AshGmFinanceInit(fin);
       if (window.AshGmFinanceStripeGPInit) window.AshGmFinanceStripeGPInit(fin);
     }
 
@@ -4789,7 +4790,7 @@ window.AshSlots = (function () {
     user.getIdToken().then(function (idToken) {
       return fetch(WORKER + '/gm/get', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: idToken }) });
     }).then(function (r) { return r.json(); }).then(function (d) {
-      var role = { isGm: !!d.isGm, isAdmin: !!d.isAdmin, slug: d.slug || '', name: d.name || '' };
+      var role = { isGm: !!d.isGm, isAdmin: !!d.isAdmin, hasWhopCampaigns: !!d.hasWhopCampaigns, slug: d.slug || '', name: d.name || '' };
       window.AshRole = role;
       if (role.isAdmin) {
         // Ash is not special-cased on the Stripe side (unlike Whop): her own new campaigns route

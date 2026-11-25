@@ -151,7 +151,11 @@ export async function handleGm(request, env, corsHeaders, origin, action, verify
       name: text(acct.name, 40), pronouns: text(acct.pronouns, 40),
       avatar: acct.avatar_id ? `${new URL(request.url).origin}/profile/avatar/${acct.avatar_id}` : '',
     } : null;
-    return json({ isGm: true, isAdmin: status.isAdmin, name: text(user.name || (user.email || '').split('@')[0], 40), account, slug: row ? row.slug : slugFor(env, user), profile }, 200, corsHeaders);
+    // Whether to even show the Whop "Getting paid" card at all: only for a GM who actually has a
+    // Whop-provider campaign of their own (every brand-new campaign is Stripe-only now, so a GM
+    // with none yet has nothing on Whop to manage, and seeing that card at all is just confusing).
+    const whopCampaign = await env.DB.prepare("SELECT 1 AS x FROM campaign_content WHERE owner_uid=? AND (provider IS NULL OR provider='whop') LIMIT 1").bind(user.sub).first();
+    return json({ isGm: true, isAdmin: status.isAdmin, hasWhopCampaigns: !!whopCampaign, name: text(user.name || (user.email || '').split('@')[0], 40), account, slug: row ? row.slug : slugFor(env, user), profile }, 200, corsHeaders);
   }
 
   if (action === 'save') {

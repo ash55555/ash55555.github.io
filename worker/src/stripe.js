@@ -321,9 +321,13 @@ export async function handleConnectStripeRecipient(request, env, corsHeaders, or
       await env.DB.prepare('INSERT INTO gm_stripe_recipients (uid, account_id, country, email, created_at) VALUES (?,?,?,?,?)').bind(user.sub, accountId, country, email, new Date().toISOString()).run();
     }
     const site = 'https://ashtabletop.com/admin.html#tab=gmfinance';
+    // 'currently_due', not 'eventually_due' -- confirmed directly against a real, fully-verified
+    // account: Stripe's own account_links call fails outright for 'eventually_due' once there is
+    // truly nothing left eventually due (the exact case for a GM revisiting an already-ready
+    // account to fix a mistake), while 'currently_due' still opens the same hosted form either way.
     const l = await stripeGPFetch(env, '/v2/core/account_links', {
       method: 'POST',
-      body: JSON.stringify({ account: accountId, use_case: { type: 'account_onboarding', account_onboarding: { collection_options: { fields: 'eventually_due' }, return_url: site, refresh_url: site } } }),
+      body: JSON.stringify({ account: accountId, use_case: { type: 'account_onboarding', account_onboarding: { collection_options: { fields: 'currently_due' }, return_url: site, refresh_url: site } } }),
     });
     if (!l.ok || !l.data.url) return json({ error: niceStripeV2(l.data) }, 502, corsHeaders);
     return json({ url: l.data.url }, 200, corsHeaders);
