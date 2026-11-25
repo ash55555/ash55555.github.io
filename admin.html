@@ -5037,13 +5037,20 @@ window.AshSlots = (function () {
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
   }
   // A balance, same as any normal account, not an automatic payout -- it only ever moves when the
-  // GM themselves presses Withdraw, and only once they are owed the minimum.
+  // GM themselves presses Withdraw, and only once they are owed the minimum. Same big-number look
+  // as the Whop balance above it, not a small sentence -- a Withdraw button only joins it once
+  // there is actually enough to send.
   function loadBalance() {
     callPay('balance').then(function (d) {
       var min = d.minimumCents || 2500;
-      var bal = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
-      if (d.cents >= min) {
-        bal.textContent = money(d.cents) + ' ready to withdraw.';
+      var ready = d.cents >= min;
+      var box = el('div', 'gmf-balance');
+      var badge = el('span', 'pay-badge ' + (ready ? 'bad' : 'warn'), ready ? 'READY TO WITHDRAW' : 'BUILDING UP');
+      var amount = el('div', 'fin-balance-amount', money(d.cents));
+      box.append(badge, amount);
+      card.append(box);
+      if (ready) {
+        var btns = el('div', 'gmf-btns');
         var btn = el('button', 'btn btn-primary', 'Withdraw ' + money(d.cents)); btn.type = 'button';
         btn.addEventListener('click', function () {
           btn.disabled = true; status.textContent = 'Sending...'; status.className = 'slot-status';
@@ -5053,10 +5060,7 @@ window.AshSlots = (function () {
           }).catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
         });
         btns.appendChild(btn);
-        card.append(bal, btns);
-      } else {
-        bal.textContent = money(d.cents) + ' so far. Withdraw once you reach ' + money(min) + '.';
-        card.append(bal);
+        card.append(btns);
       }
     }).catch(function (e) { card.append(el('p', 'pay-muted', e.message)); });
   }
