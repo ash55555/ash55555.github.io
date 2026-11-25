@@ -4837,26 +4837,39 @@ window.AshSlots = (function () {
     }).then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Something went wrong.'); return d; }); });
   }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function money(n) { return n == null ? '—' : '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
   function go(action, btn) {
     btn.disabled = true; status.textContent = 'One moment...'; status.className = 'slot-status';
     call(action).then(function (d) { window.location.href = d.url; })
       .catch(function (e) { status.textContent = e.message; status.className = 'slot-status error'; btn.disabled = false; });
   }
-  // A GM's own Whop balance used to be shown here too, read-only -- removed: it only ever
-  // confused ("why can't I take out $4.20?"), and Whop's own payouts page (the button below)
-  // already shows the real number and handles Whop's own minimum before anything can move.
+  // A plain balance, same number Whop's own payouts page shows -- no extra wording about it.
+  function loadBalance(box) {
+    var modeBadge = el('span', 'pay-badge'), amount = el('div', 'fin-balance-amount');
+    var line = el('p', 'slot-status', 'Loading your balance…');
+    box.append(line);
+    call('balance').then(function (d) {
+      line.remove();
+      modeBadge.className = 'pay-badge ' + (d.mode === 'live' ? 'bad' : 'warn');
+      modeBadge.textContent = d.mode === 'live' ? 'REAL MONEY' : 'PRACTICE MODE (pretend money)';
+      amount.textContent = money(d.total);
+      box.append(modeBadge, amount);
+    }).catch(function (e) { line.textContent = e.message; line.className = 'slot-status error'; });
+  }
   function draw(state) {
     card.innerHTML = '';
     var badge = el('span', 'gmf-badge ' + state);
     var title = el('h3'), text = el('p', 'pay-muted'), btns = el('div', 'gmf-btns');
     var primary = el('button', 'btn btn-primary'); primary.type = 'button';
-    var extra = null;
+    var extra = null, balanceBox = null;
     if (state === 'ready') {
       badge.textContent = 'Ready';
       title.textContent = 'You are set up to get paid';
       text.textContent = 'Your payout account is verified. Open your payouts to add or change where your money is sent and to withdraw.';
       primary.textContent = 'Open my payouts';
       primary.addEventListener('click', function () { go('portal', primary); });
+      balanceBox = el('div', 'gmf-balance');
+      loadBalance(balanceBox);
     } else if (state === 'review') {
       badge.textContent = 'In review';
       title.textContent = 'Whop is checking your details';
@@ -4893,6 +4906,7 @@ window.AshSlots = (function () {
     btns.appendChild(primary);
     if (extra) btns.appendChild(extra);
     card.append(badge, title, text);
+    if (balanceBox) card.appendChild(balanceBox);
     card.appendChild(btns);
   }
   function load() {
