@@ -8,6 +8,39 @@
   var pv = new URLSearchParams(window.location.search).get('preview');
   var preview = local && (pv === '1' || pv === 'games');
   var EMOJI = { dragon: '🐉', wizard: '🧙', dagger: '🗡️', elf: '🧝', bat: '🦇', dice: '🎲' };
+  var MAX_IMAGE_CHARS = 300000; // keep in step with MAX_IMAGE_CHARS in worker/src/messages.js
+  var MAX_IMAGE_SIDE = 1400;
+
+  // Shrinks a picture to a small JPEG data URI before it ever leaves the browser, so chat
+  // stays fast and nobody can post a multi-megabyte photo straight into the database.
+  function resizeImage(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onerror = function () { reject(new Error('Could not read that picture.')); };
+      reader.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('That does not look like a picture.')); };
+        img.onload = function () {
+          var w = img.naturalWidth, h = img.naturalHeight;
+          if (w > MAX_IMAGE_SIDE || h > MAX_IMAGE_SIDE) {
+            if (w >= h) { h = Math.round(h * MAX_IMAGE_SIDE / w); w = MAX_IMAGE_SIDE; }
+            else { w = Math.round(w * MAX_IMAGE_SIDE / h); h = MAX_IMAGE_SIDE; }
+          }
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          var ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); // JPEG has no transparency; flatten onto white, not black
+          ctx.drawImage(img, 0, 0, w, h);
+          var quality = 0.85, uri = canvas.toDataURL('image/jpeg', quality);
+          while (uri.length > MAX_IMAGE_CHARS && quality > 0.3) { quality -= 0.1; uri = canvas.toDataURL('image/jpeg', quality); }
+          if (uri.length > MAX_IMAGE_CHARS) { reject(new Error('That picture is too large, even resized. Please try a smaller one.')); return; }
+          resolve(uri);
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   function el(tag, cls, text) {
     var e = document.createElement(tag);
@@ -60,7 +93,8 @@
       d.msgs.forEach(function (m) { (by[m.other] = by[m.other] || []).push(m); });
       var convs = Object.keys(by).map(function (o) {
         var arr = by[o], last = arr[arr.length - 1];
-        return { with: d.people[o], preview: last.text.slice(0, 120), mine: last.mine, at: new Date(last.at).toISOString(), unread: arr.filter(function (m) { return !m.mine && !m.read; }).length };
+        var preview = last.text ? last.text.slice(0, 120) : (last.image ? 'Photo' : '');
+        return { with: d.people[o], preview: preview, mine: last.mine, at: new Date(last.at).toISOString(), unread: arr.filter(function (m) { return !m.mine && !m.read; }).length };
       }).sort(function (a, b) { return new Date(b.at) - new Date(a.at); });
       return { unread: convs.reduce(function (n, c) { return n + c.unread; }, 0), conversations: convs };
     },
@@ -68,12 +102,12 @@
       var d = previewData();
       d.msgs.forEach(function (m) { if (m.other === x.with && !m.mine) m.read = true; });
       savePreview(d);
-      return { with: d.people[x.with], messages: d.msgs.filter(function (m) { return m.other === x.with; }).map(function (m) { return { id: m.id, mine: m.mine, text: m.text, at: new Date(m.at).toISOString() }; }) };
+      return { with: d.people[x.with], messages: d.msgs.filter(function (m) { return m.other === x.with; }).map(function (m) { return { id: m.id, mine: m.mine, text: m.text, image: m.image || null, read: m.mine ? !!m.read : true, at: new Date(m.at).toISOString() }; }) };
     },
     send: function (x) {
       var d = previewData(), to = x.toUid || 'vex';
       if (x.toSlug) to = 'vex';
-      d.msgs.push({ id: d.next++, other: to, mine: true, text: String(x.text || '').slice(0, 1000), at: Date.now(), read: true });
+      d.msgs.push({ id: d.next++, other: to, mine: true, text: String(x.text || '').slice(0, 1000), image: x.image || null, at: Date.now(), read: true });
       savePreview(d);
       return { ok: true, with: to };
     },
@@ -121,12 +155,25 @@
     return a;
   }
 
+  // Full-size picture on top of everything, closed by clicking out or pressing Escape.
+  function openImage(uri) {
+    var back = el('div', 'msg-modal msg-img-modal');
+    var img = document.createElement('img'); img.src = uri; img.alt = 'Picture';
+    back.appendChild(img);
+    document.body.appendChild(back);
+    document.body.classList.add('msg-modal-open');
+    function esc(e) { if (e.key === 'Escape') close(); }
+    function close() { document.body.classList.remove('msg-modal-open'); back.remove(); document.removeEventListener('keydown', esc); }
+    back.addEventListener('mousedown', function () { close(); });
+    document.addEventListener('keydown', esc);
+  }
+
   // ------------------------------------------------------------------ the Messages section
   function mount(container, opts) {
     opts = opts || {};
     var getToken = opts.getToken;
     var openWith = null, convs = [], timer = null, query = '', onlyUnread = false;
-    var shownCount = -1, shell = null;   // shell = the parts of the open chat that stay put while messages refresh
+    var shownCount = -1, shownLastRead = null, shell = null;   // shell = the parts of the open chat that stay put while messages refresh
 
     container.innerHTML = '';
     container.classList.add('msg-root');
@@ -201,7 +248,7 @@
 
     function showEmptyThread() {
       threadCol.innerHTML = '';
-      shell = null; shownCount = -1;
+      shell = null; shownCount = -1; shownLastRead = null;
       wrap.classList.remove('thread-open');
       var e = el('div', 'msg-thread-empty');
       e.appendChild(el('strong', null, 'Select a conversation'));
@@ -235,33 +282,59 @@
       var col = el('div', 'msg-col');
       log.appendChild(col);
 
+      var pendingImage = null;
       var form = el('form', 'msg-compose');
+      var imgPreview = el('div', 'msg-img-preview'); imgPreview.hidden = true;
+      var imgPreviewThumb = document.createElement('img'); imgPreviewThumb.alt = '';
+      var imgRemove = el('button', 'msg-img-remove', '✕'); imgRemove.type = 'button'; imgRemove.title = 'Remove picture';
+      imgPreview.append(imgPreviewThumb, imgRemove);
+      form.appendChild(imgPreview);
       var inner = el('div', 'msg-compose-in');
+      var fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = 'image/*'; fileInput.hidden = true;
+      var imgBtn = el('button', 'msg-img-btn', '📷'); imgBtn.type = 'button'; imgBtn.title = 'Attach a picture';
       var ta = el('textarea'); ta.rows = 1; ta.maxLength = 1000; ta.placeholder = 'Write to ' + person.name.split(' ')[0] + '...';
       var send = el('button', 'msg-send', 'Send'); send.type = 'submit'; send.disabled = true;
       var note = el('div', 'msg-compose-note');
       var hint = el('span', null, 'Enter to send, Shift+Enter for a new line');
       var count = el('span', 'msg-count');
       note.append(hint, count);
-      inner.append(ta, send, note);
+      inner.append(imgBtn, fileInput, ta, send, note);
       form.appendChild(inner);
       function sync() {
-        send.disabled = !ta.value.trim();
+        send.disabled = !ta.value.trim() && !pendingImage;
         ta.style.height = 'auto';
         ta.style.height = Math.min(ta.scrollHeight, 150) + 'px';
         count.textContent = ta.value.length > 800 ? ta.value.length + ' / 1000' : '';
       }
+      function clearImage() { pendingImage = null; imgPreviewThumb.src = ''; imgPreview.hidden = true; sync(); }
+      imgRemove.addEventListener('click', clearImage);
+      imgBtn.addEventListener('click', function () { fileInput.click(); });
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        fileInput.value = '';
+        if (!file) return;
+        if (file.type.indexOf('image/') !== 0) { window.alert('Please choose a picture file.'); return; }
+        imgBtn.disabled = true;
+        resizeImage(file).then(function (uri) {
+          pendingImage = uri;
+          imgPreviewThumb.src = uri;
+          imgPreview.hidden = false;
+          sync();
+        }).catch(function (err) { window.alert(err.message); }).then(function () { imgBtn.disabled = false; });
+      });
       ta.addEventListener('input', sync);
       ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } });
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         var text = ta.value.trim();
-        if (!text) return;
+        if (!text && !pendingImage) return;
         send.disabled = true;
-        api('send', { toUid: person.uid, text: text }, getToken).then(function () {
-          ta.value = ''; sync();
+        var payload = { toUid: person.uid, text: text };
+        if (pendingImage) payload.image = pendingImage;
+        api('send', payload, getToken).then(function () {
+          ta.value = ''; clearImage();
           return openThread(person.uid, true);
-        }).catch(function (err) { window.alert(err.message); send.disabled = !ta.value.trim(); });
+        }).catch(function (err) { window.alert(err.message); send.disabled = !ta.value.trim() && !pendingImage; });
       });
 
       threadCol.append(headEl, log, form);
@@ -283,12 +356,24 @@
           run = el('div', 'msg-run ' + (m.mine ? 'mine' : 'theirs')); runMine = m.mine;
           col.appendChild(run);
         }
-        var b = el('div', 'msg-b', m.text); b.title = fullStamp(m.at);
+        var b = el('div', 'msg-b'); b.title = fullStamp(m.at);
+        if (m.image) {
+          b.classList.add('has-image');
+          var img = document.createElement('img'); img.className = 'msg-img'; img.src = m.image; img.alt = 'Picture';
+          img.addEventListener('click', function () { openImage(m.image); });
+          b.appendChild(img);
+          if (m.text) b.appendChild(el('div', 'msg-b-text', m.text));
+        } else {
+          b.textContent = m.text;
+        }
         run.appendChild(b);
         runLast = at; prevDay = at;
       });
       endRun();
+      var lastMsg = d.messages.length ? d.messages[d.messages.length - 1] : null;
+      if (lastMsg && lastMsg.mine) col.appendChild(el('div', 'msg-seen', lastMsg.read ? 'Seen' : 'Sent'));
       shownCount = d.messages.length;
+      shownLastRead = lastMsg ? !!lastMsg.read : null;
       if (nearBottom) log.scrollTop = log.scrollHeight;
     }
 
@@ -307,7 +392,9 @@
       loadList();
       if (openWith && shell) {
         api('thread', { with: openWith }, getToken).then(function (d) {
-          if (shell && shell.uid === openWith && d.messages.length !== shownCount) paintLog(d);
+          if (!shell || shell.uid !== openWith) return;
+          var lastRead = d.messages.length ? !!d.messages[d.messages.length - 1].read : null;
+          if (d.messages.length !== shownCount || lastRead !== shownLastRead) paintLog(d);
         }).catch(function () { /* keep what is on screen */ });
       }
     }

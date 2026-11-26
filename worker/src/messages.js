@@ -14,6 +14,7 @@ import { gmStatus } from './gm.js';
 import { defaultToken } from './profile.js';
 
 const MAX_TEXT = 1000;
+const MAX_IMAGE_CHARS = 300000; // base64 text of a resized chat picture, about 220 KB
 const PER_HOUR = 20;
 const EMAIL_GAP_MS = 10 * 60 * 1000; // at most one email per conversation every 10 minutes
 const SITE = 'https://ashtabletop.com';
@@ -105,7 +106,7 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
         `SELECT conv, MAX(id) AS last_id, SUM(CASE WHEN to_uid=? AND read_at IS NULL THEN 1 ELSE 0 END) AS unread
          FROM messages WHERE from_uid=? OR to_uid=? GROUP BY conv ORDER BY last_id DESC LIMIT 60`).bind(me, me, me).all()).results;
       const lastRows = {};
-      for (const r of rows) lastRows[r.conv] = await env.DB.prepare('SELECT from_uid, to_uid, body, created_at FROM messages WHERE id=?').bind(r.last_id).first();
+      for (const r of rows) lastRows[r.conv] = await env.DB.prepare('SELECT from_uid, to_uid, body, image_data, created_at FROM messages WHERE id=?').bind(r.last_id).first();
       const others = [...new Set(rows.map((r) => { const m = lastRows[r.conv]; return m.from_uid === me ? m.to_uid : m.from_uid; }))];
       const who = await people(env, self, others);
       const total = rows.reduce((n, r) => n + (r.unread || 0), 0);
@@ -114,7 +115,8 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
         conversations: rows.map((r) => {
           const m = lastRows[r.conv];
           const other = m.from_uid === me ? m.to_uid : m.from_uid;
-          return { with: who[other], preview: m.body.slice(0, 120), mine: m.from_uid === me, at: m.created_at, unread: r.unread || 0 };
+          const preview = m.body ? m.body.slice(0, 120) : (m.image_data ? 'Photo' : '');
+          return { with: who[other], preview, mine: m.from_uid === me, at: m.created_at, unread: r.unread || 0 };
         }),
       }, 200, corsHeaders);
     }
@@ -123,15 +125,25 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
       const other = String(body.with || '');
       if (!other) return json({ error: 'Missing person.' }, 400, corsHeaders);
       const conv = convKey(me, other);
-      const rows = (await env.DB.prepare('SELECT id, from_uid, body, created_at FROM messages WHERE conv=? ORDER BY id DESC LIMIT 200').bind(conv).all()).results.reverse();
+      const rows = (await env.DB.prepare('SELECT id, from_uid, body, image_data, read_at, created_at FROM messages WHERE conv=? ORDER BY id DESC LIMIT 200').bind(conv).all()).results.reverse();
       await env.DB.prepare('UPDATE messages SET read_at=? WHERE conv=? AND to_uid=? AND read_at IS NULL').bind(new Date().toISOString(), conv, me).run();
       const who = await people(env, self, [other]);
-      return json({ with: who[other], messages: rows.map((m) => ({ id: m.id, mine: m.from_uid === me, text: m.body, at: m.created_at })) }, 200, corsHeaders);
+      return json({
+        with: who[other],
+        messages: rows.map((m) => ({ id: m.id, mine: m.from_uid === me, text: m.body, image: m.image_data || null, read: !!m.read_at, at: m.created_at })),
+      }, 200, corsHeaders);
     }
 
     if (action === 'send') {
       const text = clean(body.text, MAX_TEXT);
-      if (!text) return json({ error: 'Please write a message first.' }, 400, corsHeaders);
+      let image = null;
+      if (typeof body.image === 'string' && body.image) {
+        if (body.image.length > MAX_IMAGE_CHARS || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(body.image)) {
+          return json({ error: 'That picture could not be sent. Please try a different one.' }, 400, corsHeaders);
+        }
+        image = body.image;
+      }
+      if (!text && !image) return json({ error: 'Please write a message first.' }, 400, corsHeaders);
 
       // who is it for?
       let to = '';
@@ -161,7 +173,7 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
       if (recent && recent.n >= PER_HOUR) return json({ error: 'You are sending messages very fast. Please wait a little and try again.' }, 429, corsHeaders);
 
       const now = new Date().toISOString();
-      await env.DB.prepare('INSERT INTO messages (conv, from_uid, to_uid, body, created_at) VALUES (?,?,?,?,?)').bind(conv, me, to, text, now).run();
+      await env.DB.prepare('INSERT INTO messages (conv, from_uid, to_uid, body, image_data, created_at) VALUES (?,?,?,?,?,?)').bind(conv, me, to, text, image, now).run();
 
       // email the other person (not more than once every 10 minutes per conversation)
       if (sendEmail) {
@@ -172,7 +184,7 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
             if (addr) {
               const who = await people(env, self, [me, to]);
               const link = who[to].isGm ? `${SITE}/admin.html#tab=messages` : `${SITE}/profile.html#me-messages`;
-              await sendEmail(env, addr, `New message from ${who[me].name}`, emailHtml(who[me].name, text, link));
+              await sendEmail(env, addr, `New message from ${who[me].name}`, emailHtml(who[me].name, text || 'Sent a photo.', link));
               await env.DB.prepare('INSERT INTO message_emails (conv, to_uid, last_at) VALUES (?,?,?) ON CONFLICT(conv, to_uid) DO UPDATE SET last_at=excluded.last_at').bind(conv, to, now).run();
             }
           }
@@ -185,10 +197,10 @@ export async function handleMessages(request, env, corsHeaders, origin, action, 
       const other = String(body.with || '');
       if (!other) return json({ error: 'Missing person.' }, 400, corsHeaders);
       const conv = convKey(me, other);
-      const last = (await env.DB.prepare('SELECT from_uid, body, created_at FROM messages WHERE conv=? ORDER BY id DESC LIMIT 5').bind(conv).all()).results.reverse();
+      const last = (await env.DB.prepare('SELECT from_uid, body, image_data, created_at FROM messages WHERE conv=? ORDER BY id DESC LIMIT 5').bind(conv).all()).results.reverse();
       if (!last.length) return json({ error: 'There is nothing to report yet.' }, 400, corsHeaders);
       const who = await people(env, self, [me, other]);
-      const lines = last.map((m) => `${who[m.from_uid] ? who[m.from_uid].name : 'Someone'}: ${m.body}`).join('\n');
+      const lines = last.map((m) => `${who[m.from_uid] ? who[m.from_uid].name : 'Someone'}: ${m.body || (m.image_data ? '[photo]' : '')}`).join('\n');
       await notify(env, sendEmail, cfg(env).mode, 'report', null, `Message report from ${who[me].name}`,
         `${who[me].name} reported their conversation with ${who[other].name}.\n\nLast messages:\n${lines}`);
       return json({ ok: true }, 200, corsHeaders);

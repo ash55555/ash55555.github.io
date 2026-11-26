@@ -353,3 +353,7 @@ ALTER TABLE charges ADD COLUMN stripe_kind TEXT;
 -- When a 'recipient' GM's share of this charge was actually sent on to them (payStripeRecipients
 -- in pay.js). NULL until then, so that sweep knows what it still owes.
 ALTER TABLE charges ADD COLUMN stripe_recipient_paid_at TEXT;
+
+-- A picture attached to a chat message (resized down before it is ever sent), stored right on the
+-- row the same way a profile picture is stored on `profiles`. NULL on a text-only message.
+ALTER TABLE messages ADD COLUMN image_data TEXT;
